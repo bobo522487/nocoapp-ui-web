@@ -1,18 +1,21 @@
 
+
 import React, { useState, useRef } from 'react';
-import { Search as SearchIcon, Bell, Moon, Sun, HelpCircle, Blocks, Palette, Check, Triangle, Database, MessageSquare, Code, LogOut, User } from 'lucide-react';
+import { Search as SearchIcon, Bell, Moon, Sun, HelpCircle, Blocks, Palette, Triangle, Database, MessageSquare, Code, LogOut, User } from 'lucide-react';
 import Breadcrumb from '../common/Breadcrumb';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAppStore, AppTheme } from '../../store/useAppStore';
 import Dropdown from '../common/Dropdown';
 import { useNavigate } from 'react-router-dom';
+import ProfileSettingsDialog from '../../features/profile/components/ProfileSettingsDialog';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const { activeView, isDarkMode, toggleTheme, theme, setAppTheme } = useAppStore();
+  const { isDarkMode, toggleTheme, theme, setAppTheme, user } = useAppStore();
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   const themeButtonRef = useRef<HTMLButtonElement>(null);
   const profileButtonRef = useRef<HTMLDivElement>(null);
@@ -25,18 +28,30 @@ const Header: React.FC = () => {
   ];
 
   const profileItems = [
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'profile', label: 'Profile Settings', icon: User },
     { id: 'logout', label: 'Log out', icon: LogOut },
   ];
 
   const handleProfileSelect = (item: any) => {
       if (item.id === 'logout') {
           navigate('/login');
+      } else if (item.id === 'profile') {
+          setIsSettingsOpen(true);
       }
       setIsProfileOpen(false);
   };
 
+  const getInitials = (name: string) => {
+      return name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2);
+  };
+
   return (
+    <>
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center justify-between pr-4">
         {/* Left: Logo & Context Navigation */}
@@ -118,7 +133,9 @@ const Header: React.FC = () => {
                 className="w-8 h-8 bg-gradient-to-tr from-primary to-purple-500 rounded-full cursor-pointer ring-offset-background transition-all hover:ring-2 ring-ring"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
             >
-                <div className="w-full h-full flex items-center justify-center text-primary-foreground text-xs font-bold select-none">JD</div>
+                <div className="w-full h-full flex items-center justify-center text-primary-foreground text-xs font-bold select-none">
+                    {getInitials(user.name)}
+                </div>
             </div>
 
             <Dropdown 
@@ -129,7 +146,7 @@ const Header: React.FC = () => {
                 className="hidden" 
                 items={profileItems}
                 onSelect={handleProfileSelect}
-                width={160}
+                width={180}
                 searchPlaceholder=""
                 align="end"
             />
@@ -137,6 +154,12 @@ const Header: React.FC = () => {
         </div>
       </div>
     </header>
+
+    <ProfileSettingsDialog 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+    />
+    </>
   );
 };
 

@@ -1,7 +1,7 @@
 
 
 import { create } from 'zustand';
-import { ViewMode, Page, GridItemData, DbTable } from '../types';
+import { ViewMode, Page, GridItemData, DbTable, UserProfile } from '../types';
 
 export type AppTheme = 'vercel' | 'supabase' | 'slack' | 'vscode';
 export type DeviceType = 'desktop' | 'tablet' | 'mobile';
@@ -15,6 +15,10 @@ interface AppState {
   setAppTheme: (theme: AppTheme) => void;
   setActiveView: (view: ViewMode) => void;
   setActiveDevice: (device: DeviceType) => void;
+  
+  // User State
+  user: UserProfile;
+  updateUser: (updates: Partial<UserProfile>) => void;
   
   // Page State
   pages: Page[];
@@ -83,6 +87,15 @@ export const useAppStore = create<AppState>((set) => ({
   setAppTheme: (theme) => set({ theme }),
   setActiveView: (view) => set({ activeView: view }),
   setActiveDevice: (device) => set({ activeDevice: device }),
+
+  // User State
+  user: {
+      name: 'John Doe',
+      email: 'john@noco.app',
+      role: 'Developer',
+      bio: 'Full-stack developer building cool things.'
+  },
+  updateUser: (updates) => set((state) => ({ user: { ...state.user, ...updates } })),
 
   pages: INITIAL_PAGES,
   activePageId: 'page-1',

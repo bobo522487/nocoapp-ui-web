@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NOCO APP</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet">
+
+    <!-- React Grid Layout Styles -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-grid-layout@1.4.4/css/styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-resizable@3.0.5/css/styles.css">
+
+    <!-- Tailwind CSS v4 -->
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    
+    <style type="text/tailwindcss">
+      @import "tailwindcss";
+
+      @theme {
+        --color-border: hsl(var(--border));
+        --color-input: hsl(var(--input));
+        --color-ring: hsl(var(--ring));
+        --color-background: hsl(var(--background));
+        --color-foreground: hsl(var(--foreground));
+
+        --color-primary: hsl(var(--primary));
+        --color-primary-foreground: hsl(var(--primary-foreground));
+
+        --color-secondary: hsl(var(--secondary));
+        --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+        --color-destructive: hsl(var(--destructive));
+        --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+        --color-muted: hsl(var(--muted));
+        --color-muted-foreground: hsl(var(--muted-foreground));
+
+        --color-accent: hsl(var(--accent));
+        --color-accent-foreground: hsl(var(--accent-foreground));
+
+        --color-popover: hsl(var(--popover));
+        --color-popover-foreground: hsl(var(--popover-foreground));
+
+        --color-card: hsl(var(--card));
+        --color-card-foreground: hsl(var(--card-foreground));
+
+        --radius-lg: var(--radius);
+        --radius-md: calc(var(--radius) - 2px);
+        --radius-sm: calc(var(--radius) - 4px);
+
+        --font-sans: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', Menlo, monospace;
+        
+        --animate-accordion-down: accordion-down 0.2s ease-out;
+        --animate-accordion-up: accordion-up 0.2s ease-out;
+      }
+
+      /* Core Variables (Defined globally to ensure availability) */
+      :root {
+        /* Default (Vercel/Zinc) Light Theme */
+        --background: 0 0% 100%;
+        --foreground: 240 10% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 3.9%;
+        --primary: 240 5.9% 10%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 240 4.8% 95.9%;
+        --secondary-foreground: 240 5.9% 10%;
+        --muted: 240 4.8% 95.9%;
+        --muted-foreground: 240 3.8% 46.1%;
+        --accent: 240 4.8% 95.9%;
+        --accent-foreground: 240 5.9% 10%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 5.9% 90%;
+        --input: 240 5.9% 90%;
+        --ring: 240 5.9% 10%;
+        --radius: 0.5rem;
+      }
+
+      .dark {
+        /* Default (Vercel/Zinc) Dark Theme */
+        --background: 240 10% 3.9%;
+        --foreground: 0 0% 98%;
+        --card: 240 10% 3.9%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 10% 3.9%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 240 5.9% 10%;
+        --secondary: 240 3.7% 15.9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
+        --accent: 240 3.7% 15.9%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 240 4.9% 83.9%;
+      }
+
+      /* --- Supabase Theme --- */
+      .theme-supabase {
+        --primary: 154 55% 45%;
+        --primary-foreground: 0 0% 100%;
+        --ring: 154 55% 45%;
+      }
+      .theme-supabase.dark {
+        --background: 240 5% 10%;
+        --card: 240 5% 12%;
+        --popover: 240 5% 10%;
+        --primary: 154 60% 53%;
+        --primary-foreground: 154 60% 5%;
+        --secondary: 240 4% 16%;
+        --muted: 240 4% 16%;
+        --muted-foreground: 240 4% 60%;
+        --accent: 240 4% 16%;
+        --border: 240 4% 18%;
+        --input: 240 4% 18%;
+        --ring: 154 60% 53%;
+      }
+
+      /* --- Slack Theme --- */
+      .theme-slack {
+        --primary: 295 50% 30%;
+        --primary-foreground: 0 0% 100%;
+        --ring: 295 50% 30%;
+      }
+      .theme-slack.dark {
+        --background: 295 20% 8%;
+        --foreground: 295 10% 90%;
+        --card: 295 15% 12%;
+        --popover: 295 20% 8%;
+        --primary: 295 50% 60%;
+        --primary-foreground: 295 50% 10%;
+        --secondary: 295 15% 15%;
+        --muted: 295 15% 15%;
+        --muted-foreground: 295 10% 60%;
+        --accent: 295 15% 15%;
+        --border: 295 15% 18%;
+        --input: 295 15% 18%;
+        --ring: 295 50% 60%;
+      }
+
+      /* --- VS Code Theme --- */
+      .theme-vscode {
+        --primary: 210 100% 40%;
+        --primary-foreground: 0 0% 100%;
+        --ring: 210 100% 40%;
+      }
+      .theme-vscode.dark {
+        --background: 220 15% 10%;
+        --foreground: 220 10% 85%;
+        --card: 220 15% 13%;
+        --popover: 220 15% 10%;
+        --primary: 210 100% 45%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 220 15% 18%;
+        --muted: 220 15% 18%;
+        --muted-foreground: 220 10% 60%;
+        --accent: 220 15% 20%;
+        --border: 220 15% 18%;
+        --input: 220 15% 18%;
+        --ring: 210 100% 45%;
+      }
+
+      @keyframes accordion-down {
+        from { height: 0; }
+        to { height: var(--radix-accordion-content-height); }
+      }
+      @keyframes accordion-up {
+        from { height: var(--radix-accordion-content-height); }
+        to { height: 0; }
+      }
+
+      @layer base {
+        html, body, #root {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          background-color: hsl(var(--background));
+          color: hsl(var(--foreground));
+          font-family: var(--font-sans);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+        
+        * {
+           border-color: hsl(var(--border));
+        }
+      }
+
+      /* React Grid Layout Custom Styles */
+      .react-grid-item.react-grid-placeholder {
+        background: hsl(var(--primary) / 0.1) !important;
+        border: 2px dashed hsl(var(--primary));
+        border-radius: var(--radius);
+        opacity: 0.5;
+      }
+      
+      .react-resizable-handle {
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 50;
+      }
+      
+      .react-grid-item:hover .react-resizable-handle {
+        opacity: 1;
+      }
+
+      .react-resizable-handle::after {
+        content: "";
+        position: absolute;
+        right: 4px;
+        bottom: 4px;
+        width: 8px;
+        height: 8px;
+        border-right: 3px solid hsl(var(--primary));
+        border-bottom: 3px solid hsl(var(--primary));
+        border-bottom-right-radius: 2px;
+        box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+      }
+      
+      .container {
+        width: 100%;
+        margin-right: auto;
+        margin-left: auto;
+        padding-right: 2rem;
+        padding-left: 2rem;
+      }
+
+      /* Custom Scrollbar Styles */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background-color: hsl(var(--muted-foreground) / 0.3);
+        border-radius: 9999px; /* Rounded pill shape */
+        border: 2px solid transparent; /* Padding around thumb */
+        background-clip: content-box; /* Ensures background is only inside the border */
+        transition: background-color 0.2s;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: hsl(var(--muted-foreground) / 0.5);
+      }
+      
+      ::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+
+      /* Firefox Scrollbar */
+      @supports (scrollbar-color: auto) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+        }
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "clsx": "https://aistudiocdn.com/clsx@^2.1.0",
+        "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^2.2.0",
+        "class-variance-authority": "https://aistudiocdn.com/class-variance-authority@^0.7.0",
+        "react-grid-layout": "https://aistudiocdn.com/react-grid-layout@^1.4.4",
+        "lodash": "https://aistudiocdn.com/lodash@^4.17.21",
+        "@dnd-kit/core": "https://esm.sh/@dnd-kit/core@6.1.0?external=react,react-dom",
+        "@dnd-kit/utilities": "https://esm.sh/@dnd-kit/utilities@3.2.2?external=react,react-dom",
+        "@dnd-kit/sortable": "https://esm.sh/@dnd-kit/sortable@8.0.0?external=react,react-dom,@dnd-kit/core,@dnd-kit/utilities",
+        "zustand": "https://esm.sh/zustand@5.0.2?external=react",
+        "react-router-dom": "https://esm.sh/react-router-dom@6.22.0?external=react,react-dom",
+        "@remix-run/router": "https://esm.sh/@remix-run/router@1.15.0",
+        "@radix-ui/react-checkbox": "https://esm.sh/@radix-ui/react-checkbox@1.0.4?external=react,react-dom",
+        "@radix-ui/react-switch": "https://esm.sh/@radix-ui/react-switch@1.0.3?external=react,react-dom",
+        "@radix-ui/react-label": "https://esm.sh/@radix-ui/react-label@2.0.2?external=react,react-dom"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

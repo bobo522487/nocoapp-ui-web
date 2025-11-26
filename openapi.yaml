@@ -1,0 +1,334 @@
+openapi: 3.0.0
+info:
+  title: NocoApp Metadata Tables API
+  version: 1.0.0
+  description: API for managing logical table definitions
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+  - orgId: []
+paths:
+  /meta/tables:
+    get:
+      summary: List all tables
+      operationId: listTables
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: include_fields
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      summary: Create a new table
+      operationId: createTable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRequest'
+      responses:
+        '201':
+          description: Table created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/EngineError'
+  /meta/tables/{tableId}:
+    get:
+      summary: Get table details
+      operationId: getTable
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Table details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    patch:
+      summary: Update table metadata
+      operationId: updateTable
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTableRequest'
+      responses:
+        '200':
+          description: Table updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/EngineError'
+    delete:
+      summary: Delete a table
+      operationId: deleteTable
+      parameters:
+        - name: tableId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Table deleted
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/EngineError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    orgId:
+      type: apiKey
+      in: header
+      name: X-Org-Id
+  schemas:
+    Table:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orgId:
+          type: string
+          format: uuid
+        sourceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          pattern: '^[a-z_][a-z0-9_]*$'
+          minLength: 3
+          maxLength: 100
+        physicalName:
+          type: string
+        kind:
+          type: string
+          enum: ['table', 'view']
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+    Field:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+          pattern: '^[a-z_][a-z0-9_]*$'
+        physicalName:
+          type: string
+        logicType:
+          type: string
+          enum: ['text', 'int', 'bool', 'datetime', 'json', 'decimal', 'relation']
+        storageType:
+          type: string
+        isPk:
+          type: boolean
+        isNullable:
+          type: boolean
+        isUnique:
+          type: boolean
+        isVirtual:
+          type: boolean
+        defaultVal:
+          type: string
+          nullable: true
+        expression:
+          type: string
+          nullable: true
+        validation:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    CreateTableRequest:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          pattern: '^[a-z_][a-z0-9_]*$'
+          minLength: 3
+          maxLength: 100
+        sourceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'If omitted, uses default built-in source'
+        kind:
+          type: string
+          enum: ['table', 'view']
+          default: 'table'
+        description:
+          type: string
+          nullable: true
+    UpdateTableRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          nullable: true
+    TableResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Table'
+    TableListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Table'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            size:
+              type: integer
+    TableDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            table:
+              $ref: '#/components/schemas/Table'
+            fields:
+              type: array
+              items:
+                $ref: '#/components/schemas/Field'
+            relations:
+              type: array
+              items:
+                type: object
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - PERMISSION_DENIED
+                - RESOURCE_NOT_FOUND
+                - ENGINE_ERROR
+                - TENANT_MISMATCH
+            message:
+              type: string
+            details:
+              type: object
+              nullable: true

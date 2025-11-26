@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -343,10 +344,10 @@ const PagesPanel = () => {
     if (!over) return;
     
     const activeId = active.id as string;
-    const overId = over.id as string;
-
     const activeIndex = flattenedPages.findIndex(i => i.id === activeId);
-    const overIndex = flattenedPages.findIndex(i => i.id === overId);
+    const overIndex = flattenedPages.findIndex(i => i.id === over.id);
+    
+    const overId = over.id as string;
     const currentItem = flattenedPages[activeIndex];
     
     // Projected depth based on drag offset (each level is 12px indentation)
@@ -520,14 +521,7 @@ const PagesPanel = () => {
       {/* 1. Header */}
       <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-muted/10">
           <span className="font-medium text-sm text-muted-foreground">Application</span>
-          <div className="flex gap-1">
-             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddGroup} title="New Group">
-                 <FolderPlus size={14} className="text-muted-foreground hover:text-foreground"/>
-             </Button>
-             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddPage} title="New Page">
-                 <Plus size={14} className="text-muted-foreground hover:text-foreground"/>
-             </Button>
-          </div>
+          {/* Action buttons removed from here */}
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
@@ -547,6 +541,22 @@ const PagesPanel = () => {
           <div style={{ height: pagesHeight }} className="flex flex-col shrink-0 min-h-[100px]">
               <div className="px-4 py-1 text-xs font-bold text-muted-foreground uppercase mb-2 flex justify-between items-center shrink-0">
                  <span>Pages</span>
+                 <div className="flex items-center gap-1">
+                     <button 
+                        onClick={handleAddGroup}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted transition-colors"
+                        title="New Group"
+                     >
+                        <FolderPlus size={14} />
+                     </button>
+                     <button 
+                        onClick={handleAddPage}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted transition-colors"
+                        title="New Page"
+                     >
+                        <Plus size={14} />
+                     </button>
+                 </div>
               </div>
 
               {/* List */}

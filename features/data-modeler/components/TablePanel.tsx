@@ -15,7 +15,7 @@ import {
     DragOverlay, 
     defaultDropAnimationSideEffects, 
     DropAnimation,
-    DragStartEvent,
+    DragStartEvent, 
     DragEndEvent
 } from '@dnd-kit/core';
 import { 
@@ -313,22 +313,15 @@ const TablePanel: React.FC = () => {
       </div>
       <div className="flex-1 overflow-y-auto py-2">
          
-         {/* New Table Button */}
-         <div className="px-3 mb-4">
-            <Button 
-                variant="secondary" 
-                className="w-full justify-start h-8 text-xs font-medium" 
-                size="sm"
-                onClick={handleAddTable}
-            >
-               <Plus size={14} className="mr-2" /> New Table
-            </Button>
-         </div>
-
          <div className="mb-4">
             <div className="px-4 py-1 text-xs font-bold text-muted-foreground uppercase mb-2 flex justify-between items-center">
                <span>Tables</span>
-               <span className="text-[10px] bg-muted px-1.5 rounded-full text-muted-foreground">{filteredTables.length}</span>
+               <button 
+                  onClick={handleAddTable}
+                  className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted transition-colors"
+               >
+                  <Plus size={14} />
+               </button>
             </div>
 
             {/* Search Box */}

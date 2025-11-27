@@ -50,7 +50,7 @@ const ChartComponent: React.FC<WidgetProps> = ({ title, barColor, data, _query }
                     <div 
                         key={i} 
                         className="transition-all duration-500 rounded-t-sm w-full opacity-80 hover:opacity-100 relative group"
-                        style={{ height: `${h}%`, backgroundColor: barColor || '#3b82f6', }}
+                        style={{ height: `${h}%`, backgroundColor: barColor || 'hsl(var(--primary))', }}
                     >
                         {/* Simple Tooltip */}
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-sm border border-border pointer-events-none z-10">
@@ -89,7 +89,7 @@ export const ChartWidget: WidgetDefinition = {
           name: 'barColor',
           label: 'Bar Color',
           type: 'string',
-          defaultValue: '#3b82f6',
+          defaultValue: '',
           group: 'Style',
           setter: { component: 'color' }
       }

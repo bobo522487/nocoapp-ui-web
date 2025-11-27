@@ -6,6 +6,9 @@ import { TextWidget } from './Core/Text';
 import { TableWidget } from './Core/Table';
 import { ChartWidget } from './Core/Chart';
 import { StatWidget } from './Core/Stat';
+import { ImageWidget } from './Core/Image';
+import { BadgeWidget } from './Core/Badge';
+import { SelectWidget } from './Core/Select';
 
 class RegistryImpl implements WidgetRegistry {
   private widgets: Map<string, WidgetDefinition> = new Map();
@@ -29,7 +32,7 @@ class RegistryImpl implements WidgetRegistry {
   getCategories() {
     const categories = new Set(this.getAll().map(w => w.manifest.category));
     return Array.from(categories).sort((a, b) => {
-       const order = ['Commonly used', 'Data', 'Layout', 'Forms'];
+       const order = ['Commonly used', 'Forms', 'Data', 'Media', 'Layout'];
        const idxA = order.indexOf(a);
        const idxB = order.indexOf(b);
        
@@ -51,3 +54,6 @@ registry.register(TextWidget);
 registry.register(TableWidget);
 registry.register(ChartWidget);
 registry.register(StatWidget);
+registry.register(ImageWidget);
+registry.register(BadgeWidget);
+registry.register(SelectWidget);

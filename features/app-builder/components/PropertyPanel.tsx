@@ -1,19 +1,18 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   MoreVertical, 
   ChevronDown, 
   ChevronRight, 
-  ExternalLink,
   LayoutGrid,
   Database,
   Zap,
   Palette,
   Plus,
   Trash2,
-  AlertCircle,
-  FileCode,
-  Play
+  Check,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -25,10 +24,11 @@ import { GridItemData, Page, QueryConfig } from '../../../types';
 import { registry } from '../../../widgets/registry';
 import { PropDefinition } from '../../../widgets/types';
 import { useAppStore } from '../../../store/useAppStore';
+import { cn } from '../../../lib/utils';
 
 // --- Types ---
 
-type PanelTab = 'DESIGN' | 'DATA' | 'INTERACTION';
+type PanelTab = 'PROPERTIES' | 'STYLES' | 'DATA' | 'BEHAVIOR';
 
 // --- Shared Components ---
 
@@ -47,7 +47,7 @@ const FxButton = ({ active = false }: { active?: boolean }) => (
   </Button>
 );
 
-const ControlHeader = ({ label, fx = true }: { label: string, fx?: boolean }) => (
+const ControlHeader = ({ label, fx = false }: { label: string, fx?: boolean }) => (
   <div className="flex items-center justify-between mb-2">
     <Label className="text-[11px] text-muted-foreground font-medium">{label}</Label>
     {fx && <FxButton />}
@@ -97,7 +97,7 @@ const TextControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => (
         value={value ?? ''} 
         onChange={(e) => onChange(e.target.value)}
         placeholder={propDef.description}
-        className="h-8 text-xs"
+        className="h-8 text-xs bg-background"
     />
   </div>
 );
@@ -109,7 +109,7 @@ const NumberControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => 
           value={value ?? 0} 
           onChange={(e) => onChange(Number(e.target.value))}
           placeholder={propDef.description}
-          className="h-8 text-xs"
+          className="h-8 text-xs bg-background"
       />
     </div>
 );
@@ -119,7 +119,7 @@ const TextareaControl: React.FC<ControlProps> = ({ value, onChange, propDef }) =
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={propDef.description}
-        className="text-xs min-h-[80px]"
+        className="text-xs min-h-[80px] bg-background"
     />
 );
 
@@ -129,7 +129,7 @@ const SelectControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => 
       <select 
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
       >
         {options.map((opt: any) => {
             const val = typeof opt === 'string' ? opt : opt.value;
@@ -148,35 +148,207 @@ const SwitchControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => 
                 {propDef.label}
             </Label>
             <div className="flex items-center gap-2">
-                <FxButton />
                 <Switch checked={isChecked} onCheckedChange={onChange} />
             </div>
         </div>
     );
 };
 
-const ColorControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => (
-    <div className="mb-4">
-        <ControlHeader label={propDef.label} fx={false} />
-        <div className="flex items-center gap-2">
-             <div className="relative border border-input rounded-md overflow-hidden w-8 h-8 shrink-0">
-                <input 
-                    type="color" 
-                    value={value || '#000000'}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer"
-                />
-             </div>
-             <Input 
-                type="text" 
-                value={value || ''} 
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="#000000"
-                className="h-8 text-xs font-mono"
-            />
+// --- Enhanced Color Control ---
+
+const THEME_COLORS = [
+    { label: 'Brand/Primary', value: 'hsl(var(--primary))', bg: 'bg-primary' },
+    { label: 'Brand/Secondary', value: 'hsl(var(--secondary))', bg: 'bg-secondary' },
+    { label: 'Text/Primary', value: 'hsl(var(--foreground))', bg: 'bg-foreground' },
+    { label: 'Text/Muted', value: 'hsl(var(--muted-foreground))', bg: 'bg-muted-foreground' },
+    { label: 'Border/Default', value: 'hsl(var(--border))', bg: 'bg-border' },
+    { label: 'Surface/Background', value: 'hsl(var(--background))', bg: 'bg-background' },
+    { label: 'Surface/Card', value: 'hsl(var(--card))', bg: 'bg-card' },
+    { label: 'Status/Destructive', value: 'hsl(var(--destructive))', bg: 'bg-destructive' },
+];
+
+const ColorControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [mode, setMode] = useState<'theme' | 'custom'>('theme');
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState({ top: 0, left: 0 });
+
+    const handleOpen = () => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setPosition({
+                top: rect.bottom + 6,
+                left: Math.max(10, rect.left - 240 + rect.width) // Align roughly to right edge but keep on screen
+            });
+        }
+        setIsOpen(true);
+    };
+
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            if (
+                popoverRef.current && 
+                !popoverRef.current.contains(e.target as Node) &&
+                triggerRef.current && 
+                !triggerRef.current.contains(e.target as Node)
+            ) {
+                setIsOpen(false);
+            }
+        };
+        const handleScroll = () => { if (isOpen) setIsOpen(false); };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleMouseDown);
+            window.addEventListener('scroll', handleScroll, true);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [isOpen]);
+
+    const activeThemeColor = THEME_COLORS.find(c => c.value === value);
+
+    return (
+        <div className="mb-2">
+            {/* Trigger */}
+            <div 
+                ref={triggerRef} 
+                onClick={handleOpen} 
+                className="flex items-center gap-2 p-1.5 border border-input rounded-md cursor-pointer hover:border-primary transition-colors bg-background group"
+            >
+                <div 
+                    className="w-5 h-5 rounded-sm border border-border shadow-sm relative overflow-hidden"
+                >
+                    <div 
+                        className="absolute inset-0"
+                        style={{ backgroundColor: value || 'transparent' }} 
+                    />
+                    {!value && (
+                        <div className="absolute inset-0 bg-muted/20 flex items-center justify-center">
+                            <div className="w-full h-[1px] bg-destructive rotate-45 transform" />
+                        </div>
+                    )}
+                </div>
+                <span className="text-xs text-muted-foreground flex-1 truncate group-hover:text-foreground transition-colors">
+                    {activeThemeColor ? activeThemeColor.label : (value || 'Select color')}
+                </span>
+                <ChevronDown size={12} className="text-muted-foreground" />
+            </div>
+
+            {/* Popover */}
+            {isOpen && createPortal(
+                <div 
+                    ref={popoverRef}
+                    className="fixed z-[9999] w-64 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                    style={{ top: position.top, left: position.left }}
+                >
+                    {/* Tabs */}
+                    <div className="flex border-b border-border">
+                        <button 
+                            className={`flex-1 py-2 text-xs font-medium transition-colors ${mode === 'theme' ? 'bg-background text-primary border-b-2 border-primary' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}
+                            onClick={() => setMode('theme')}
+                        >
+                            Theme
+                        </button>
+                        <button 
+                            className={`flex-1 py-2 text-xs font-medium transition-colors ${mode === 'custom' ? 'bg-background text-primary border-b-2 border-primary' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}
+                            onClick={() => setMode('custom')}
+                        >
+                            Custom
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-2 max-h-[240px] overflow-y-auto">
+                        {mode === 'theme' ? (
+                            <div className="space-y-1">
+                                {THEME_COLORS.map(color => (
+                                    <div 
+                                        key={color.label}
+                                        onClick={() => { onChange(color.value); setIsOpen(false); }}
+                                        className={cn(
+                                            "flex items-center gap-3 p-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors",
+                                            value === color.value && "bg-accent"
+                                        )}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full border border-border/50 shadow-sm ${color.bg}`} />
+                                        <span className="text-xs text-foreground flex-1">{color.label}</span>
+                                        {value === color.value && <Check size={12} className="text-primary" />}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-4 p-2">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-muted-foreground uppercase">Hex Code</Label>
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">#</span>
+                                            <Input 
+                                                className="h-8 pl-5 text-xs font-mono"
+                                                value={value?.replace('#', '') || ''}
+                                                onChange={(e) => onChange(`#${e.target.value}`)}
+                                                placeholder="000000"
+                                            />
+                                        </div>
+                                        <div className="w-8 h-8 rounded border border-input overflow-hidden relative shrink-0">
+                                            <input 
+                                                type="color" 
+                                                className="absolute inset-0 w-[150%] h-[150%] -top-1/4 -left-1/4 cursor-pointer p-0 border-0"
+                                                value={value?.startsWith('#') ? value : '#000000'}
+                                                onChange={(e) => onChange(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full text-xs h-7"
+                                    onClick={() => { onChange(''); setIsOpen(false); }}
+                                >
+                                    Clear Color
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
-    </div>
-);
+    );
+};
+
+const ButtonGroupControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => {
+    const options = propDef.setter?.props?.options || [];
+    return (
+        <div>
+            <div className="flex flex-wrap gap-1 bg-muted p-1 rounded-md border border-border">
+                {options.map((opt: any) => {
+                    const isActive = value === opt.value;
+                    return (
+                        <button
+                            key={opt.value}
+                            onClick={() => onChange(opt.value)}
+                            className={cn(
+                                "flex-1 px-2 py-1.5 text-[10px] rounded-sm font-medium transition-all border border-transparent min-w-[30px] flex items-center justify-center",
+                                isActive 
+                                    ? "bg-background text-foreground shadow-sm ring-1 ring-border" 
+                                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                            )}
+                            title={opt.label}
+                        >
+                            {opt.icon ? <opt.icon size={14} /> : opt.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 const SETTER_COMPONENTS: Record<string, React.FC<ControlProps>> = {
     text: TextControl,
@@ -184,7 +356,8 @@ const SETTER_COMPONENTS: Record<string, React.FC<ControlProps>> = {
     textarea: TextareaControl,
     select: SelectControl,
     switch: SwitchControl,
-    color: ColorControl
+    color: ColorControl,
+    buttonGroup: ButtonGroupControl
 };
 
 // --- Reusable Query Builder Component ---
@@ -215,7 +388,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
             <div>
                 <ControlHeader label="Data Source" fx={false} />
                 <select 
-                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                     value={definition.source}
                     onChange={(e) => handleDefChange('source', e.target.value)}
                 >
@@ -228,7 +401,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
                 <div>
                     <ControlHeader label="Table" fx={false} />
                     <select 
-                        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                         value={definition.tableId || ''}
                         onChange={(e) => handleDefChange('tableId', e.target.value)}
                     >
@@ -244,7 +417,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
                 <>
                     <div>
                         <ControlHeader label="Fields" fx={false} />
-                        <div className="border border-input rounded-md p-2 max-h-32 overflow-y-auto space-y-1">
+                        <div className="border border-input rounded-md p-2 max-h-32 overflow-y-auto space-y-1 bg-background">
                             {columns.map(col => {
                                 const isSelected = definition.select?.includes(col);
                                 return (
@@ -276,7 +449,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
                         <div className="flex-1">
                             <ControlHeader label="Sort By" fx={false} />
                             <select 
-                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                                 value={definition.orderBy || ''}
                                 onChange={(e) => handleDefChange('orderBy', e.target.value)}
                             >
@@ -287,7 +460,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
                         <div className="w-24">
                             <ControlHeader label="Order" fx={false} />
                             <select 
-                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                                 value={definition.orderDir || 'asc'}
                                 onChange={(e) => handleDefChange('orderDir', e.target.value)}
                             >
@@ -301,7 +474,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
                         <ControlHeader label="Limit" fx={false} />
                         <Input 
                             type="number" 
-                            className="h-8 text-xs"
+                            className="h-8 text-xs bg-background"
                             value={definition.limit}
                             onChange={(e) => handleDefChange('limit', parseInt(e.target.value))}
                         />
@@ -405,13 +578,13 @@ const PageDataTab = ({ page, onUpdate }: { page: Page, onUpdate: (updates: Parti
                     {Object.entries(stateVars).map(([key, val]) => (
                         <div key={key} className="flex items-center gap-2 mb-2">
                             <Input 
-                                className="h-7 text-xs font-mono w-1/3" 
+                                className="h-7 text-xs font-mono w-1/3 bg-background" 
                                 value={key} 
                                 onChange={(e) => handleUpdateVariable(key, e.target.value, val)}
                             />
                             <span className="text-muted-foreground text-xs">=</span>
                             <Input 
-                                className="h-7 text-xs flex-1" 
+                                className="h-7 text-xs flex-1 bg-background" 
                                 value={val as string} 
                                 onChange={(e) => handleUpdateVariable(key, key, e.target.value)}
                                 placeholder="Value"
@@ -524,7 +697,7 @@ const InteractionList = ({ events, interactions, onAdd, onRemove, onUpdate }: an
                                 <div>
                                     <ControlHeader label="Event" fx={false} />
                                     <select 
-                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                                         value={interaction.event}
                                         onChange={(e) => onUpdate(interaction.id, 'event', e.target.value)}
                                     >
@@ -537,7 +710,7 @@ const InteractionList = ({ events, interactions, onAdd, onRemove, onUpdate }: an
                                 <div>
                                     <ControlHeader label="Action" fx={false} />
                                     <select 
-                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
                                         value={interaction.action}
                                         onChange={(e) => onUpdate(interaction.id, 'action', e.target.value)}
                                     >
@@ -553,7 +726,7 @@ const InteractionList = ({ events, interactions, onAdd, onRemove, onUpdate }: an
                                     <div>
                                         <ControlHeader label="URL / Path" />
                                         <Input 
-                                            className="h-8 text-xs" 
+                                            className="h-8 text-xs bg-background" 
                                             placeholder="/home"
                                             value={interaction.params?.url || ''}
                                             onChange={(e) => onUpdate(interaction.id, 'params', { ...interaction.params, url: e.target.value })}
@@ -564,7 +737,7 @@ const InteractionList = ({ events, interactions, onAdd, onRemove, onUpdate }: an
                                     <div>
                                         <ControlHeader label="Message" />
                                         <Input 
-                                            className="h-8 text-xs" 
+                                            className="h-8 text-xs bg-background" 
                                             placeholder="Success!"
                                             value={interaction.params?.message || ''}
                                             onChange={(e) => onUpdate(interaction.id, 'params', { ...interaction.params, message: e.target.value })}
@@ -607,7 +780,6 @@ const PageInteractionTab = ({ page, onUpdate }: { page: Page, onUpdate: (updates
     const content = page.content || {};
     const interactions = content.lifecycle?.onMount || [];
 
-    // Helper to store interactions in the flat list for UI, but map back to structured 'lifecycle' object in Page
     const handleAdd = () => {
         const newInteraction = { id: `int_${Date.now()}`, event: 'onMount', action: 'showToast', params: { message: 'Page Loaded' } };
         onUpdate({ 
@@ -657,97 +829,115 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
   pageSettings,
   onPageUpdate
 }) => {
-  const [activeTab, setActiveTab] = useState<PanelTab>('DESIGN');
+  const [activeTab, setActiveTab] = useState<PanelTab>('PROPERTIES');
 
-  // Prepare definitions
   const widgetDef = selectedItem ? registry.get(selectedItem.type) : null;
   
-  // Calculate Available Tabs
   const availableTabs = useMemo(() => {
       const tabs: { id: PanelTab; label: string; icon: any }[] = [
-          { id: 'DESIGN', label: 'Design', icon: Palette }
+          { id: 'PROPERTIES', label: 'Properties', icon: SlidersHorizontal },
+          { id: 'STYLES', label: 'Styles', icon: Palette }
       ];
 
-      // Page always has Data (State/Query) and Interaction (Lifecycle)
       if (!selectedItem) {
           tabs.push({ id: 'DATA', label: 'Data', icon: Database });
-          tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
+          tabs.push({ id: 'BEHAVIOR', label: 'Behavior', icon: Zap });
       } else {
-          // Widget specific
-          if (widgetDef?.manifest.data) {
-              tabs.push({ id: 'DATA', label: 'Data', icon: Database });
-          }
-          // Widget interactions
+          // Always show Data tab, will be empty if no props, but consistent
+          tabs.push({ id: 'DATA', label: 'Data', icon: Database });
+          
           if (widgetDef?.manifest.events && widgetDef.manifest.events.length > 0) {
-              tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
+              tabs.push({ id: 'BEHAVIOR', label: 'Behavior', icon: Zap });
           }
       }
 
       return tabs;
   }, [widgetDef, selectedItem]);
 
-  // Ensure activeTab is valid
   useEffect(() => {
       if (!availableTabs.some(t => t.id === activeTab)) {
-          setActiveTab('DESIGN');
+          setActiveTab('PROPERTIES');
       }
   }, [selectedItem, availableTabs, activeTab]);
 
-  // --- Page Design Tab Render ---
+  const getTabForGroup = (group: string): PanelTab => {
+      const lower = group.toLowerCase();
+      if (['style', 'styles', 'label', 'field', 'container', 'typography', 'decoration'].includes(lower)) return 'STYLES';
+      if (['data', 'source'].includes(lower)) return 'DATA';
+      if (['interaction', 'behavior', 'events'].includes(lower)) return 'BEHAVIOR';
+      // Default to PROPERTIES for Basic, Advanced, General, Properties, Validation, etc.
+      return 'PROPERTIES';
+  };
+
   const renderPageDesign = () => (
       <>
-        <Accordion title="General">
-            <div className="space-y-4">
+        {activeTab === 'PROPERTIES' && (
+            <Accordion title="General">
+                <div className="space-y-4">
+                    <div>
+                        <ControlHeader label="Page name" fx={false} />
+                        <Input 
+                            value={pageSettings?.name || ''} 
+                            onChange={(e) => onPageUpdate && onPageUpdate({ name: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                        />
+                    </div>
+                    <div className="pt-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                            <Label className="text-[11px] text-muted-foreground">Mark as Home</Label>
+                            <Switch 
+                                checked={pageSettings?.isHome}
+                                onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isHome: checked })}
+                            />
+                            </div>
+                            <div className="flex items-center justify-between">
+                            <Label className="text-[11px] text-muted-foreground">Disable</Label>
+                            <Switch 
+                                checked={pageSettings?.isDisabled}
+                                onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isDisabled: checked })}
+                            />
+                            </div>
+                    </div>
+                </div>
+            </Accordion>
+        )}
+        {activeTab === 'STYLES' && (
+            <Accordion title="Layout">
                 <div>
-                    <ControlHeader label="Page name" fx={false} />
+                    <ControlHeader label="Height (px)" fx={false} />
                     <Input 
-                        value={pageSettings?.name || ''} 
-                        onChange={(e) => onPageUpdate && onPageUpdate({ name: e.target.value })}
-                        className="h-8 text-xs"
+                        value={pageSettings?.height} 
+                        onChange={(e) => onPageUpdate && onPageUpdate({ height: e.target.value })}
+                        className="h-8 text-xs bg-background"
                     />
                 </div>
-                <div className="pt-2 space-y-2">
-                        <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-muted-foreground">Mark as Home</Label>
-                        <Switch 
-                            checked={pageSettings?.isHome}
-                            onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isHome: checked })}
-                        />
-                        </div>
-                        <div className="flex items-center justify-between">
-                        <Label className="text-[11px] text-muted-foreground">Disable</Label>
-                        <Switch 
-                            checked={pageSettings?.isDisabled}
-                            onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isDisabled: checked })}
-                        />
-                        </div>
-                </div>
-            </div>
-        </Accordion>
-        <Accordion title="Layout">
-            <div>
-                <ControlHeader label="Height (px)" fx={false} />
-                <Input 
-                    value={pageSettings?.height} 
-                    onChange={(e) => onPageUpdate && onPageUpdate({ height: e.target.value })}
-                    className="h-8 text-xs"
-                />
-            </div>
-        </Accordion>
+            </Accordion>
+        )}
       </>
   );
 
-  // --- Widget Design Tab Render ---
   const renderWidgetDesign = () => {
       const properties = widgetDef ? widgetDef.manifest.properties : [];
-      const groupedProps = properties.reduce((acc, prop) => {
+      
+      // Filter properties belonging to current tab
+      const tabProperties = properties.filter(prop => {
+          const groupName = prop.group || 'General';
+          return getTabForGroup(groupName) === activeTab;
+      });
+
+      const groupedProps = tabProperties.reduce((acc, prop) => {
           const groupName = prop.group || 'General';
           if (!acc[groupName]) acc[groupName] = [];
           acc[groupName].push(prop);
           return acc;
       }, {} as Record<string, PropDefinition[]>);
 
-      if (Object.keys(groupedProps).length === 0) return <div className="p-4 text-xs text-muted-foreground">No configurable properties.</div>;
+      if (Object.keys(groupedProps).length === 0) {
+          // If no specific props for this tab, show message unless it's Data/Behavior which have special components
+          if (activeTab === 'DATA' && widgetDef?.manifest.data) return null; // Let WidgetDataTab handle it
+          if (activeTab === 'BEHAVIOR') return null; // Let WidgetInteractionTab handle it
+          return <div className="p-4 text-xs text-muted-foreground text-center">No properties for this section.</div>;
+      }
 
       return Object.entries(groupedProps).map(([groupName, props]) => (
           <Accordion key={groupName} title={groupName}>
@@ -755,14 +945,28 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
                   {props.map(prop => {
                       const Control = SETTER_COMPONENTS[prop.setter?.component || 'text'] || TextControl;
                       const isSwitch = prop.setter?.component === 'switch';
-                      const value = selectedItem?.content?.[prop.name] ?? prop.defaultValue;
+                      
+                      let value;
+                      if (prop.target === 'root') {
+                          value = selectedItem ? (selectedItem as any)[prop.name] : prop.defaultValue;
+                      } else {
+                          value = selectedItem?.content?.[prop.name] ?? prop.defaultValue;
+                      }
 
                       return (
                           <div key={prop.name}>
-                              {!isSwitch && <ControlHeader label={prop.label} />}
+                              {!isSwitch && <ControlHeader label={prop.label} fx={false} />}
                               <Control 
                                   value={value}
-                                  onChange={(val) => onUpdate && selectedItem && onUpdate(selectedItem.i, { content: { ...selectedItem.content, [prop.name]: val } })}
+                                  onChange={(val) => {
+                                      if (onUpdate && selectedItem) {
+                                          if (prop.target === 'root') {
+                                               onUpdate(selectedItem.i, { [prop.name]: val });
+                                          } else {
+                                               onUpdate(selectedItem.i, { content: { ...selectedItem.content, [prop.name]: val } });
+                                          }
+                                      }
+                                  }}
                                   propDef={prop}
                               />
                           </div>
@@ -774,8 +978,6 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
   };
 
   const panelTitle = selectedItem ? (selectedItem.title || selectedItem.type) : (pageSettings?.name || 'Page');
-  const panelIcon = selectedItem ? (widgetDef?.manifest.icon || LayoutGrid) : LayoutGrid;
-  const PanelIcon = panelIcon;
 
   return (
     <div 
@@ -786,35 +988,31 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
       <div className="p-4 border-b border-border bg-card shrink-0">
          <div className="flex items-center gap-2 mb-4">
             <div className="flex-1 relative">
-                <div className="text-[10px] text-muted-foreground font-mono mb-1 uppercase tracking-wider flex items-center gap-1">
-                    <PanelIcon size={12} />
-                    {selectedItem ? 'COMPONENT' : 'PAGE'}
-                </div>
                 <div className="flex items-center bg-muted/50 rounded border border-border px-2 py-1">
                     <span className="text-sm font-semibold truncate">{panelTitle}</span>
                 </div>
             </div>
             {selectedItem && (
-                <Button variant="ghost" size="icon" className="h-8 w-8 mt-4">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
                     <MoreVertical size={16} className="text-muted-foreground" />
                 </Button>
             )}
          </div>
 
          {/* Tabs */}
-         <div className="flex items-center bg-muted rounded-lg p-1 w-full">
+         <div className="flex items-center bg-muted rounded-lg p-1 w-full gap-1">
             {availableTabs.map(tab => (
                 <button 
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as PanelTab)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    title={tab.label}
+                    className={`flex-1 flex items-center justify-center py-2 rounded-md transition-all ${
                         activeTab === tab.id 
                         ? 'bg-background text-foreground shadow-sm' 
                         : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                     }`}
                 >
-                    <tab.icon size={12} />
-                    {tab.label}
+                    <tab.icon size={16} strokeWidth={1.5} />
                 </button>
             ))}
          </div>
@@ -822,28 +1020,34 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+        {activeTab === 'PROPERTIES' && (
+            <div className="pb-8">
+                {selectedItem ? renderWidgetDesign() : renderPageDesign()}
+            </div>
+        )}
         
-        {/* DESIGN */}
-        {activeTab === 'DESIGN' && (
+        {activeTab === 'STYLES' && (
             <div className="pb-8">
                 {selectedItem ? renderWidgetDesign() : renderPageDesign()}
             </div>
         )}
 
-        {/* DATA */}
         {activeTab === 'DATA' && (
-            selectedItem 
-                ? <WidgetDataTab item={selectedItem} onUpdate={onUpdate!} />
-                : pageSettings && <PageDataTab page={pageSettings} onUpdate={onPageUpdate!} />
+            <>
+                {/* Render any property in "Data" group first (e.g. static options) */}
+                {selectedItem && renderWidgetDesign()}
+                
+                {selectedItem 
+                    ? <WidgetDataTab item={selectedItem} onUpdate={onUpdate!} />
+                    : pageSettings && <PageDataTab page={pageSettings} onUpdate={onPageUpdate!} />
+                }
+            </>
         )}
-
-        {/* INTERACTION */}
-        {activeTab === 'INTERACTION' && (
+        {activeTab === 'BEHAVIOR' && (
             selectedItem
                 ? <WidgetInteractionTab item={selectedItem} onUpdate={onUpdate!} />
                 : pageSettings && <PageInteractionTab page={pageSettings} onUpdate={onPageUpdate!} />
         )}
-
       </div>
     </div>
   );

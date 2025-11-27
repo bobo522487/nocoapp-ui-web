@@ -3,7 +3,7 @@ import React from 'react';
 import { LucideIcon } from 'lucide-react';
 import { GridItemData } from '../types';
 
-export type SetterType = 'text' | 'number' | 'select' | 'switch' | 'color' | 'textarea' | 'icon' | 'json';
+export type SetterType = 'text' | 'number' | 'select' | 'switch' | 'color' | 'textarea' | 'icon' | 'json' | 'buttonGroup';
 
 export interface PropSetter {
   component: SetterType;
@@ -17,6 +17,7 @@ export interface PropDefinition {
   defaultValue?: any;
   description?: string;
   group?: string; // e.g., 'General', 'Style', 'Layout'
+  target?: 'root' | 'content'; // Where to save the property: 'content' (default) or 'root' (GridItemData)
   setter?: PropSetter;
 }
 

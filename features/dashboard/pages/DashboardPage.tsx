@@ -144,8 +144,8 @@ const DashboardPage: React.FC = () => {
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
                                 {/* Icon Container */}
-                                <div className="w-8 h-8 rounded flex items-center justify-center bg-blue-500/10 transition-colors">
-                                    <LayoutGrid size={18} className="text-blue-600 dark:text-blue-400" />
+                                <div className="w-8 h-8 rounded flex items-center justify-center bg-muted transition-colors">
+                                    <LayoutGrid size={18} className="text-foreground" />
                                 </div>
                                 {/* Name */}
                                 <span className="font-medium text-sm text-foreground truncate max-w-[140px] leading-tight mt-1 group-hover:text-primary transition-colors">{app.name}</span>
@@ -265,14 +265,11 @@ const DashboardPage: React.FC = () => {
                         <div>
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                        "w-8 h-8 rounded flex items-center justify-center transition-colors",
-                                        table.kind === 'view' ? "bg-purple-500/10" : "bg-orange-500/10"
-                                    )}>
+                                    <div className="w-8 h-8 rounded flex items-center justify-center bg-muted transition-colors">
                                         {table.kind === 'view' ? (
-                                            <Eye size={16} className="text-purple-600 dark:text-purple-400" />
+                                            <Eye size={16} className="text-foreground" />
                                         ) : (
-                                            <Table size={16} className="text-orange-600 dark:text-orange-400" />
+                                            <Table size={16} className="text-foreground" />
                                         )}
                                     </div>
                                     <div>

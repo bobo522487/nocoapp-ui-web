@@ -1,12 +1,13 @@
+
 import React from 'react';
 import { Type } from 'lucide-react';
-import { WidgetDefinition } from '../types';
+import { WidgetDefinition, WidgetProps } from '../types';
 
-const TextComponent: React.FC<any> = ({ title, fontSize, align }) => {
+const TextComponent: React.FC<WidgetProps> = ({ content, fontSize, align, color }) => {
   return (
     <div className={`p-4 w-full h-full flex flex-col justify-center pointer-events-none text-${align || 'left'}`}>
-        <p style={{ fontSize: `${fontSize || 14}px` }} className="text-foreground">
-            {title || 'Text Content'}
+        <p style={{ fontSize: `${fontSize || 14}px`, color: color }} className="text-foreground whitespace-pre-wrap">
+            {content || 'Text Content'}
         </p>
     </div>
   );
@@ -20,13 +21,45 @@ export const TextWidget: WidgetDefinition = {
     category: 'Commonly used',
     defaultSize: { w: 4, h: 2 },
     properties: [
+      { 
+          name: 'content', 
+          label: 'Content', 
+          type: 'string', 
+          defaultValue: 'Text Content', 
+          group: 'General',
+          setter: { component: 'textarea' }
+      },
+      { 
+          name: 'fontSize', 
+          label: 'Font Size', 
+          type: 'number', 
+          defaultValue: 14, 
+          group: 'Style',
+          setter: { component: 'number' }
+      },
+      { 
+          name: 'align', 
+          label: 'Alignment', 
+          type: 'string', 
+          defaultValue: 'left', 
+          group: 'Style',
+          setter: { 
+              component: 'select',
+              props: {
+                  options: [
+                      { label: 'Left', value: 'left' },
+                      { label: 'Center', value: 'center' },
+                      { label: 'Right', value: 'right' }
+                  ]
+              }
+          }
+      },
       {
-        group: 'General',
-        fields: [
-          { name: 'title', label: 'Content', type: 'text', defaultValue: 'Text Content' },
-          { name: 'fontSize', label: 'Font Size', type: 'number', defaultValue: 14 },
-          { name: 'align', label: 'Alignment', type: 'select', options: ['left', 'center', 'right'], defaultValue: 'left' }
-        ]
+          name: 'color',
+          label: 'Text Color',
+          type: 'string',
+          group: 'Style',
+          setter: { component: 'color' }
       }
     ]
   },

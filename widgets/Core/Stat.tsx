@@ -1,14 +1,15 @@
+
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/card";
-import { WidgetDefinition } from '../types';
+import { WidgetDefinition, WidgetProps } from '../types';
 
-const StatComponent: React.FC<any> = ({ title, value, trend }) => {
+const StatComponent: React.FC<WidgetProps> = ({ title, value, trend, showIcon }) => {
   return (
     <Card className="h-full w-full flex flex-col justify-between shadow-none border-0 bg-transparent pointer-events-none">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4">
             <CardTitle className="text-sm font-medium text-muted-foreground">{title || 'Stat'}</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            {showIcon !== false && <TrendingUp className="h-4 w-4 text-muted-foreground" />}
         </CardHeader>
         <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold">{value || '0'}</div>
@@ -28,13 +29,37 @@ export const StatWidget: WidgetDefinition = {
     category: 'Data',
     defaultSize: { w: 3, h: 3 },
     properties: [
+      { 
+          name: 'title', 
+          label: 'Title', 
+          type: 'string', 
+          defaultValue: 'Total Sales', 
+          group: 'General',
+          setter: { component: 'text' }
+      },
+      { 
+          name: 'value', 
+          label: 'Value', 
+          type: 'string', 
+          defaultValue: '$0.00', 
+          group: 'Data',
+          setter: { component: 'text' }
+      },
+      { 
+          name: 'trend', 
+          label: 'Trend', 
+          type: 'string', 
+          defaultValue: '+0%', 
+          group: 'Data',
+          setter: { component: 'text' }
+      },
       {
-        group: 'General',
-        fields: [
-          { name: 'title', label: 'Title', type: 'text', defaultValue: 'Total Sales' },
-          { name: 'value', label: 'Value', type: 'text', defaultValue: '$0.00' },
-          { name: 'trend', label: 'Trend', type: 'text', defaultValue: '+0%' }
-        ]
+          name: 'showIcon',
+          label: 'Show Icon',
+          type: 'boolean',
+          defaultValue: true,
+          group: 'Style',
+          setter: { component: 'switch' }
       }
     ]
   },

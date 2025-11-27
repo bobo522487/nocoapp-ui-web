@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { WidthProvider, Responsive, Layout, Layouts } from "react-grid-layout";
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Responsive as ResponsiveGridLayout } from "react-grid-layout";
 import { GripVertical, MousePointerClick, Copy, Trash2, AlertCircle } from 'lucide-react';
 import { useDroppable, useDndMonitor, DragMoveEvent } from '@dnd-kit/core';
 import { GridItemData } from '../../../types';
 import { registry } from '../../../widgets/registry';
 import BaseWidget from '../../../widgets/BaseWidget';
-
-// Wrap ResponsiveGridLayout with WidthProvider to handle window resizing automatically
-const ResponsiveGridLayout = WidthProvider(Responsive) as any;
+import _ from 'lodash';
 
 interface CanvasProps {
   device?: 'desktop' | 'tablet' | 'mobile';
@@ -25,7 +24,7 @@ const Canvas: React.FC<CanvasProps> = ({
   droppedItem, 
   onItemConsumed, 
   layouts, 
-  onLayoutChange,
+  onLayoutChange, 
   selectedItemId,
   onSelectItem
 }) => {
@@ -35,6 +34,10 @@ const Canvas: React.FC<CanvasProps> = ({
   // RGL Dropping Item State
   const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number; x: number; y: number } | undefined>(undefined);
   const [currentBreakpoint, setCurrentBreakpoint] = useState('lg');
+
+  // Keep a ref to layouts to use inside callbacks without triggering recreation
+  const layoutsRef = useRef(layouts);
+  layoutsRef.current = layouts;
 
   // Columns configuration to match RGL props
   const colsConfig = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
@@ -60,11 +63,9 @@ const Canvas: React.FC<CanvasProps> = ({
         return;
       }
 
-      if (!active.data.current || !active.data.current.type) {
-         return;
-      }
+      const type = active.data.current?.type;
+      if (!type) return;
 
-      const type = active.data.current.type;
       const widgetDef = registry.get(type);
       
       // Default size fallback if not in registry
@@ -122,12 +123,10 @@ const Canvas: React.FC<CanvasProps> = ({
 
       // Initialize default values for properties defined in manifest
       const initialContent: any = {};
-      widgetDef?.manifest.properties.forEach(group => {
-          group.fields.forEach(field => {
-             if (field.defaultValue !== undefined) {
-                 initialContent[field.name] = field.defaultValue;
-             }
-          });
+      widgetDef?.manifest.properties.forEach(prop => {
+         if (prop.defaultValue !== undefined) {
+             initialContent[prop.name] = prop.defaultValue;
+         }
       });
 
       const newItemBase: GridItemData = {
@@ -167,60 +166,71 @@ const Canvas: React.FC<CanvasProps> = ({
     }
   }, [droppedItem, onItemConsumed, layouts, onLayoutChange, droppingItem, onSelectItem]);
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     
     // Remove from all layouts
+    const currentLayouts = layoutsRef.current;
     const newLayouts: Record<string, GridItemData[]> = {};
-    Object.keys(layouts).forEach(bp => {
-        newLayouts[bp] = layouts[bp].filter(item => item.i !== id);
+    Object.keys(currentLayouts).forEach(bp => {
+        newLayouts[bp] = currentLayouts[bp].filter(item => item.i !== id);
     });
 
     onLayoutChange(newLayouts);
     if (selectedItemId === id && onSelectItem) {
         onSelectItem(null);
     }
-  };
+  }, [onLayoutChange, selectedItemId, onSelectItem]);
 
-  const handleDuplicate = (e: React.MouseEvent, id: string) => {
+  const handleDuplicate = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     
     const newId = `${id.split('-')[0]}-${Date.now()}`;
+    const currentLayouts = layoutsRef.current;
     const newLayouts: Record<string, GridItemData[]> = {};
 
-    Object.keys(layouts).forEach(bp => {
-        const item = layouts[bp].find(l => l.i === id);
+    Object.keys(currentLayouts).forEach(bp => {
+        const item = currentLayouts[bp].find(l => l.i === id);
         if (item) {
-            newLayouts[bp] = [...layouts[bp], {
+            newLayouts[bp] = [...currentLayouts[bp], {
                 ...item,
                 i: newId,
                 y: Infinity, // Let grid reflow
                 x: item.x
             }];
         } else {
-            newLayouts[bp] = layouts[bp];
+            newLayouts[bp] = currentLayouts[bp];
         }
     });
 
     onLayoutChange(newLayouts);
     if (onSelectItem) onSelectItem(newId);
-  };
-
-  const handleLayoutChangeInternal = (currentLayout: Layout[], allLayouts: Layouts) => {
+  }, [onLayoutChange, onSelectItem]);
+  
+  const handleResponsiveLayoutChange = useCallback((currentLayout: any[], allLayouts: any) => {
+      const currentLayoutsState = layoutsRef.current;
+      
       // Sync RGL layouts back to our GridItemData structure
       const newLayoutsState: Record<string, GridItemData[]> = {};
+      const breakpoints = ['lg', 'md', 'sm', 'xs', 'xxs'];
       
-      Object.keys(allLayouts).forEach(bp => {
-          const bpLayoutRGL = allLayouts[bp];
+      breakpoints.forEach(bp => {
+          const bpLayoutRGL = allLayouts[bp] || [];
           // We try to find the original object in the current breakpoint state, or fallback to LG
-          const sourceLayout = layouts[bp] || layouts['lg'] || [];
+          const sourceLayout = currentLayoutsState[bp] || currentLayoutsState['lg'] || [];
           
-          newLayoutsState[bp] = bpLayoutRGL.map(l => {
+          if (bpLayoutRGL.length === 0 && sourceLayout.length === 0) {
+             newLayoutsState[bp] = [];
+             return;
+          }
+
+          newLayoutsState[bp] = bpLayoutRGL.map((l: any) => {
               if (l.i === '__dropping-elem__') return null;
 
-              const original = sourceLayout.find(o => o.i === l.i) || layouts['lg']?.find(o => o.i === l.i);
+              const original = sourceLayout.find(o => o.i === l.i) || currentLayoutsState['lg']?.find(o => o.i === l.i);
+              
               if (!original) return null;
               
               return {
@@ -233,8 +243,13 @@ const Canvas: React.FC<CanvasProps> = ({
           }).filter(Boolean) as GridItemData[];
       });
 
-      onLayoutChange(newLayoutsState);
-  };
+      // Optimization: Only update if layouts have actually changed deeply
+      // This prevents the React #310 error which is often caused by infinite render loops 
+      // or updates during render phase in RGL.
+      if (!_.isEqual(newLayoutsState, currentLayoutsState)) {
+          onLayoutChange(newLayoutsState);
+      }
+  }, [onLayoutChange]);
 
   const getContainerWidth = () => {
     switch(device) {
@@ -255,6 +270,9 @@ const Canvas: React.FC<CanvasProps> = ({
 
   // Determine which items to render.
   const renderItems = layouts['lg'] || [];
+
+  // Cast ResponsiveGridLayout to any to workaround potential type definition mismatches with react-grid-layout versions
+  const ResponsiveGrid = ResponsiveGridLayout as any;
 
   return (
     <div className="flex-1 flex flex-col bg-muted/10 min-w-0 overflow-auto transition-colors relative">
@@ -283,7 +301,7 @@ const Canvas: React.FC<CanvasProps> = ({
             <div ref={setNodeRef} className="w-full h-full">
 
             {mounted && (
-                <ResponsiveGridLayout
+                <ResponsiveGrid
                     className="layout"
                     layouts={layouts}
                     breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
@@ -295,9 +313,11 @@ const Canvas: React.FC<CanvasProps> = ({
                     isResizable={true}
                     isDropping={!!droppingItem}
                     droppingItem={droppingItem}
-                    onLayoutChange={handleLayoutChangeInternal}
+                    onLayoutChange={handleResponsiveLayoutChange}
                     onBreakpointChange={setCurrentBreakpoint}
                     draggableHandle=".drag-handle"
+                    compactType="vertical"
+                    measureBeforeMount={false}
                 >
                     {renderItems.map((item) => {
                         const isSelected = item.i === selectedItemId;
@@ -312,7 +332,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             }}
                             className={`bg-card border rounded-lg transition-all duration-200 ease-in-out group overflow-hidden ${
                                 isSelected 
-                                ? 'border-primary shadow-md z-50' 
+                                ? 'border-primary shadow-md z-50 ring-1 ring-primary' 
                                 : 'border-border/60 hover:border-primary hover:shadow-sm'
                             }`}
                           >
@@ -348,7 +368,7 @@ const Canvas: React.FC<CanvasProps> = ({
                           </div>
                       );
                     })}
-                </ResponsiveGridLayout>
+                </ResponsiveGrid>
             )}
             
             {renderItems.length === 0 && !droppingItem && (

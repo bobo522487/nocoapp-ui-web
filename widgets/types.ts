@@ -1,21 +1,29 @@
+
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 import { GridItemData } from '../types';
 
-export type ControlType = 'text' | 'number' | 'select' | 'switch' | 'color';
+export type SetterType = 'text' | 'number' | 'select' | 'switch' | 'color' | 'textarea' | 'icon';
 
-export interface PropertyField {
-  name: string; // The key in content object (e.g., 'label', 'variant')
-  label: string;
-  type: ControlType;
-  options?: string[]; // For select inputs
-  placeholder?: string;
-  defaultValue?: any;
+export interface PropSetter {
+  component: SetterType;
+  props?: Record<string, any>;
 }
 
-export interface PropertyGroup {
-  group: string;
-  fields: PropertyField[];
+export interface PropDefinition {
+  name: string;
+  label: string;
+  type: string;
+  defaultValue?: any;
+  description?: string;
+  group?: string; // e.g., 'General', 'Style', 'Layout', 'Data'
+  setter?: PropSetter;
+}
+
+export interface WidgetTraits {
+  isContainer?: boolean;
+  isResizable?: boolean;
+  isFormItem?: boolean;
 }
 
 export interface WidgetManifest {
@@ -24,13 +32,13 @@ export interface WidgetManifest {
   icon: LucideIcon;
   category: string;
   defaultSize: { w: number; h: number };
-  properties: PropertyGroup[];
+  traits?: WidgetTraits;
+  properties: PropDefinition[];
 }
 
 export interface WidgetProps {
   item: GridItemData;
-  // Content is passed as spread props or specific object
-  [key: string]: any; 
+  [key: string]: any; // Content properties spread
 }
 
 export interface WidgetDefinition {

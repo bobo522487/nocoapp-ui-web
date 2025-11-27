@@ -309,8 +309,8 @@ const DataPage: React.FC = () => {
           id: 'name',
           header: 'Column Name',
           accessorKey: 'name',
-          width: 180,
-          minWidth: 150,
+          minWidth: 200,
+          flex: true,
           editable: true,
           renderCell: (row) => (
               <div className="flex items-center gap-2 font-medium text-foreground pl-1 h-full">

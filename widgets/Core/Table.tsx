@@ -1,16 +1,19 @@
+
 import React from 'react';
 import { Table as TableIcon, ArrowUpRight } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { WidgetDefinition } from '../types';
+import { WidgetDefinition, WidgetProps } from '../types';
 
-const TableComponent: React.FC<any> = ({ title }) => {
+const TableComponent: React.FC<WidgetProps> = ({ title, showHeader }) => {
   return (
     <Card className="h-full w-full flex flex-col shadow-none border-0 bg-transparent pointer-events-none">
-        <CardHeader className="p-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base">{title || 'Table'}</CardTitle>
-            <Button variant="ghost" size="icon" className="h-6 w-6"><ArrowUpRight size={14}/></Button>
-        </CardHeader>
+        {showHeader !== false && (
+            <CardHeader className="p-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-base">{title || 'Table'}</CardTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6"><ArrowUpRight size={14}/></Button>
+            </CardHeader>
+        )}
         <CardContent className="p-0 flex-1 overflow-hidden">
              <div className="space-y-4 px-4">
                 {[1,2,3].map(i => (
@@ -36,14 +39,24 @@ export const TableWidget: WidgetDefinition = {
     type: 'table',
     name: 'Table',
     icon: TableIcon,
-    category: 'Commonly used',
-    defaultSize: { w: 6, h: 8 },
+    category: 'Data',
+    defaultSize: { w: 6, h: 6 },
     properties: [
+      { 
+          name: 'title', 
+          label: 'Title', 
+          type: 'string', 
+          defaultValue: 'Recent Transactions', 
+          group: 'General',
+          setter: { component: 'text' }
+      },
       {
-        group: 'General',
-        fields: [
-          { name: 'title', label: 'Title', type: 'text', defaultValue: 'Recent Transactions' }
-        ]
+          name: 'showHeader',
+          label: 'Show Header',
+          type: 'boolean',
+          defaultValue: true,
+          group: 'Style',
+          setter: { component: 'switch' }
       }
     ]
   },

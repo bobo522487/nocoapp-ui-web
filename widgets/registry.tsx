@@ -1,3 +1,4 @@
+
 import { WidgetDefinition, WidgetRegistry } from './types';
 import { ButtonWidget } from './Core/Button';
 import { InputWidget } from './Core/Input';
@@ -27,7 +28,17 @@ class RegistryImpl implements WidgetRegistry {
 
   getCategories() {
     const categories = new Set(this.getAll().map(w => w.manifest.category));
-    return Array.from(categories);
+    return Array.from(categories).sort((a, b) => {
+       const order = ['Commonly used', 'Data', 'Layout', 'Forms'];
+       const idxA = order.indexOf(a);
+       const idxB = order.indexOf(b);
+       
+       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+       if (idxA !== -1) return -1;
+       if (idxB !== -1) return 1;
+       
+       return a.localeCompare(b);
+    });
   }
 }
 

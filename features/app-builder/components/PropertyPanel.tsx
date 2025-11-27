@@ -1,21 +1,34 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   MoreVertical, 
   ChevronDown, 
   ChevronRight, 
   ExternalLink,
-  LayoutGrid
+  LayoutGrid,
+  Database,
+  Zap,
+  Palette,
+  Plus,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
+import { Switch } from "../../../components/ui/switch";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { GridItemData, Page } from '../../../types';
 import { registry } from '../../../widgets/registry';
 import { PropDefinition } from '../../../widgets/types';
+import { useAppStore } from '../../../store/useAppStore';
 
-// --- Dynamic Control Renderers ---
+// --- Types ---
+
+type PanelTab = 'DESIGN' | 'DATA' | 'INTERACTION';
+
+// --- Shared Components ---
 
 const FxButton = ({ active = false }: { active?: boolean }) => (
   <Button 
@@ -38,6 +51,36 @@ const ControlHeader = ({ label, fx = true }: { label: string, fx?: boolean }) =>
     {fx && <FxButton />}
   </div>
 );
+
+const Accordion = ({ title, children, defaultOpen = true }: { title: string, children?: React.ReactNode, defaultOpen?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-border">
+      <Button 
+        variant="ghost"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 h-auto hover:bg-muted/50 rounded-none group"
+      >
+        <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-foreground capitalize group-hover:text-primary transition-colors">{title}</span>
+        </div>
+        {isOpen ? (
+            <ChevronDown size={14} className="text-muted-foreground" />
+        ) : (
+            <ChevronRight size={14} className="text-muted-foreground" />
+        )}
+      </Button>
+      {isOpen && (
+        <div className="px-4 pb-4 pt-1 animate-in slide-in-from-top-1 duration-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Design Tab Components ---
 
 interface ControlProps {
   value: any;
@@ -104,16 +147,7 @@ const SwitchControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => 
             </Label>
             <div className="flex items-center gap-2">
                 <FxButton />
-                <button 
-                    onClick={() => onChange(!isChecked)}
-                    className={`inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
-                        isChecked ? 'bg-primary' : 'bg-input'
-                    }`}
-                >
-                    <span className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${
-                        isChecked ? 'translate-x-4' : 'translate-x-0'
-                    }`} />
-                </button>
+                <Switch checked={isChecked} onCheckedChange={onChange} />
             </div>
         </div>
     );
@@ -142,7 +176,6 @@ const ColorControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => (
     </div>
 );
 
-// --- Component Map ---
 const SETTER_COMPONENTS: Record<string, React.FC<ControlProps>> = {
     text: TextControl,
     number: NumberControl,
@@ -152,40 +185,280 @@ const SETTER_COMPONENTS: Record<string, React.FC<ControlProps>> = {
     color: ColorControl
 };
 
-// --- Accordion Component ---
+// --- Data Tab Components ---
 
-interface AccordionProps {
-  title: string;
-  children?: React.ReactNode;
-  defaultOpen?: boolean;
-}
+const DataTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
+    const { tables } = useAppStore();
+    const widgetDef = registry.get(item.type);
+    
+    // Check if widget supports data
+    if (!widgetDef?.manifest.data) {
+        return (
+            <div className="p-6 flex flex-col items-center justify-center text-center opacity-60">
+                <Database size={32} className="mb-2 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">This component does not support data binding.</p>
+            </div>
+        );
+    }
 
-const Accordion: React.FC<AccordionProps> = ({ title, children, defaultOpen = true }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+    const query = item.content?._query || { source: 'managed', type: 'sql', definition: { limit: 50 } };
+    const { definition } = query;
 
-  return (
-    <div className="border-b border-border">
-      <Button 
-        variant="ghost"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 h-auto hover:bg-muted/50 rounded-none group"
-      >
-        <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground capitalize group-hover:text-primary transition-colors">{title}</span>
+    const handleDefChange = (key: string, val: any) => {
+        const newQuery = { 
+            ...query, 
+            definition: { ...definition, [key]: val } 
+        };
+        onUpdate(item.i, { 
+            content: { ...item.content, _query: newQuery } 
+        });
+    };
+
+    // Columns of selected table
+    const selectedTable = tables.find(t => t.id === definition.tableId);
+    // Mock columns for now since tables store doesn't hold columns deeply yet in this mock
+    const columns = selectedTable ? ['id', 'name', 'email', 'role', 'status', 'created_at', 'amount', 'category'] : [];
+
+    return (
+        <div className="pb-8">
+            <Accordion title="Source Configuration">
+                <div className="space-y-4">
+                    <div>
+                        <ControlHeader label="Data Source" fx={false} />
+                        <select 
+                            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                            value={definition.source}
+                            onChange={(e) => handleDefChange('source', e.target.value)}
+                        >
+                            <option value="managed">Managed Database</option>
+                            <option value="external">External API</option>
+                        </select>
+                    </div>
+
+                    {definition.source === 'managed' && (
+                        <div>
+                            <ControlHeader label="Table" fx={false} />
+                            <select 
+                                className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                value={definition.tableId || ''}
+                                onChange={(e) => handleDefChange('tableId', e.target.value)}
+                            >
+                                <option value="">Select a table...</option>
+                                {tables.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+            </Accordion>
+
+            {definition.tableId && (
+                <Accordion title="Query Settings">
+                    <div className="space-y-4">
+                        <div>
+                            <ControlHeader label="Fields" fx={false} />
+                            <div className="border border-input rounded-md p-2 max-h-32 overflow-y-auto space-y-1">
+                                {columns.map(col => {
+                                    const isSelected = definition.select?.includes(col);
+                                    return (
+                                        <div key={col} className="flex items-center space-x-2">
+                                            <Checkbox 
+                                                id={`col-${col}`} 
+                                                checked={isSelected}
+                                                onCheckedChange={(checked) => {
+                                                    const current = definition.select || [];
+                                                    const next = checked 
+                                                        ? [...current, col]
+                                                        : current.filter((c: string) => c !== col);
+                                                    handleDefChange('select', next);
+                                                }}
+                                            />
+                                            <label
+                                                htmlFor={`col-${col}`}
+                                                className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                {col}
+                                            </label>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <ControlHeader label="Sort By" fx={false} />
+                                <select 
+                                    className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                    value={definition.orderBy || ''}
+                                    onChange={(e) => handleDefChange('orderBy', e.target.value)}
+                                >
+                                    <option value="">None</option>
+                                    {columns.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="w-24">
+                                <ControlHeader label="Order" fx={false} />
+                                <select 
+                                    className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                    value={definition.orderDir || 'asc'}
+                                    onChange={(e) => handleDefChange('orderDir', e.target.value)}
+                                >
+                                    <option value="asc">ASC</option>
+                                    <option value="desc">DESC</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <ControlHeader label="Limit" fx={false} />
+                            <Input 
+                                type="number" 
+                                className="h-8 text-xs"
+                                value={definition.limit}
+                                onChange={(e) => handleDefChange('limit', parseInt(e.target.value))}
+                            />
+                        </div>
+                    </div>
+                </Accordion>
+            )}
+
+            <div className="p-4 mt-4 bg-muted/30 border-t border-border">
+                <ControlHeader label="Query Preview" fx={false} />
+                <pre className="text-[10px] bg-muted p-2 rounded border border-border overflow-x-auto text-muted-foreground">
+                    {JSON.stringify(query, null, 2)}
+                </pre>
+            </div>
         </div>
-        {isOpen ? (
-            <ChevronDown size={14} className="text-muted-foreground" />
-        ) : (
-            <ChevronRight size={14} className="text-muted-foreground" />
-        )}
-      </Button>
-      {isOpen && (
-        <div className="px-4 pb-4 pt-1 animate-in slide-in-from-top-1 duration-200">
-          {children}
+    );
+};
+
+// --- Interaction Tab Components ---
+
+const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
+    const widgetDef = registry.get(item.type);
+    const events = widgetDef?.manifest.events || [];
+    const interactions = item.content?._interactions || [];
+
+    const handleAddInteraction = () => {
+        if (events.length === 0) return;
+        const newInteraction = { 
+            id: `int_${Date.now()}`, 
+            event: events[0].name, 
+            action: 'navigate', 
+            params: {} 
+        };
+        onUpdate(item.i, { 
+            content: { ...item.content, _interactions: [...interactions, newInteraction] } 
+        });
+    };
+
+    const handleRemoveInteraction = (id: string) => {
+        onUpdate(item.i, { 
+            content: { ...item.content, _interactions: interactions.filter((i: any) => i.id !== id) } 
+        });
+    };
+
+    const handleUpdateInteraction = (id: string, key: string, value: any) => {
+        onUpdate(item.i, { 
+            content: { 
+                ...item.content, 
+                _interactions: interactions.map((i: any) => i.id === id ? { ...i, [key]: value } : i) 
+            } 
+        });
+    };
+
+    if (events.length === 0) {
+        return (
+            <div className="p-6 flex flex-col items-center justify-center text-center opacity-60">
+                <Zap size={32} className="mb-2 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">This component has no interactive events.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="pb-8">
+            <div className="p-4 border-b border-border">
+                <Button onClick={handleAddInteraction} size="sm" className="w-full gap-2 text-xs" variant="outline">
+                    <Plus size={14} /> Add Event Handler
+                </Button>
+            </div>
+
+            {interactions.length === 0 ? (
+                <div className="p-6 text-center text-xs text-muted-foreground italic">
+                    No interactions configured.
+                </div>
+            ) : (
+                <div className="divide-y divide-border">
+                    {interactions.map((interaction: any, idx: number) => (
+                        <div key={interaction.id} className="p-4 space-y-3 bg-card">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-muted-foreground">Handler #{idx + 1}</span>
+                                <button onClick={() => handleRemoveInteraction(interaction.id)} className="text-destructive hover:text-destructive/80 transition-colors">
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                            
+                            <div className="space-y-3 pl-2 border-l-2 border-border ml-1">
+                                <div>
+                                    <ControlHeader label="Event" fx={false} />
+                                    <select 
+                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                        value={interaction.event}
+                                        onChange={(e) => handleUpdateInteraction(interaction.id, 'event', e.target.value)}
+                                    >
+                                        {events.map(ev => (
+                                            <option key={ev.name} value={ev.name}>{ev.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <ControlHeader label="Action" fx={false} />
+                                    <select 
+                                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                        value={interaction.action}
+                                        onChange={(e) => handleUpdateInteraction(interaction.id, 'action', e.target.value)}
+                                    >
+                                        <option value="navigate">Navigate to Page</option>
+                                        <option value="showToast">Show Toast</option>
+                                        <option value="runQuery">Run Query</option>
+                                        <option value="openModal">Open Modal</option>
+                                    </select>
+                                </div>
+
+                                {/* Param Config based on Action */}
+                                {interaction.action === 'navigate' && (
+                                    <div>
+                                        <ControlHeader label="URL / Path" />
+                                        <Input 
+                                            className="h-8 text-xs" 
+                                            placeholder="/home"
+                                            value={interaction.params?.url || ''}
+                                            onChange={(e) => handleUpdateInteraction(interaction.id, 'params', { ...interaction.params, url: e.target.value })}
+                                        />
+                                    </div>
+                                )}
+                                {interaction.action === 'showToast' && (
+                                    <div>
+                                        <ControlHeader label="Message" />
+                                        <Input 
+                                            className="h-8 text-xs" 
+                                            placeholder="Success!"
+                                            value={interaction.params?.message || ''}
+                                            onChange={(e) => handleUpdateInteraction(interaction.id, 'params', { ...interaction.params, message: e.target.value })}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 // --- Main Panel ---
@@ -205,10 +478,33 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
   pageSettings,
   onPageUpdate
 }) => {
-  const [activeTab, setActiveTab] = useState<'PROPERTIES' | 'STYLES'>('PROPERTIES');
+  const [activeTab, setActiveTab] = useState<PanelTab>('DESIGN');
 
-  // Prepare widget definitions unconditionaly to adhere to Rules of Hooks
+  // Prepare widget definitions
   const widgetDef = selectedItem ? registry.get(selectedItem.type) : null;
+  
+  // Define available tabs based on widget definition
+  const availableTabs = useMemo(() => {
+      const tabs: { id: PanelTab; label: string; icon: any }[] = [
+          { id: 'DESIGN', label: 'Design', icon: Palette }
+      ];
+
+      if (widgetDef?.manifest.data) {
+          tabs.push({ id: 'DATA', label: 'Data', icon: Database });
+      }
+
+      tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
+
+      return tabs;
+  }, [widgetDef]);
+
+  // Ensure activeTab is valid for current selection
+  useEffect(() => {
+      if (selectedItem && !availableTabs.some(t => t.id === activeTab)) {
+          setActiveTab('DESIGN');
+      }
+  }, [selectedItem, availableTabs, activeTab]);
+
   const properties = widgetDef ? widgetDef.manifest.properties : [];
 
   const groupedProps = useMemo(() => {
@@ -223,7 +519,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
       return groups;
   }, [properties]);
 
-  // Handle Page Properties Render (Early Return is now safe as hooks are above)
+  // Page Properties Render
   if (!selectedItem) {
       return (
         <div 
@@ -252,18 +548,16 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
                         <div className="pt-2 space-y-2">
                              <div className="flex items-center justify-between">
                                 <Label className="text-[11px] text-muted-foreground">Mark as Home</Label>
-                                <input 
-                                    type="checkbox" 
+                                <Switch 
                                     checked={pageSettings?.isHome}
-                                    onChange={(e) => onPageUpdate && onPageUpdate({ isHome: e.target.checked })}
+                                    onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isHome: checked })}
                                 />
                              </div>
                              <div className="flex items-center justify-between">
                                 <Label className="text-[11px] text-muted-foreground">Disable</Label>
-                                <input 
-                                    type="checkbox" 
+                                <Switch 
                                     checked={pageSettings?.isDisabled}
-                                    onChange={(e) => onPageUpdate && onPageUpdate({ isDisabled: e.target.checked })}
+                                    onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isDisabled: checked })}
                                 />
                              </div>
                         </div>
@@ -294,46 +588,32 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
       }
   };
 
-  const styleGroups = ['Style', 'Layout'];
-
-  const renderPropertyGroups = (forStylesTab: boolean) => {
+  const renderDesignTab = () => {
       const entries = Object.entries(groupedProps);
-      if (entries.length === 0) return null;
+      if (entries.length === 0) return <div className="p-4 text-xs text-muted-foreground">No configurable properties.</div>;
 
-      return entries.map(([groupName, props]) => {
-          const isStyleGroup = styleGroups.includes(groupName);
-          
-          // Filter groups based on active tab
-          if (forStylesTab && !isStyleGroup) return null;
-          if (!forStylesTab && isStyleGroup) return null;
+      return entries.map(([groupName, props]) => (
+          <Accordion key={groupName} title={groupName}>
+              <div className="space-y-4">
+                  {props.map(prop => {
+                      const Control = SETTER_COMPONENTS[prop.setter?.component || 'text'] || TextControl;
+                      const isSwitch = prop.setter?.component === 'switch';
+                      const value = selectedItem.content?.[prop.name] ?? prop.defaultValue;
 
-          if (props.length === 0) return null;
-
-          return (
-              <Accordion key={groupName} title={groupName}>
-                  <div className="space-y-4">
-                      {props.map(prop => {
-                          const Control = SETTER_COMPONENTS[prop.setter?.component || 'text'] || TextControl;
-                          const isSwitch = prop.setter?.component === 'switch';
-                          
-                          // Resolve value: item content > default
-                          const value = selectedItem.content?.[prop.name] ?? prop.defaultValue;
-
-                          return (
-                              <div key={prop.name}>
-                                  {!isSwitch && <ControlHeader label={prop.label} />}
-                                  <Control 
-                                      value={value}
-                                      onChange={(val) => handleContentChange(prop.name, val)}
-                                      propDef={prop}
-                                  />
-                              </div>
-                          );
-                      })}
-                  </div>
-              </Accordion>
-          );
-      }).filter(Boolean);
+                      return (
+                          <div key={prop.name}>
+                              {!isSwitch && <ControlHeader label={prop.label} />}
+                              <Control 
+                                  value={value}
+                                  onChange={(val) => handleContentChange(prop.name, val)}
+                                  propDef={prop}
+                              />
+                          </div>
+                      );
+                  })}
+              </div>
+          </Accordion>
+      ));
   };
 
   return (
@@ -366,44 +646,48 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
          </div>
 
          {/* Tabs */}
-         <div className="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground w-full">
-            <button 
-                onClick={() => setActiveTab('PROPERTIES')}
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 flex-1 ${
-                    activeTab === 'PROPERTIES' 
-                    ? 'bg-background text-foreground shadow' 
-                    : 'hover:bg-background/50 hover:text-foreground'
-                }`}
-            >
-                Properties
-            </button>
-            <button 
-                onClick={() => setActiveTab('STYLES')}
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 flex-1 ${
-                    activeTab === 'STYLES' 
-                    ? 'bg-background text-foreground shadow' 
-                    : 'hover:bg-background/50 hover:text-foreground'
-                }`}
-            >
-                Styles
-            </button>
+         <div className="flex items-center bg-muted rounded-lg p-1 w-full">
+            {availableTabs.map(tab => (
+                <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as PanelTab)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        activeTab === tab.id 
+                        ? 'bg-background text-foreground shadow-sm' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                    }`}
+                >
+                    <tab.icon size={12} />
+                    {tab.label}
+                </button>
+            ))}
          </div>
       </div>
 
       {/* Content Scroll Area */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
         
-        <div className="pb-8">
-            {renderPropertyGroups(activeTab === 'STYLES')}
-        </div>
+        {activeTab === 'DESIGN' && (
+            <>
+                <div className="pb-8">
+                    {renderDesignTab()}
+                </div>
+                <div className="p-4 mt-4 border-t border-border bg-muted/20">
+                    <a href="#" className="flex items-center gap-2 text-xs text-primary hover:underline transition-colors group">
+                        <ExternalLink size={12} />
+                        <span className="group-hover:underline">Read documentation</span>
+                    </a>
+                </div>
+            </>
+        )}
 
-        {/* Documentation Link */}
-        <div className="p-4 mt-4 border-t border-border bg-muted/20">
-            <a href="#" className="flex items-center gap-2 text-xs text-primary hover:underline transition-colors group">
-                <ExternalLink size={12} />
-                <span className="group-hover:underline">Read documentation</span>
-            </a>
-        </div>
+        {activeTab === 'DATA' && widgetDef?.manifest.data && (
+            <DataTabContent item={selectedItem} onUpdate={onUpdate!} />
+        )}
+
+        {activeTab === 'INTERACTION' && (
+            <InteractionTabContent item={selectedItem} onUpdate={onUpdate!} />
+        )}
 
       </div>
     </div>

@@ -27,7 +27,7 @@ export const InputWidget: WidgetDefinition = {
     name: 'Input',
     icon: TextCursor,
     category: 'Commonly used',
-    defaultSize: { w: 6, h: 3 },
+    defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
     properties: [
       { 
@@ -53,6 +53,11 @@ export const InputWidget: WidgetDefinition = {
           group: 'Data',
           setter: { component: 'text' }
       }
+    ],
+    events: [
+        { name: 'change', label: 'On Change' },
+        { name: 'focus', label: 'On Focus' },
+        { name: 'blur', label: 'On Blur' }
     ]
   },
   component: InputComponent

@@ -3,7 +3,7 @@ import React from 'react';
 import { LucideIcon } from 'lucide-react';
 import { GridItemData } from '../types';
 
-export type SetterType = 'text' | 'number' | 'select' | 'switch' | 'color' | 'textarea' | 'icon';
+export type SetterType = 'text' | 'number' | 'select' | 'switch' | 'color' | 'textarea' | 'icon' | 'json';
 
 export interface PropSetter {
   component: SetterType;
@@ -16,7 +16,7 @@ export interface PropDefinition {
   type: string;
   defaultValue?: any;
   description?: string;
-  group?: string; // e.g., 'General', 'Style', 'Layout', 'Data'
+  group?: string; // e.g., 'General', 'Style', 'Layout'
   setter?: PropSetter;
 }
 
@@ -24,6 +24,17 @@ export interface WidgetTraits {
   isContainer?: boolean;
   isResizable?: boolean;
   isFormItem?: boolean;
+}
+
+export interface WidgetDataConfig {
+  hasDataSource: boolean;
+  dataType?: 'array' | 'object' | 'value';
+}
+
+export interface WidgetEvent {
+  name: string;
+  label: string;
+  args?: string[];
 }
 
 export interface WidgetManifest {
@@ -34,6 +45,8 @@ export interface WidgetManifest {
   defaultSize: { w: number; h: number };
   traits?: WidgetTraits;
   properties: PropDefinition[];
+  data?: WidgetDataConfig;
+  events?: WidgetEvent[];
 }
 
 export interface WidgetProps {

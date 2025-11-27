@@ -85,6 +85,10 @@ export const ButtonWidget: WidgetDefinition = {
           group: 'General',
           setter: { component: 'switch' }
       }
+    ],
+    events: [
+      { name: 'click', label: 'On Click' },
+      { name: 'hover', label: 'On Hover' }
     ]
   },
   component: ButtonComponent

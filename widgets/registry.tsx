@@ -1,7 +1,8 @@
 
 import { WidgetDefinition, WidgetRegistry } from './types';
 import { ButtonWidget } from './Core/Button';
-import { InputWidget } from './Core/Input';
+import { InputWidget, EmailWidget, PasswordWidget } from './Core/Input';
+import { TextAreaWidget } from './Core/TextArea';
 import { TextWidget } from './Core/Text';
 import { TableWidget } from './Core/Table';
 import { ChartWidget } from './Core/Chart';
@@ -32,7 +33,7 @@ class RegistryImpl implements WidgetRegistry {
   getCategories() {
     const categories = new Set(this.getAll().map(w => w.manifest.category));
     return Array.from(categories).sort((a, b) => {
-       const order = ['Commonly used', 'Forms', 'Data', 'Media', 'Layout'];
+       const order = ['Commonly used', 'Text input', 'Forms', 'Data', 'Media', 'Layout'];
        const idxA = order.indexOf(a);
        const idxB = order.indexOf(b);
        
@@ -50,6 +51,9 @@ export const registry = new RegistryImpl();
 // Register Core Widgets
 registry.register(ButtonWidget);
 registry.register(InputWidget);
+registry.register(EmailWidget);
+registry.register(PasswordWidget);
+registry.register(TextAreaWidget);
 registry.register(TextWidget);
 registry.register(TableWidget);
 registry.register(ChartWidget);

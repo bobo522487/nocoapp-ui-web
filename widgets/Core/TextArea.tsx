@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { TextCursor, AlignLeft, AlignRight, AlignVerticalJustifyStart, X, Info, Mail, Lock } from 'lucide-react';
-import { Input } from "../../components/ui/input";
-import { WidgetDefinition, WidgetProps, PropDefinition } from '../types';
+import { FileText, AlignLeft, AlignRight, AlignVerticalJustifyStart, Info } from 'lucide-react';
+import { Textarea } from "../../components/ui/textarea";
+import { WidgetDefinition, WidgetProps } from '../types';
 import { cn } from '../../lib/utils';
 
-const InputComponent: React.FC<WidgetProps> = ({ 
+const TextAreaComponent: React.FC<WidgetProps> = ({ 
     label, 
     placeholder, 
     defaultValue,
@@ -19,22 +19,14 @@ const InputComponent: React.FC<WidgetProps> = ({
     tooltip,
     disabled,
     readOnly,
-    inputType,
     maxLength,
-    allowClear
+    rows
 }) => {
-  // Use local state to allow interaction within the builder/preview
   const [internalValue, setInternalValue] = useState(defaultValue || '');
 
-  // Sync with property updates
   useEffect(() => {
       setInternalValue(defaultValue || '');
   }, [defaultValue]);
-
-  const handleClear = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setInternalValue('');
-  };
 
   const renderLabel = () => (
       <div className="flex items-center gap-1 mb-1.5" style={{ color: labelTextColor }}>
@@ -53,11 +45,11 @@ const InputComponent: React.FC<WidgetProps> = ({
   return (
     <div className={cn(
         "p-4 w-full h-full flex pointer-events-auto", 
-        labelPosition === 'top' ? 'flex-col' : 'flex-row items-center gap-4'
+        labelPosition === 'top' ? 'flex-col' : 'flex-row items-start gap-4'
     )}>
         {showLabel && label && (
             <div className={cn(
-                labelPosition === 'top' ? 'w-full' : 'w-1/3 flex-shrink-0',
+                labelPosition === 'top' ? 'w-full' : 'w-1/3 flex-shrink-0 pt-2',
                 labelPosition === 'right' ? 'order-last' : ''
             )}>
                {renderLabel()}
@@ -65,51 +57,50 @@ const InputComponent: React.FC<WidgetProps> = ({
         )}
         
         <div className="flex-1 w-full relative group">
-            <Input 
-                type={inputType || 'text'}
+            <Textarea 
                 placeholder={placeholder} 
                 value={internalValue}
                 onChange={(e) => setInternalValue(e.target.value)}
                 disabled={disabled}
                 readOnly={readOnly}
                 maxLength={maxLength}
-                className="w-full pr-8"
+                rows={rows || 3}
+                className="w-full resize-none"
                 style={{
                     color: fieldTextColor,
                     backgroundColor: fieldBackgroundColor,
                     borderColor: fieldBorderColor
                 }}
             />
-            {allowClear && internalValue && !disabled && !readOnly && (
-                <div 
-                    onClick={handleClear}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer z-10 p-1 hover:bg-muted/50 rounded-full transition-all"
-                >
-                    <X size={12} />
-                </div>
-            )}
         </div>
     </div>
   );
 };
 
-// Reusable properties for input variants
-const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, defaultType: string): PropDefinition[] => [
+export const TextAreaWidget: WidgetDefinition = {
+  manifest: {
+    type: 'textarea',
+    name: 'Text Area',
+    icon: FileText,
+    category: 'Text input',
+    defaultSize: { w: 6, h: 3 },
+    traits: { isFormItem: true },
+    properties: [
       // --- Group: Basic ---
       { 
           name: 'name', 
           label: 'Field ID', 
           type: 'string', 
-          defaultValue: 'input1', 
+          defaultValue: 'textarea1', 
           group: 'Basic',
-          description: 'Unique identifier for the form field',
+          description: 'Unique identifier',
           setter: { component: 'text' }
       },
       { 
           name: 'label', 
           label: 'Field Name', 
           type: 'string', 
-          defaultValue: defaultLabel, 
+          defaultValue: 'Description', 
           group: 'Basic',
           setter: { component: 'text' }
       },
@@ -125,7 +116,7 @@ const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, de
           name: 'w',
           label: 'Width',
           type: 'number',
-          target: 'root', // Updates the GridItemData directly
+          target: 'root',
           defaultValue: 6,
           group: 'Basic',
           setter: {
@@ -143,34 +134,20 @@ const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, de
           }
       },
       {
-          name: 'inputType',
-          label: 'Type',
-          type: 'string',
-          defaultValue: defaultType,
+          name: 'rows',
+          label: 'Rows',
+          type: 'number',
+          defaultValue: 3,
           group: 'Basic',
-          setter: {
-              component: 'select',
-              props: {
-                  options: [
-                      { label: 'Text', value: 'text' },
-                      { label: 'Email', value: 'email' },
-                      { label: 'Password', value: 'password' },
-                      { label: 'Number', value: 'number' },
-                      { label: 'Time', value: 'time' },
-                      { label: 'Date', value: 'date' },
-                      { label: 'Month', value: 'month' },
-                      { label: 'Date & Time', value: 'datetime-local' },
-                  ]
-              }
-          }
+          setter: { component: 'number' }
       },
       { 
           name: 'placeholder', 
           label: 'Placeholder', 
           type: 'string', 
-          defaultValue: defaultPlaceholder, 
+          defaultValue: 'Enter details...', 
           group: 'Basic',
-          setter: { component: 'text' }
+          setter: { component: 'textarea' }
       },
       {
         name: 'required',
@@ -204,14 +181,6 @@ const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, de
           type: 'number',
           group: 'Advanced',
           setter: { component: 'number' }
-      },
-      {
-          name: 'allowClear',
-          label: 'Allow Clear',
-          type: 'boolean',
-          defaultValue: false,
-          group: 'Advanced',
-          setter: { component: 'switch' }
       },
 
       // --- Group: Label (Styles) ---
@@ -274,52 +243,12 @@ const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, de
           group: 'Field',
           setter: { component: 'color' }
       },
-];
-
-const commonEvents = [
-    { name: 'change', label: 'On Change' },
-    { name: 'focus', label: 'On Focus' },
-    { name: 'blur', label: 'On Blur' }
-];
-
-export const InputWidget: WidgetDefinition = {
-  manifest: {
-    type: 'input',
-    name: 'Text Input',
-    icon: TextCursor,
-    category: 'Text input',
-    defaultSize: { w: 6, h: 2 },
-    traits: { isFormItem: true },
-    properties: getInputProperties('Input Label', 'Enter text...', 'text'),
-    events: commonEvents
+    ],
+    events: [
+        { name: 'change', label: 'On Change' },
+        { name: 'focus', label: 'On Focus' },
+        { name: 'blur', label: 'On Blur' }
+    ]
   },
-  component: InputComponent
-};
-
-export const EmailWidget: WidgetDefinition = {
-  manifest: {
-    type: 'email_input',
-    name: 'Email Input',
-    icon: Mail,
-    category: 'Text input',
-    defaultSize: { w: 6, h: 2 },
-    traits: { isFormItem: true },
-    properties: getInputProperties('Email', 'example@domain.com', 'email'),
-    events: commonEvents
-  },
-  component: InputComponent
-};
-
-export const PasswordWidget: WidgetDefinition = {
-  manifest: {
-    type: 'password_input',
-    name: 'Password Input',
-    icon: Lock,
-    category: 'Text input',
-    defaultSize: { w: 6, h: 2 },
-    traits: { isFormItem: true },
-    properties: getInputProperties('Password', '********', 'password'),
-    events: commonEvents
-  },
-  component: InputComponent
+  component: TextAreaComponent
 };

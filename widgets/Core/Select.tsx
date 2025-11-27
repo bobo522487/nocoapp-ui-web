@@ -15,21 +15,12 @@ const SelectComponent: React.FC<WidgetProps> = ({
   valueField,
   sortOptions,
 
-  // Validation Group
+  // Advanced Group
   required,
-  // customValidation, // Not implemented in visual logic
-
-  // Additional Actions Group
   allowClear,
-  // enableSearch, // Native select does not support search easily, placeholder for future
   loading,
-  visible,
   disabled,
   tooltip,
-
-  // Devices Group
-  // desktopVisible,
-  // mobileVisible,
 
   // Widget Props
   width
@@ -78,9 +69,6 @@ const SelectComponent: React.FC<WidgetProps> = ({
 
       return items;
   }, [isDynamic, data, options, labelField, valueField, sortOptions]);
-
-  // Handle Visibility
-  if (visible === false) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       setInternalValue(e.target.value);
@@ -157,13 +145,21 @@ export const SelectWidget: WidgetDefinition = {
     defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
     properties: [
-      // --- Group: Data ---
+      // --- Group: Basic ---
+      {
+        name: 'name',
+        label: 'Field ID',
+        type: 'string',
+        defaultValue: 'select1',
+        group: 'Basic',
+        setter: { component: 'text' }
+      },
       {
         name: 'label',
         label: 'Label',
         type: 'string',
         defaultValue: 'Select Label',
-        group: 'Data',
+        group: 'Basic',
         setter: { component: 'text' }
       },
       {
@@ -171,9 +167,40 @@ export const SelectWidget: WidgetDefinition = {
         label: 'Placeholder',
         type: 'string',
         defaultValue: 'Select...',
-        group: 'Data',
+        group: 'Basic',
         setter: { component: 'text' }
       },
+      { 
+          name: 'tooltip', 
+          label: 'Tooltip', 
+          type: 'string', 
+          defaultValue: '', 
+          group: 'Basic',
+          setter: { component: 'text' }
+      },
+      {
+          name: 'w',
+          label: 'Width',
+          type: 'number',
+          target: 'root',
+          defaultValue: 6,
+          group: 'Basic',
+          setter: {
+              component: 'buttonGroup',
+              props: {
+                  options: [
+                      { label: '1/4', value: 3 },
+                      { label: '1/3', value: 4 },
+                      { label: '1/2', value: 6 },
+                      { label: '2/3', value: 8 },
+                      { label: '3/4', value: 9 },
+                      { label: 'Full', value: 12 },
+                  ]
+              }
+          }
+      },
+
+      // --- Group: Data ---
       {
         name: 'isDynamic',
         label: 'Dynamic options',
@@ -227,38 +254,21 @@ export const SelectWidget: WidgetDefinition = {
         }
       },
 
-      // --- Group: Validation ---
+      // --- Group: Advanced ---
       {
         name: 'required',
-        label: 'Make this field mandatory',
+        label: 'Required',
         type: 'boolean',
         defaultValue: false,
-        group: 'Validation',
+        group: 'Advanced',
         setter: { component: 'switch' }
       },
-      {
-        name: 'customValidation',
-        label: 'Custom validation',
-        type: 'string',
-        group: 'Validation',
-        setter: { component: 'text' }
-      },
-
-      // --- Group: Additional Actions ---
       {
         name: 'allowClear',
-        label: 'Show clear selection button',
+        label: 'Allow Clear',
         type: 'boolean',
         defaultValue: true,
-        group: 'Additional Actions',
-        setter: { component: 'switch' }
-      },
-      {
-        name: 'enableSearch',
-        label: 'Show search in options',
-        type: 'boolean',
-        defaultValue: false,
-        group: 'Additional Actions',
+        group: 'Advanced',
         setter: { component: 'switch' }
       },
       {
@@ -266,15 +276,7 @@ export const SelectWidget: WidgetDefinition = {
         label: 'Loading state',
         type: 'boolean',
         defaultValue: false,
-        group: 'Additional Actions',
-        setter: { component: 'switch' }
-      },
-      {
-        name: 'visible',
-        label: 'Visibility',
-        type: 'boolean',
-        defaultValue: true,
-        group: 'Additional Actions',
+        group: 'Advanced',
         setter: { component: 'switch' }
       },
       {
@@ -282,32 +284,7 @@ export const SelectWidget: WidgetDefinition = {
         label: 'Disable',
         type: 'boolean',
         defaultValue: false,
-        group: 'Additional Actions',
-        setter: { component: 'switch' }
-      },
-      {
-        name: 'tooltip',
-        label: 'Tooltip',
-        type: 'string',
-        group: 'Additional Actions',
-        setter: { component: 'text' }
-      },
-
-      // --- Group: Devices ---
-      {
-        name: 'desktopVisible',
-        label: 'Show on desktop',
-        type: 'boolean',
-        defaultValue: true,
-        group: 'Devices',
-        setter: { component: 'switch' }
-      },
-      {
-        name: 'mobileVisible',
-        label: 'Show on mobile',
-        type: 'boolean',
-        defaultValue: true,
-        group: 'Devices',
+        group: 'Advanced',
         setter: { component: 'switch' }
       }
     ],

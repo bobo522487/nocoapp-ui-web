@@ -36,8 +36,37 @@ export const ButtonWidget: WidgetDefinition = {
           label: 'Label', 
           type: 'string', 
           defaultValue: 'Button',
-          group: 'General',
+          group: 'Basic',
           setter: { component: 'text' }
+      },
+      {
+          name: 'w',
+          label: 'Width',
+          type: 'number',
+          target: 'root',
+          defaultValue: 3,
+          group: 'Basic',
+          setter: {
+              component: 'buttonGroup',
+              props: {
+                  options: [
+                      { label: '1/4', value: 3 },
+                      { label: '1/3', value: 4 },
+                      { label: '1/2', value: 6 },
+                      { label: '2/3', value: 8 },
+                      { label: '3/4', value: 9 },
+                      { label: 'Full', value: 12 },
+                  ]
+              }
+          }
+      },
+      {
+          name: 'disabled',
+          label: 'Disabled',
+          type: 'boolean',
+          defaultValue: false,
+          group: 'Basic',
+          setter: { component: 'switch' }
       },
       { 
           name: 'variant', 
@@ -76,14 +105,6 @@ export const ButtonWidget: WidgetDefinition = {
                   ]
               }
           }
-      },
-      {
-          name: 'disabled',
-          label: 'Disabled',
-          type: 'boolean',
-          defaultValue: false,
-          group: 'General',
-          setter: { component: 'switch' }
       }
     ],
     events: [

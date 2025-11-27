@@ -27,8 +27,29 @@ export const BadgeWidget: WidgetDefinition = {
         label: 'Label',
         type: 'string',
         defaultValue: 'In Stock',
-        group: 'Data',
+        group: 'Basic',
         setter: { component: 'text' }
+      },
+      {
+          name: 'w',
+          label: 'Width',
+          type: 'number',
+          target: 'root',
+          defaultValue: 2,
+          group: 'Basic',
+          setter: {
+              component: 'buttonGroup',
+              props: {
+                  options: [
+                      { label: '1/4', value: 3 },
+                      { label: '1/3', value: 4 },
+                      { label: '1/2', value: 6 },
+                      { label: '2/3', value: 8 },
+                      { label: '3/4', value: 9 },
+                      { label: 'Full', value: 12 },
+                  ]
+              }
+          }
       },
       {
         name: 'variant',

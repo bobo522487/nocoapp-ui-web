@@ -82,8 +82,29 @@ export const ChartWidget: WidgetDefinition = {
           label: 'Title', 
           type: 'string', 
           defaultValue: 'Revenue Overview', 
-          group: 'General',
+          group: 'Basic',
           setter: { component: 'text' }
+      },
+      {
+          name: 'w',
+          label: 'Width',
+          type: 'number',
+          target: 'root',
+          defaultValue: 6,
+          group: 'Basic',
+          setter: {
+              component: 'buttonGroup',
+              props: {
+                  options: [
+                      { label: '1/4', value: 3 },
+                      { label: '1/3', value: 4 },
+                      { label: '1/2', value: 6 },
+                      { label: '2/3', value: 8 },
+                      { label: '3/4', value: 9 },
+                      { label: 'Full', value: 12 },
+                  ]
+              }
+          }
       },
       {
           name: 'barColor',

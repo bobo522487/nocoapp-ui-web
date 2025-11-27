@@ -125,18 +125,97 @@ const TextareaControl: React.FC<ControlProps> = ({ value, onChange, propDef }) =
 
 const SelectControl: React.FC<ControlProps> = ({ value, onChange, propDef }) => {
   const options = propDef.setter?.props?.options || [];
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const handleOpen = () => {
+      if (triggerRef.current) {
+          const rect = triggerRef.current.getBoundingClientRect();
+          setCoords({
+              top: rect.bottom + 4,
+              left: rect.left
+          });
+          setWidth(rect.width);
+      }
+      setIsOpen(true);
+  };
+
+  useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            if (
+                popoverRef.current && 
+                !popoverRef.current.contains(e.target as Node) &&
+                triggerRef.current && 
+                !triggerRef.current.contains(e.target as Node)
+            ) {
+                setIsOpen(false);
+            }
+        };
+        const handleScroll = () => { if (isOpen) setIsOpen(false); };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleMouseDown);
+            window.addEventListener('scroll', handleScroll, true);
+            window.addEventListener('resize', handleScroll);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('scroll', handleScroll, true);
+            window.removeEventListener('resize', handleScroll);
+        };
+  }, [isOpen]);
+
+  const selectedOpt = options.find((o: any) => (typeof o === 'string' ? o : o.value) === value);
+  const displayLabel = selectedOpt ? (typeof selectedOpt === 'string' ? selectedOpt : selectedOpt.label) : (value || 'Select...');
+
   return (
-      <select 
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
-      >
-        {options.map((opt: any) => {
-            const val = typeof opt === 'string' ? opt : opt.value;
-            const label = typeof opt === 'string' ? opt : opt.label;
-            return <option key={val} value={val}>{label}</option>;
-        })}
-      </select>
+      <div className="relative">
+          <div 
+              ref={triggerRef}
+              onClick={handleOpen}
+              className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs cursor-pointer hover:border-primary/50 transition-colors shadow-sm"
+          >
+              <span className="truncate text-foreground">{displayLabel}</span>
+              <ChevronDown size={12} className="text-muted-foreground opacity-50 shrink-0 ml-2" />
+          </div>
+          
+          {isOpen && createPortal(
+              <div 
+                  ref={popoverRef}
+                  className="fixed z-[9999] bg-popover text-popover-foreground border border-border rounded-md shadow-md animate-in fade-in zoom-in-95 duration-100 p-1 overflow-y-auto max-h-[300px]"
+                  style={{ top: coords.top, left: coords.left, width: width, minWidth: '120px' }}
+              >
+                  {options.map((opt: any) => {
+                      const val = typeof opt === 'string' ? opt : opt.value;
+                      const label = typeof opt === 'string' ? opt : opt.label;
+                      const isSelected = val === value;
+                      return (
+                          <div 
+                              key={val}
+                              onClick={(e) => {
+                                  e.stopPropagation();
+                                  onChange(val); 
+                                  setIsOpen(false); 
+                              }}
+                              className={cn(
+                                  "flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer transition-colors",
+                                  isSelected 
+                                      ? "bg-primary text-primary-foreground" 
+                                      : "hover:bg-muted text-foreground"
+                              )}
+                          >
+                              <span className="truncate">{label}</span>
+                              {isSelected && <Check size={12} className="shrink-0 ml-2" />}
+                          </div>
+                      );
+                  })}
+              </div>,
+              document.body
+          )}
+      </div>
   );
 };
 
@@ -336,8 +415,8 @@ const ButtonGroupControl: React.FC<ControlProps> = ({ value, onChange, propDef }
                             className={cn(
                                 "flex-1 px-2 py-1.5 text-[10px] rounded-sm font-medium transition-all border border-transparent min-w-[30px] flex items-center justify-center",
                                 isActive 
-                                    ? "bg-background text-foreground shadow-sm ring-1 ring-border" 
-                                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                                    ? "bg-primary text-primary-foreground shadow-sm" 
+                                    : "text-muted-foreground hover:bg-muted-foreground/10 hover:text-foreground"
                             )}
                             title={opt.label}
                         >
@@ -1008,7 +1087,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
                     title={tab.label}
                     className={`flex-1 flex items-center justify-center py-2 rounded-md transition-all ${
                         activeTab === tab.id 
-                        ? 'bg-background text-foreground shadow-sm' 
+                        ? 'bg-background text-primary shadow-sm' 
                         : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                     }`}
                 >

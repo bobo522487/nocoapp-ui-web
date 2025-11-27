@@ -11,7 +11,9 @@ import {
   Palette,
   Plus,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  FileCode,
+  Play
 } from 'lucide-react';
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -19,7 +21,7 @@ import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { Switch } from "../../../components/ui/switch";
 import { Checkbox } from "../../../components/ui/checkbox";
-import { GridItemData, Page } from '../../../types';
+import { GridItemData, Page, QueryConfig } from '../../../types';
 import { registry } from '../../../widgets/registry';
 import { PropDefinition } from '../../../widgets/types';
 import { useAppStore } from '../../../store/useAppStore';
@@ -80,7 +82,7 @@ const Accordion = ({ title, children, defaultOpen = true }: { title: string, chi
   );
 };
 
-// --- Design Tab Components ---
+// --- Setter Controls ---
 
 interface ControlProps {
   value: any;
@@ -185,10 +187,273 @@ const SETTER_COMPONENTS: Record<string, React.FC<ControlProps>> = {
     color: ColorControl
 };
 
-// --- Data Tab Components ---
+// --- Reusable Query Builder Component ---
 
-const DataTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
+interface QueryEditorProps {
+    query: QueryConfig;
+    onChange: (newQuery: QueryConfig) => void;
+}
+
+const QueryEditor: React.FC<QueryEditorProps> = ({ query, onChange }) => {
     const { tables } = useAppStore();
+    const { definition } = query;
+
+    const handleDefChange = (key: string, val: any) => {
+        const newQuery = { 
+            ...query, 
+            definition: { ...definition, [key]: val } 
+        };
+        onChange(newQuery);
+    };
+
+    // Columns of selected table
+    const selectedTable = tables.find(t => t.id === definition.tableId);
+    const columns = selectedTable ? ['id', 'name', 'email', 'role', 'status', 'created_at', 'amount', 'category'] : [];
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <ControlHeader label="Data Source" fx={false} />
+                <select 
+                    className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                    value={definition.source}
+                    onChange={(e) => handleDefChange('source', e.target.value)}
+                >
+                    <option value="managed">Managed Database</option>
+                    <option value="external">External API</option>
+                </select>
+            </div>
+
+            {definition.source === 'managed' && (
+                <div>
+                    <ControlHeader label="Table" fx={false} />
+                    <select 
+                        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
+                        value={definition.tableId || ''}
+                        onChange={(e) => handleDefChange('tableId', e.target.value)}
+                    >
+                        <option value="">Select a table...</option>
+                        {tables.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {definition.tableId && (
+                <>
+                    <div>
+                        <ControlHeader label="Fields" fx={false} />
+                        <div className="border border-input rounded-md p-2 max-h-32 overflow-y-auto space-y-1">
+                            {columns.map(col => {
+                                const isSelected = definition.select?.includes(col);
+                                return (
+                                    <div key={col} className="flex items-center space-x-2">
+                                        <Checkbox 
+                                            id={`col-${col}`} 
+                                            checked={isSelected}
+                                            onCheckedChange={(checked) => {
+                                                const current = definition.select || [];
+                                                const next = checked 
+                                                    ? [...current, col]
+                                                    : current.filter((c: string) => c !== col);
+                                                handleDefChange('select', next);
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor={`col-${col}`}
+                                            className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                        >
+                                            {col}
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <ControlHeader label="Sort By" fx={false} />
+                            <select 
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                value={definition.orderBy || ''}
+                                onChange={(e) => handleDefChange('orderBy', e.target.value)}
+                            >
+                                <option value="">None</option>
+                                {columns.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="w-24">
+                            <ControlHeader label="Order" fx={false} />
+                            <select 
+                                className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                                value={definition.orderDir || 'asc'}
+                                onChange={(e) => handleDefChange('orderDir', e.target.value)}
+                            >
+                                <option value="asc">ASC</option>
+                                <option value="desc">DESC</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <ControlHeader label="Limit" fx={false} />
+                        <Input 
+                            type="number" 
+                            className="h-8 text-xs"
+                            value={definition.limit}
+                            onChange={(e) => handleDefChange('limit', parseInt(e.target.value))}
+                        />
+                    </div>
+                </>
+            )}
+
+            <div className="p-3 bg-muted/30 border border-border rounded-md">
+                <ControlHeader label="Query Preview" fx={false} />
+                <pre className="text-[10px] bg-muted p-2 rounded border border-border overflow-x-auto text-muted-foreground font-mono">
+                    {JSON.stringify(query, null, 2)}
+                </pre>
+            </div>
+        </div>
+    );
+};
+
+// --- Page Data Tab ---
+
+const PageDataTab = ({ page, onUpdate }: { page: Page, onUpdate: (updates: Partial<Page>) => void }) => {
+    const [activeQueryId, setActiveQueryId] = useState<string | null>(null);
+    const content = page.content || {};
+    const stateVars = content.state || {};
+    const queries = content.queries || {};
+
+    const handleAddVariable = () => {
+        const key = `var${Object.keys(stateVars).length + 1}`;
+        onUpdate({
+            content: {
+                ...content,
+                state: { ...stateVars, [key]: '' }
+            }
+        });
+    };
+
+    const handleUpdateVariable = (oldKey: string, newKey: string, newVal: any) => {
+        const newState = { ...stateVars };
+        if (oldKey !== newKey) {
+            delete newState[oldKey];
+        }
+        newState[newKey] = newVal;
+        onUpdate({ content: { ...content, state: newState } });
+    };
+
+    const handleDeleteVariable = (key: string) => {
+        const newState = { ...stateVars };
+        delete newState[key];
+        onUpdate({ content: { ...content, state: newState } });
+    };
+
+    const handleAddQuery = () => {
+        const id = `query${Object.keys(queries).length + 1}`;
+        onUpdate({
+            content: {
+                ...content,
+                queries: {
+                    ...queries,
+                    [id]: { 
+                        id, 
+                        type: 'sql', 
+                        definition: { source: 'managed', limit: 10 } 
+                    }
+                }
+            }
+        });
+        setActiveQueryId(id);
+    };
+
+    const handleUpdateQuery = (query: QueryConfig) => {
+        onUpdate({
+            content: {
+                ...content,
+                queries: {
+                    ...queries,
+                    [query.id]: query
+                }
+            }
+        });
+    };
+
+    if (activeQueryId && queries[activeQueryId]) {
+        return (
+            <div className="pb-8">
+                <div className="p-4 border-b border-border flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setActiveQueryId(null)}>
+                        <ChevronDown className="rotate-90" size={14} />
+                    </Button>
+                    <span className="text-xs font-semibold">Editing: {activeQueryId}</span>
+                </div>
+                <div className="p-4">
+                    <QueryEditor query={queries[activeQueryId]} onChange={handleUpdateQuery} />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="pb-8">
+            <Accordion title="State Variables" defaultOpen={true}>
+                <div className="space-y-2">
+                    {Object.entries(stateVars).map(([key, val]) => (
+                        <div key={key} className="flex items-center gap-2 mb-2">
+                            <Input 
+                                className="h-7 text-xs font-mono w-1/3" 
+                                value={key} 
+                                onChange={(e) => handleUpdateVariable(key, e.target.value, val)}
+                            />
+                            <span className="text-muted-foreground text-xs">=</span>
+                            <Input 
+                                className="h-7 text-xs flex-1" 
+                                value={val as string} 
+                                onChange={(e) => handleUpdateVariable(key, key, e.target.value)}
+                                placeholder="Value"
+                            />
+                            <button onClick={() => handleDeleteVariable(key)} className="text-muted-foreground hover:text-destructive">
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
+                    ))}
+                    <Button variant="outline" size="sm" className="w-full text-xs h-7 mt-2" onClick={handleAddVariable}>
+                        <Plus size={12} className="mr-1" /> Add Variable
+                    </Button>
+                </div>
+            </Accordion>
+
+            <Accordion title="Queries">
+                <div className="space-y-1">
+                    {Object.values(queries).map((q: any) => (
+                        <div 
+                            key={q.id} 
+                            className="flex items-center justify-between p-2 rounded hover:bg-muted cursor-pointer group"
+                            onClick={() => setActiveQueryId(q.id)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Database size={12} className="text-blue-500" />
+                                <span className="text-xs font-medium">{q.id}</span>
+                            </div>
+                            <ChevronRight size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100" />
+                        </div>
+                    ))}
+                    <Button variant="outline" size="sm" className="w-full text-xs h-7 mt-2" onClick={handleAddQuery}>
+                        <Plus size={12} className="mr-1" /> Add Query
+                    </Button>
+                </div>
+            </Accordion>
+        </div>
+    );
+};
+
+// --- Widget Data Tab ---
+
+const WidgetDataTab = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
     const widgetDef = registry.get(item.type);
     
     // Check if widget supports data
@@ -202,178 +467,32 @@ const DataTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id:
     }
 
     const query = item.content?._query || { source: 'managed', type: 'sql', definition: { limit: 50 } };
-    const { definition } = query;
 
-    const handleDefChange = (key: string, val: any) => {
-        const newQuery = { 
-            ...query, 
-            definition: { ...definition, [key]: val } 
-        };
+    const handleQueryUpdate = (newQuery: QueryConfig) => {
         onUpdate(item.i, { 
             content: { ...item.content, _query: newQuery } 
         });
     };
 
-    // Columns of selected table
-    const selectedTable = tables.find(t => t.id === definition.tableId);
-    // Mock columns for now since tables store doesn't hold columns deeply yet in this mock
-    const columns = selectedTable ? ['id', 'name', 'email', 'role', 'status', 'created_at', 'amount', 'category'] : [];
-
     return (
         <div className="pb-8">
-            <Accordion title="Source Configuration">
+            <Accordion title="Data Source">
                 <div className="space-y-4">
-                    <div>
-                        <ControlHeader label="Data Source" fx={false} />
-                        <select 
-                            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
-                            value={definition.source}
-                            onChange={(e) => handleDefChange('source', e.target.value)}
-                        >
-                            <option value="managed">Managed Database</option>
-                            <option value="external">External API</option>
-                        </select>
-                    </div>
-
-                    {definition.source === 'managed' && (
-                        <div>
-                            <ControlHeader label="Table" fx={false} />
-                            <select 
-                                className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs"
-                                value={definition.tableId || ''}
-                                onChange={(e) => handleDefChange('tableId', e.target.value)}
-                            >
-                                <option value="">Select a table...</option>
-                                {tables.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                    <QueryEditor query={query} onChange={handleQueryUpdate} />
                 </div>
             </Accordion>
-
-            {definition.tableId && (
-                <Accordion title="Query Settings">
-                    <div className="space-y-4">
-                        <div>
-                            <ControlHeader label="Fields" fx={false} />
-                            <div className="border border-input rounded-md p-2 max-h-32 overflow-y-auto space-y-1">
-                                {columns.map(col => {
-                                    const isSelected = definition.select?.includes(col);
-                                    return (
-                                        <div key={col} className="flex items-center space-x-2">
-                                            <Checkbox 
-                                                id={`col-${col}`} 
-                                                checked={isSelected}
-                                                onCheckedChange={(checked) => {
-                                                    const current = definition.select || [];
-                                                    const next = checked 
-                                                        ? [...current, col]
-                                                        : current.filter((c: string) => c !== col);
-                                                    handleDefChange('select', next);
-                                                }}
-                                            />
-                                            <label
-                                                htmlFor={`col-${col}`}
-                                                className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                            >
-                                                {col}
-                                            </label>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <div className="flex-1">
-                                <ControlHeader label="Sort By" fx={false} />
-                                <select 
-                                    className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
-                                    value={definition.orderBy || ''}
-                                    onChange={(e) => handleDefChange('orderBy', e.target.value)}
-                                >
-                                    <option value="">None</option>
-                                    {columns.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                            <div className="w-24">
-                                <ControlHeader label="Order" fx={false} />
-                                <select 
-                                    className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
-                                    value={definition.orderDir || 'asc'}
-                                    onChange={(e) => handleDefChange('orderDir', e.target.value)}
-                                >
-                                    <option value="asc">ASC</option>
-                                    <option value="desc">DESC</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <ControlHeader label="Limit" fx={false} />
-                            <Input 
-                                type="number" 
-                                className="h-8 text-xs"
-                                value={definition.limit}
-                                onChange={(e) => handleDefChange('limit', parseInt(e.target.value))}
-                            />
-                        </div>
-                    </div>
-                </Accordion>
-            )}
-
-            <div className="p-4 mt-4 bg-muted/30 border-t border-border">
-                <ControlHeader label="Query Preview" fx={false} />
-                <pre className="text-[10px] bg-muted p-2 rounded border border-border overflow-x-auto text-muted-foreground">
-                    {JSON.stringify(query, null, 2)}
-                </pre>
-            </div>
         </div>
     );
 };
 
-// --- Interaction Tab Components ---
+// --- Interaction Tab Components (Shared) ---
 
-const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
-    const widgetDef = registry.get(item.type);
-    const events = widgetDef?.manifest.events || [];
-    const interactions = item.content?._interactions || [];
-
-    const handleAddInteraction = () => {
-        if (events.length === 0) return;
-        const newInteraction = { 
-            id: `int_${Date.now()}`, 
-            event: events[0].name, 
-            action: 'navigate', 
-            params: {} 
-        };
-        onUpdate(item.i, { 
-            content: { ...item.content, _interactions: [...interactions, newInteraction] } 
-        });
-    };
-
-    const handleRemoveInteraction = (id: string) => {
-        onUpdate(item.i, { 
-            content: { ...item.content, _interactions: interactions.filter((i: any) => i.id !== id) } 
-        });
-    };
-
-    const handleUpdateInteraction = (id: string, key: string, value: any) => {
-        onUpdate(item.i, { 
-            content: { 
-                ...item.content, 
-                _interactions: interactions.map((i: any) => i.id === id ? { ...i, [key]: value } : i) 
-            } 
-        });
-    };
-
+const InteractionList = ({ events, interactions, onAdd, onRemove, onUpdate }: any) => {
     if (events.length === 0) {
         return (
             <div className="p-6 flex flex-col items-center justify-center text-center opacity-60">
                 <Zap size={32} className="mb-2 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">This component has no interactive events.</p>
+                <p className="text-xs text-muted-foreground">No events available.</p>
             </div>
         );
     }
@@ -381,7 +500,7 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
     return (
         <div className="pb-8">
             <div className="p-4 border-b border-border">
-                <Button onClick={handleAddInteraction} size="sm" className="w-full gap-2 text-xs" variant="outline">
+                <Button onClick={onAdd} size="sm" className="w-full gap-2 text-xs" variant="outline">
                     <Plus size={14} /> Add Event Handler
                 </Button>
             </div>
@@ -396,7 +515,7 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
                         <div key={interaction.id} className="p-4 space-y-3 bg-card">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-muted-foreground">Handler #{idx + 1}</span>
-                                <button onClick={() => handleRemoveInteraction(interaction.id)} className="text-destructive hover:text-destructive/80 transition-colors">
+                                <button onClick={() => onRemove(interaction.id)} className="text-destructive hover:text-destructive/80 transition-colors">
                                     <Trash2 size={14} />
                                 </button>
                             </div>
@@ -407,9 +526,9 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
                                     <select 
                                         className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
                                         value={interaction.event}
-                                        onChange={(e) => handleUpdateInteraction(interaction.id, 'event', e.target.value)}
+                                        onChange={(e) => onUpdate(interaction.id, 'event', e.target.value)}
                                     >
-                                        {events.map(ev => (
+                                        {events.map((ev: any) => (
                                             <option key={ev.name} value={ev.name}>{ev.label}</option>
                                         ))}
                                     </select>
@@ -420,12 +539,12 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
                                     <select 
                                         className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
                                         value={interaction.action}
-                                        onChange={(e) => handleUpdateInteraction(interaction.id, 'action', e.target.value)}
+                                        onChange={(e) => onUpdate(interaction.id, 'action', e.target.value)}
                                     >
                                         <option value="navigate">Navigate to Page</option>
                                         <option value="showToast">Show Toast</option>
                                         <option value="runQuery">Run Query</option>
-                                        <option value="openModal">Open Modal</option>
+                                        <option value="setState">Set State</option>
                                     </select>
                                 </div>
 
@@ -437,7 +556,7 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
                                             className="h-8 text-xs" 
                                             placeholder="/home"
                                             value={interaction.params?.url || ''}
-                                            onChange={(e) => handleUpdateInteraction(interaction.id, 'params', { ...interaction.params, url: e.target.value })}
+                                            onChange={(e) => onUpdate(interaction.id, 'params', { ...interaction.params, url: e.target.value })}
                                         />
                                     </div>
                                 )}
@@ -448,7 +567,7 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
                                             className="h-8 text-xs" 
                                             placeholder="Success!"
                                             value={interaction.params?.message || ''}
-                                            onChange={(e) => handleUpdateInteraction(interaction.id, 'params', { ...interaction.params, message: e.target.value })}
+                                            onChange={(e) => onUpdate(interaction.id, 'params', { ...interaction.params, message: e.target.value })}
                                         />
                                     </div>
                                 )}
@@ -459,6 +578,66 @@ const InteractionTabContent = ({ item, onUpdate }: { item: GridItemData, onUpdat
             )}
         </div>
     );
+}
+
+const WidgetInteractionTab = ({ item, onUpdate }: { item: GridItemData, onUpdate: (id: string, updates: Partial<GridItemData>) => void }) => {
+    const widgetDef = registry.get(item.type);
+    const events = widgetDef?.manifest.events || [];
+    const interactions = item.content?._interactions || [];
+
+    const handleAdd = () => {
+        if (events.length === 0) return;
+        const newInteraction = { id: `int_${Date.now()}`, event: events[0].name, action: 'navigate', params: {} };
+        onUpdate(item.i, { content: { ...item.content, _interactions: [...interactions, newInteraction] } });
+    };
+
+    const handleRemove = (id: string) => {
+        onUpdate(item.i, { content: { ...item.content, _interactions: interactions.filter((i: any) => i.id !== id) } });
+    };
+
+    const handleUpdateInteraction = (id: string, key: string, value: any) => {
+        onUpdate(item.i, { content: { ...item.content, _interactions: interactions.map((i: any) => i.id === id ? { ...i, [key]: value } : i) } });
+    };
+
+    return <InteractionList events={events} interactions={interactions} onAdd={handleAdd} onRemove={handleRemove} onUpdate={handleUpdateInteraction} />;
+};
+
+const PageInteractionTab = ({ page, onUpdate }: { page: Page, onUpdate: (updates: Partial<Page>) => void }) => {
+    const events = [{ name: 'onMount', label: 'On Page Load' }];
+    const content = page.content || {};
+    const interactions = content.lifecycle?.onMount || [];
+
+    // Helper to store interactions in the flat list for UI, but map back to structured 'lifecycle' object in Page
+    const handleAdd = () => {
+        const newInteraction = { id: `int_${Date.now()}`, event: 'onMount', action: 'showToast', params: { message: 'Page Loaded' } };
+        onUpdate({ 
+            content: { 
+                ...content, 
+                lifecycle: { ...content.lifecycle, onMount: [...interactions, newInteraction] } 
+            } 
+        });
+    };
+
+    const handleRemove = (id: string) => {
+        onUpdate({ 
+            content: { 
+                ...content, 
+                lifecycle: { ...content.lifecycle, onMount: interactions.filter((i: any) => i.id !== id) } 
+            } 
+        });
+    };
+
+    const handleUpdateInteraction = (id: string, key: string, value: any) => {
+        const updated = interactions.map((i: any) => i.id === id ? { ...i, [key]: value } : i);
+        onUpdate({ 
+            content: { 
+                ...content, 
+                lifecycle: { ...content.lifecycle, onMount: updated } 
+            } 
+        });
+    };
+
+    return <InteractionList events={events} interactions={interactions} onAdd={handleAdd} onRemove={handleRemove} onUpdate={handleUpdateInteraction} />;
 };
 
 // --- Main Panel ---
@@ -480,132 +659,110 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<PanelTab>('DESIGN');
 
-  // Prepare widget definitions
+  // Prepare definitions
   const widgetDef = selectedItem ? registry.get(selectedItem.type) : null;
   
-  // Define available tabs based on widget definition
+  // Calculate Available Tabs
   const availableTabs = useMemo(() => {
       const tabs: { id: PanelTab; label: string; icon: any }[] = [
           { id: 'DESIGN', label: 'Design', icon: Palette }
       ];
 
-      if (widgetDef?.manifest.data) {
+      // Page always has Data (State/Query) and Interaction (Lifecycle)
+      if (!selectedItem) {
           tabs.push({ id: 'DATA', label: 'Data', icon: Database });
+          tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
+      } else {
+          // Widget specific
+          if (widgetDef?.manifest.data) {
+              tabs.push({ id: 'DATA', label: 'Data', icon: Database });
+          }
+          // Widget interactions
+          if (widgetDef?.manifest.events && widgetDef.manifest.events.length > 0) {
+              tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
+          }
       }
 
-      tabs.push({ id: 'INTERACTION', label: 'Behavior', icon: Zap });
-
       return tabs;
-  }, [widgetDef]);
+  }, [widgetDef, selectedItem]);
 
-  // Ensure activeTab is valid for current selection
+  // Ensure activeTab is valid
   useEffect(() => {
-      if (selectedItem && !availableTabs.some(t => t.id === activeTab)) {
+      if (!availableTabs.some(t => t.id === activeTab)) {
           setActiveTab('DESIGN');
       }
   }, [selectedItem, availableTabs, activeTab]);
 
-  const properties = widgetDef ? widgetDef.manifest.properties : [];
-
-  const groupedProps = useMemo(() => {
-      const groups: Record<string, PropDefinition[]> = {};
-      if (!properties) return groups;
-      
-      properties.forEach(prop => {
-          const groupName = prop.group || 'General';
-          if (!groups[groupName]) groups[groupName] = [];
-          groups[groupName].push(prop);
-      });
-      return groups;
-  }, [properties]);
-
-  // Page Properties Render
-  if (!selectedItem) {
-      return (
-        <div 
-            style={{ width }}
-            className="bg-card flex flex-col h-full shrink-0 overflow-hidden transition-colors border-l border-border"
-        >
-             <div className="p-4 border-b border-border bg-card shrink-0">
-                 <div className="flex items-center gap-2 mb-1">
-                    <LayoutGrid size={16} className="text-primary" />
-                    <span className="text-sm font-semibold">Page Properties</span>
-                 </div>
-                 <p className="text-xs text-muted-foreground">Configure general page settings.</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
-                <Accordion title="General">
-                    <div className="space-y-4">
-                        <div>
-                            <ControlHeader label="Page name" fx={false} />
-                            <Input 
-                                value={pageSettings?.name || ''} 
-                                onChange={(e) => onPageUpdate && onPageUpdate({ name: e.target.value })}
-                                className="h-8 text-xs"
-                            />
-                        </div>
-                        <div className="pt-2 space-y-2">
-                             <div className="flex items-center justify-between">
-                                <Label className="text-[11px] text-muted-foreground">Mark as Home</Label>
-                                <Switch 
-                                    checked={pageSettings?.isHome}
-                                    onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isHome: checked })}
-                                />
-                             </div>
-                             <div className="flex items-center justify-between">
-                                <Label className="text-[11px] text-muted-foreground">Disable</Label>
-                                <Switch 
-                                    checked={pageSettings?.isDisabled}
-                                    onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isDisabled: checked })}
-                                />
-                             </div>
-                        </div>
-                    </div>
-                </Accordion>
-                <Accordion title="Layout">
-                    <div>
-                        <ControlHeader label="Height (px)" fx={false} />
-                        <Input 
-                            value={pageSettings?.height} 
-                            onChange={(e) => onPageUpdate && onPageUpdate({ height: e.target.value })}
-                            className="h-8 text-xs"
+  // --- Page Design Tab Render ---
+  const renderPageDesign = () => (
+      <>
+        <Accordion title="General">
+            <div className="space-y-4">
+                <div>
+                    <ControlHeader label="Page name" fx={false} />
+                    <Input 
+                        value={pageSettings?.name || ''} 
+                        onChange={(e) => onPageUpdate && onPageUpdate({ name: e.target.value })}
+                        className="h-8 text-xs"
+                    />
+                </div>
+                <div className="pt-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-muted-foreground">Mark as Home</Label>
+                        <Switch 
+                            checked={pageSettings?.isHome}
+                            onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isHome: checked })}
                         />
-                    </div>
-                </Accordion>
+                        </div>
+                        <div className="flex items-center justify-between">
+                        <Label className="text-[11px] text-muted-foreground">Disable</Label>
+                        <Switch 
+                            checked={pageSettings?.isDisabled}
+                            onCheckedChange={(checked) => onPageUpdate && onPageUpdate({ isDisabled: checked })}
+                        />
+                        </div>
+                </div>
             </div>
-        </div>
-      );
-  }
+        </Accordion>
+        <Accordion title="Layout">
+            <div>
+                <ControlHeader label="Height (px)" fx={false} />
+                <Input 
+                    value={pageSettings?.height} 
+                    onChange={(e) => onPageUpdate && onPageUpdate({ height: e.target.value })}
+                    className="h-8 text-xs"
+                />
+            </div>
+        </Accordion>
+      </>
+  );
 
-  // --- Widget Properties Render ---
+  // --- Widget Design Tab Render ---
+  const renderWidgetDesign = () => {
+      const properties = widgetDef ? widgetDef.manifest.properties : [];
+      const groupedProps = properties.reduce((acc, prop) => {
+          const groupName = prop.group || 'General';
+          if (!acc[groupName]) acc[groupName] = [];
+          acc[groupName].push(prop);
+          return acc;
+      }, {} as Record<string, PropDefinition[]>);
 
-  const handleContentChange = (key: string, val: any) => {
-      if (onUpdate && selectedItem) {
-          onUpdate(selectedItem.i, { 
-              content: { ...selectedItem.content, [key]: val } 
-          });
-      }
-  };
+      if (Object.keys(groupedProps).length === 0) return <div className="p-4 text-xs text-muted-foreground">No configurable properties.</div>;
 
-  const renderDesignTab = () => {
-      const entries = Object.entries(groupedProps);
-      if (entries.length === 0) return <div className="p-4 text-xs text-muted-foreground">No configurable properties.</div>;
-
-      return entries.map(([groupName, props]) => (
+      return Object.entries(groupedProps).map(([groupName, props]) => (
           <Accordion key={groupName} title={groupName}>
               <div className="space-y-4">
                   {props.map(prop => {
                       const Control = SETTER_COMPONENTS[prop.setter?.component || 'text'] || TextControl;
                       const isSwitch = prop.setter?.component === 'switch';
-                      const value = selectedItem.content?.[prop.name] ?? prop.defaultValue;
+                      const value = selectedItem?.content?.[prop.name] ?? prop.defaultValue;
 
                       return (
                           <div key={prop.name}>
                               {!isSwitch && <ControlHeader label={prop.label} />}
                               <Control 
                                   value={value}
-                                  onChange={(val) => handleContentChange(prop.name, val)}
+                                  onChange={(val) => onUpdate && selectedItem && onUpdate(selectedItem.i, { content: { ...selectedItem.content, [prop.name]: val } })}
                                   propDef={prop}
                               />
                           </div>
@@ -616,33 +773,32 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
       ));
   };
 
+  const panelTitle = selectedItem ? (selectedItem.title || selectedItem.type) : (pageSettings?.name || 'Page');
+  const panelIcon = selectedItem ? (widgetDef?.manifest.icon || LayoutGrid) : LayoutGrid;
+  const PanelIcon = panelIcon;
+
   return (
     <div 
       style={{ width }}
       className="bg-card flex flex-col h-full shrink-0 overflow-hidden transition-colors border-l border-border"
     >
-      
       {/* Header */}
       <div className="p-4 border-b border-border bg-card shrink-0">
          <div className="flex items-center gap-2 mb-4">
             <div className="flex-1 relative">
                 <div className="text-[10px] text-muted-foreground font-mono mb-1 uppercase tracking-wider flex items-center gap-1">
-                    {widgetDef?.manifest.icon && <widgetDef.manifest.icon size={10} />}
-                    {selectedItem.type}
+                    <PanelIcon size={12} />
+                    {selectedItem ? 'COMPONENT' : 'PAGE'}
                 </div>
-                <div className="flex items-center bg-muted/50 rounded border border-border px-2">
-                    <span className="text-xs text-muted-foreground mr-2">ID:</span>
-                    <input 
-                        type="text" 
-                        value={selectedItem.i}
-                        readOnly
-                        className="flex-1 h-7 text-xs font-mono bg-transparent outline-none text-foreground truncate"
-                    />
+                <div className="flex items-center bg-muted/50 rounded border border-border px-2 py-1">
+                    <span className="text-sm font-semibold truncate">{panelTitle}</span>
                 </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 mt-4">
-                <MoreVertical size={16} className="text-muted-foreground" />
-            </Button>
+            {selectedItem && (
+                <Button variant="ghost" size="icon" className="h-8 w-8 mt-4">
+                    <MoreVertical size={16} className="text-muted-foreground" />
+                </Button>
+            )}
          </div>
 
          {/* Tabs */}
@@ -664,29 +820,28 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
          </div>
       </div>
 
-      {/* Content Scroll Area */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
         
+        {/* DESIGN */}
         {activeTab === 'DESIGN' && (
-            <>
-                <div className="pb-8">
-                    {renderDesignTab()}
-                </div>
-                <div className="p-4 mt-4 border-t border-border bg-muted/20">
-                    <a href="#" className="flex items-center gap-2 text-xs text-primary hover:underline transition-colors group">
-                        <ExternalLink size={12} />
-                        <span className="group-hover:underline">Read documentation</span>
-                    </a>
-                </div>
-            </>
+            <div className="pb-8">
+                {selectedItem ? renderWidgetDesign() : renderPageDesign()}
+            </div>
         )}
 
-        {activeTab === 'DATA' && widgetDef?.manifest.data && (
-            <DataTabContent item={selectedItem} onUpdate={onUpdate!} />
+        {/* DATA */}
+        {activeTab === 'DATA' && (
+            selectedItem 
+                ? <WidgetDataTab item={selectedItem} onUpdate={onUpdate!} />
+                : pageSettings && <PageDataTab page={pageSettings} onUpdate={onPageUpdate!} />
         )}
 
+        {/* INTERACTION */}
         {activeTab === 'INTERACTION' && (
-            <InteractionTabContent item={selectedItem} onUpdate={onUpdate!} />
+            selectedItem
+                ? <WidgetInteractionTab item={selectedItem} onUpdate={onUpdate!} />
+                : pageSettings && <PageInteractionTab page={pageSettings} onUpdate={onPageUpdate!} />
         )}
 
       </div>

@@ -1,5 +1,3 @@
-
-
 export enum FileType {
   FILE = 'FILE',
   FOLDER = 'FOLDER'
@@ -35,6 +33,20 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface QueryConfig {
+  id?: string;
+  type?: string;
+  definition: {
+    source?: string;
+    tableId?: string;
+    select?: string[];
+    orderBy?: string;
+    orderDir?: 'asc' | 'desc';
+    limit?: number;
+    [key: string]: any;
+  };
+}
+
 export interface Page {
   id: string;
   name: string;
@@ -46,6 +58,14 @@ export interface Page {
   isHidden: boolean;
   isDisabled: boolean;
   height: string;
+  content?: {
+    state?: Record<string, any>;
+    queries?: Record<string, QueryConfig>;
+    lifecycle?: {
+      onMount?: any[];
+    };
+    [key: string]: any;
+  };
 }
 
 export interface DbTable {

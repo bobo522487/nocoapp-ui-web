@@ -1,7 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import DataGrid from '../../../components/DataGrid';
-import { ColumnDef } from '../../../components/DataTable';
+import { SmartGrid } from '../components/SmartGrid/SmartGrid';
 import { useAppStore } from '../../../store/useAppStore';
 import { SchemaField, DbTable, ViewConfig, DbView } from '../../../types';
 import { FileKey, Type, Mail, CheckCircle2, Calendar, DollarSign, Package, ShoppingCart, ArrowUpDown, Database, TableIcon, Plus, Hash, Braces, ToggleLeft, Link2, Settings2, Save, Filter } from 'lucide-react';
@@ -13,6 +11,8 @@ import { Input } from "../../../components/ui/input";
 import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDrawer';
 import CreateColumnDrawer from '../components/CreateColumnDrawer';
 import { MOCK_DB } from '../../../store/mockData';
+import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
+import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
 
 // --- Configuration ---
 const TYPE_CONFIG: Record<string, { pk: boolean; fk: boolean; unique: boolean; notNull: boolean }> = {
@@ -67,11 +67,6 @@ const DataPage: React.FC = () => {
   // View Management
   const activeView = views.find(v => v.id === activeViewId);
   const currentTable = tables.find(t => t.id === activeTableId);
-  const title = currentTable ? currentTable.name : activeTableId;
-
-  // View Name Edit State (Currently handled in Breadcrumb or TablePanel in future, but functionality preserved here via store actions if needed)
-  // Since header is removed, renaming view via header is no longer accessible here.
-  // Renaming view is supported via Sidebar Context Menu.
 
   // Auto-switch to default view if none active for this table
   useEffect(() => {
@@ -102,12 +97,9 @@ const DataPage: React.FC = () => {
   // Handlers
   const handleViewConfigChange = (newConfig: ViewConfig) => {
       if (activeView) {
-          // Debounce could be added here if needed, but for now direct update
           updateView(activeView.id, { config: newConfig });
       }
   };
-
-  // --- Handlers for DataGrid Actions ---
 
   const handleSchemaChange = (rowId: string | number, colId: string, value: any) => {
       setSchema(prev => prev.map(field => {
@@ -234,7 +226,7 @@ const DataPage: React.FC = () => {
       setRecords(prev => prev.filter(rec => !idsToDelete.has(String(rec.id))));
   };
 
-  // --- Column Definitions ---
+  // --- Legacy Model Columns Definition (Kept for Model View if using legacy grid) ---
   const modelColumns: ColumnDef<SchemaField>[] = [
       {
           id: 'name',
@@ -340,42 +332,12 @@ const DataPage: React.FC = () => {
       }
   ];
 
-  const dataColumns: ColumnDef<any>[] = schema.map(field => ({
-      id: field.id,
-      header: (
-          <div className="flex items-center gap-2 w-full">
-             {field.icon && <field.icon size={13} className="text-muted-foreground shrink-0" />}
-             <span className="truncate">{field.name}</span>
-             {field.timeZone && TIMEZONE_OFFSET_MAP[field.timeZone] && (
-                 <Badge variant="outline" className="ml-auto text-[10px] h-4 px-1 text-muted-foreground font-normal border-muted-foreground/30 shrink-0">
-                     {TIMEZONE_OFFSET_MAP[field.timeZone]}
-                 </Badge>
-             )}
-          </div>
-      ),
-      accessorKey: field.id,
-      width: field.flex ? undefined : field.width,
-      flex: field.flex,
-      minWidth: 100,
-      type: (field.type === 'int' || field.type === 'float' || field.type === 'bigint' || field.type === 'serial') ? 'number' : 'text',
-      editable: field.id !== 'id' && field.id !== 'created',
-      renderCell: (row, value) => {
-          if (field.id === 'status') {
-               const variant = value === 'Active' || value === 'Completed' ? 'default' : value === 'Inactive' || value === 'Damage' ? 'destructive' : 'secondary';
-               const className = variant === 'secondary' ? "text-foreground bg-muted" : "";
-               return <Badge variant={variant} className={`text-[10px] h-5 px-1.5 font-normal ${className}`}>{value}</Badge>;
-          }
-          if (field.id === 'role') return <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-muted/30 text-foreground">{value}</Badge>;
-          return <span className="truncate text-foreground pl-1">{value}</span>;
-      }
-  }));
-
   return (
     <div className="flex-1 flex flex-col w-full h-full bg-background relative min-w-0">
       
-      {/* Top Header Area Removed */}
-    
       {dataViewMode === 'MODEL' ? (
+          // Keeping Legacy DataGrid for Model View for now as it has specific custom renderers for Switch/Checkbox in cells
+          // or we could upgrade Model View to SmartGrid later too.
           <DataGrid<SchemaField>
             columns={modelColumns}
             data={schema}
@@ -384,24 +346,17 @@ const DataPage: React.FC = () => {
             onEdit={handleSchemaChange}
             onDelete={handleSchemaDelete}
             keyField="id"
-            // Hide Title and Search for Model View as well, or keep standard grid behavior
-            // Usually Model View doesn't need the standard data search/filter toolbar as much, or uses its own
-            // For consistency with request, we hide toolbar here too or rely on standard props
             hideToolbar={true} 
           />
       ) : (
-          <DataGrid<any>
-            columns={dataColumns}
+          // Using new SmartGrid for Data View
+          <SmartGrid<any>
             data={records}
-            onAdd={handleDataAdd}
-            addItemLabel="New Row"
+            schema={schema}
+            onCellEdit={handleDataChange}
             onAddColumn={handleSchemaAddClick}
-            onEdit={handleDataChange}
-            onDelete={handleDataDelete}
-            keyField="id"
-            viewConfig={activeView?.config}
-            onViewConfigChange={handleViewConfigChange}
-            hideToolbar={true} // Hides redundant title/search row
+            onAddRow={handleDataAdd}
+            onRowSelect={() => {}} // Handle selection state if needed
           />
       )}
 

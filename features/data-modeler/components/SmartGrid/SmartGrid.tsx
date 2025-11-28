@@ -1,5 +1,5 @@
 
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect, useContext } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,8 +11,12 @@ import {
   getPaginationRowModel,
   ColumnFiltersState,
   getFilteredRowModel,
+  getGroupedRowModel,
+  getExpandedRowModel,
+  GroupingState,
+  ExpandedState,
 } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
 import { Checkbox } from "../../../../../components/ui/checkbox";
 import { Button } from "../../../../../components/ui/button";
 import { SchemaField } from '../../../../types';
@@ -20,7 +24,24 @@ import GridHeader from './GridHeader';
 import { GridToolbar } from './GridToolbar';
 import { CellFactory } from './CellFactory';
 import { cn } from '../../../../lib/utils';
-import { Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, GripVertical } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, GripVertical, ChevronDown } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SmartGridProps<T> {
   data: T[];
@@ -29,8 +50,76 @@ interface SmartGridProps<T> {
   onAddColumn?: () => void;
   onAddRow?: () => void;
   onRowSelect?: (selectedIds: (string | number)[]) => void;
+  onRowReorder?: (activeId: string, overId: string) => void;
   isLoading?: boolean;
 }
+
+// --- Drag Context & Components ---
+
+const RowDragContext = React.createContext<{ attributes: any; listeners: any }>({ attributes: {}, listeners: {} });
+
+const DragHandleCell = () => {
+    const { attributes, listeners } = useContext(RowDragContext);
+    return (
+       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground">
+          <GripVertical size={12} />
+       </div>
+    );
+};
+
+interface SortableRowProps {
+    row: Row<any>;
+    virtualRow: VirtualItem;
+    children: React.ReactNode;
+    key?: React.Key;
+}
+
+const SortableRow = ({ row, virtualRow, children }: SortableRowProps) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: row.original.id });
+
+    const transformState = CSS.Translate.toString(transform);
+    const translateY = `translateY(${virtualRow.start}px)`;
+    
+    // Combine absolute positioning from virtualization with dnd transform
+    const combinedTransform = transformState ? `${translateY} ${transformState}` : translateY;
+
+    const style: React.CSSProperties = {
+        transform: combinedTransform,
+        transition,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: `${virtualRow.size}px`,
+        zIndex: isDragging ? 1 : 'auto', // Lower z-index for the placeholder
+    };
+
+    return (
+        <RowDragContext.Provider value={{ attributes, listeners }}>
+            <div 
+                ref={setNodeRef} 
+                style={style} 
+                className={cn(
+                    "flex w-full border-b border-border transition-colors box-border group",
+                    // Placeholder Styling when dragging
+                    isDragging 
+                        ? "bg-muted/30 opacity-50 border-dashed border-primary/50 z-0" 
+                        : "hover:bg-muted/20 bg-background",
+                    row.getIsSelected() && !isDragging && "bg-muted/40"
+                )}
+            >
+                {children}
+            </div>
+        </RowDragContext.Provider>
+    );
+};
 
 // --- Helper to generate React Table columns from Schema ---
 const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
@@ -43,29 +132,29 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
             const isSelectionActive = isAllSelected || isSomeSelected;
 
             return (
-                <div className="flex items-center w-full h-full relative">
+                <div className="flex items-center w-full h-full relative group justify-center">
                     <span className={cn(
-                        "text-[10px] text-muted-foreground/60 font-mono select-none text-left flex-1",
+                        "text-[10px] text-muted-foreground/60 font-mono select-none text-left absolute left-2",
                         isSelectionActive ? "hidden" : "group-hover:hidden"
                     )}>
                         #
                     </span>
                     <div className={cn(
-                        "flex items-center justify-end w-full",
+                        "items-center justify-center w-full",
                         isSelectionActive ? "flex" : "hidden group-hover:flex"
                     )}>
                         <Checkbox
                             checked={isAllSelected || (isSomeSelected ? "indeterminate" : false)}
                             onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
                             aria-label="Select all"
-                            className="h-3.5 w-3.5 border-muted-foreground/50 data-[state=checked]:border-primary bg-background/50 ml-auto"
+                            className="h-3.5 w-3.5 border-muted-foreground/50 data-[state=checked]:border-primary bg-background/50"
                         />
                     </div>
                 </div>
             );
         },
         cell: ({ row }) => (
-            <div className="flex items-center w-full h-full relative pl-2 pr-1.5">
+            <div className="flex items-center w-full h-full relative pl-2 pr-1.5 group">
                 {/* Default: Number (Left Aligned) */}
                 <span className={cn(
                     "text-[10px] text-muted-foreground font-mono transition-opacity select-none text-left flex-1",
@@ -79,7 +168,7 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
                     "items-center justify-between w-full",
                     row.getIsSelected() ? "flex" : "hidden group-hover:flex"
                 )}>
-                    <GripVertical size={12} className="text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing -ml-1" />
+                    <DragHandleCell />
                     <Checkbox
                         checked={row.getIsSelected()}
                         onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -121,24 +210,74 @@ export const SmartGrid = <T extends { id: string | number }>({
     onCellEdit,
     onAddColumn,
     onAddRow,
-    onRowSelect
+    onRowSelect,
+    onRowReorder
 }: SmartGridProps<T>) => {
+  const rootRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [grouping, setGrouping] = useState<GroupingState>([]);
+  const [expanded, setExpanded] = useState<ExpandedState>({});
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 50,
   });
   const [density, setDensity] = useState<DensityState>('short');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Drag State
+  const [activeId, setActiveId] = useState<string | null>(null);
   
   // Cell Navigation & Editing State
   const [focusedCell, setFocusedCell] = useState<{ rowId: string, colId: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowId: string, colId: string } | null>(null);
 
   const columns = useMemo(() => generateColumns(schema), [schema]);
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+        activationConstraint: {
+            distance: 8,
+        },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+      setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+      const { active, over } = event;
+      if (over && active.id !== over.id && onRowReorder) {
+          onRowReorder(active.id as string, over.id as string);
+      }
+      setActiveId(null);
+  }, [onRowReorder]);
+
+  // Fullscreen logic
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!rootRef.current) return;
+    if (!document.fullscreenElement) {
+      rootRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const table = useReactTable({
     data,
@@ -147,17 +286,23 @@ export const SmartGrid = <T extends { id: string | number }>({
       rowSelection,
       sorting,
       columnFilters,
-      pagination,
       globalFilter,
+      grouping,
+      expanded,
+      pagination,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onGroupingChange: setGrouping,
+    onExpandedChange: setExpanded,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     columnResizeMode: 'onChange',
     defaultColumn: {
@@ -187,7 +332,7 @@ export const SmartGrid = <T extends { id: string | number }>({
   const rowHeight = getRowHeight();
 
   // Virtualization
-  const { rows } = table.getRowModel(); // These are the paginated rows
+  const { rows } = table.getRowModel(); // These are the paginated, filtered, grouped rows
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => tableContainerRef.current,
@@ -269,9 +414,15 @@ export const SmartGrid = <T extends { id: string | number }>({
       }
   }, [focusedCell, editingCell, rows, table]);
 
+  const activeRow = activeId ? rows.find(r => r.original.id === activeId) : null;
+
   return (
-    <div className="flex flex-col h-full w-full bg-background select-none text-sm font-sans relative" tabIndex={0} onKeyDown={handleKeyDown}>
-        
+    <div 
+        ref={rootRef}
+        className="flex flex-col h-full w-full bg-background select-none text-sm font-sans relative" 
+        tabIndex={0} 
+        onKeyDown={handleKeyDown}
+    >
         {/* Toolbar */}
         <GridToolbar 
             table={table} 
@@ -279,6 +430,8 @@ export const SmartGrid = <T extends { id: string | number }>({
             onAddRecord={onAddRow} 
             density={density}
             setDensity={setDensity}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
         />
 
         {/* Scrollable Area (Header + Body) */}
@@ -293,62 +446,138 @@ export const SmartGrid = <T extends { id: string | number }>({
                 </div>
 
                 {/* Virtualized Rows */}
-                <div
-                    style={{
-                        height: `${rowVirtualizer.getTotalSize()}px`,
-                        position: 'relative',
-                    }}
+                <DndContext 
+                    sensors={sensors} 
+                    collisionDetection={closestCenter} 
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                 >
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const row = rows[virtualRow.index];
-                        const isRowSelected = row.getIsSelected();
-                        
-                        return (
-                            <div
-                                key={row.id}
-                                data-index={virtualRow.index}
-                                className={cn(
-                                    "absolute left-0 top-0 flex w-full border-b border-border transition-colors hover:bg-muted/20 box-border group",
-                                    isRowSelected && "bg-muted/40"
-                                )}
-                                style={{
-                                    transform: `translateY(${virtualRow.start}px)`,
-                                    height: `${virtualRow.size}px`,
-                                }}
-                            >
-                                {row.getVisibleCells().map((cell) => {
-                                    const isFocused = focusedCell?.rowId === String(row.original.id) && focusedCell?.colId === cell.column.id;
-                                    const isEditing = editingCell?.rowId === String(row.original.id) && editingCell?.colId === cell.column.id;
-                                    const fieldDef = (cell.column.columnDef.meta as any)?.fieldDef;
+                    <SortableContext 
+                        items={rows.map(row => row.original.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <div
+                            style={{
+                                height: `${rowVirtualizer.getTotalSize()}px`,
+                                position: 'relative',
+                            }}
+                        >
+                            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                                const row = rows[virtualRow.index];
+                                const isGrouped = row.getIsGrouped();
+                                
+                                // Group Header Row
+                                if (isGrouped) {
+                                    const groupColumn = table.getColumn(row.groupingColumnId);
+                                    const groupLabel = (groupColumn?.columnDef.meta as any)?.fieldDef?.name || table.getColumn(row.groupingColumnId)?.id;
 
                                     return (
                                         <div
-                                            key={cell.id}
-                                            className={cn(
-                                                "flex items-center border-r border-border h-full relative outline-none",
-                                                cell.column.getIsPinned() && "sticky left-0 bg-background z-10 shadow-[1px_0_0_hsl(var(--border))]",
-                                                isFocused && "ring-2 ring-primary z-10 inset-0"
-                                            )}
+                                            key={row.id}
+                                            data-index={virtualRow.index}
+                                            className="absolute left-0 top-0 flex w-full border-b border-border bg-muted/10 transition-colors hover:bg-muted/20 items-center px-2 box-border"
                                             style={{
-                                                width: cell.column.getSize(),
+                                                transform: `translateY(${virtualRow.start}px)`,
+                                                height: `${virtualRow.size}px`,
                                             }}
-                                            onClick={() => handleCellClick(String(row.original.id), cell.column.id)}
-                                            onDoubleClick={() => handleCellDoubleClick(String(row.original.id), cell.column.id)}
+                                        >
+                                            <div 
+                                                className="flex items-center gap-2 cursor-pointer font-medium text-foreground w-full"
+                                                style={{ paddingLeft: `${row.depth * 20}px` }}
+                                                onClick={row.getToggleExpandedHandler()}
+                                            >
+                                                <div className="p-0.5 rounded-sm hover:bg-muted-foreground/10 transition-colors">
+                                                    {row.getIsExpanded() ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                </div>
+                                                <span className="text-muted-foreground text-xs uppercase tracking-wide">
+                                                    {groupLabel}:
+                                                </span>
+                                                <span>{row.getValue(row.groupingColumnId) as string}</span>
+                                                <span className="text-muted-foreground text-xs bg-muted px-1.5 rounded-full ml-1">
+                                                    {row.subRows.length}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // Sortable Standard Data Row wrapper
+                                return (
+                                    <SortableRow key={row.original.id} row={row} virtualRow={virtualRow}>
+                                        {row.getVisibleCells().map((cell) => {
+                                            const isFocused = focusedCell?.rowId === String(row.original.id) && focusedCell?.colId === cell.column.id;
+                                            const isEditing = editingCell?.rowId === String(row.original.id) && editingCell?.colId === cell.column.id;
+                                            const fieldDef = (cell.column.columnDef.meta as any)?.fieldDef;
+
+                                            // For aggregated cells in grouping, or empty placeholders
+                                            if (cell.getIsAggregated()) return null; 
+                                            if (cell.getIsPlaceholder()) return (
+                                                <div 
+                                                    key={cell.id} 
+                                                    className="flex items-center border-r border-border h-full bg-muted/5"
+                                                    style={{ width: cell.column.getSize() }} 
+                                                />
+                                            );
+
+                                            return (
+                                                <div
+                                                    key={cell.id}
+                                                    className={cn(
+                                                        "flex items-center border-r border-border h-full relative outline-none",
+                                                        cell.column.getIsPinned() && "sticky left-0 bg-background z-10 shadow-[1px_0_0_hsl(var(--border))]",
+                                                        isFocused && "ring-2 ring-primary z-10 inset-0"
+                                                    )}
+                                                    style={{
+                                                        width: cell.column.getSize(),
+                                                    }}
+                                                    onClick={() => handleCellClick(String(row.original.id), cell.column.id)}
+                                                    onDoubleClick={() => handleCellDoubleClick(String(row.original.id), cell.column.id)}
+                                                >
+                                                    {fieldDef ? (
+                                                        <CellFactory
+                                                            value={cell.getValue()}
+                                                            columnDef={fieldDef}
+                                                            isEditing={isEditing}
+                                                            autoFocus={isEditing}
+                                                            onValueChange={(val) => onCellEdit?.(row.original.id, fieldDef.id, val)}
+                                                            onBlur={() => setEditingCell(null)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    setEditingCell(null);
+                                                                }
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </SortableRow>
+                                );
+                            })}
+                        </div>
+                    </SortableContext>
+                    
+                    {/* Drag Overlay for smooth following */}
+                    <DragOverlay>
+                        {activeRow && (
+                            <div 
+                                className="flex w-full border border-primary bg-background shadow-xl opacity-95 items-center box-border overflow-hidden"
+                                style={{ height: `${rowHeight}px` }}
+                            >
+                                {activeRow.getVisibleCells().map(cell => {
+                                    if (cell.getIsAggregated() || cell.getIsPlaceholder()) return null;
+                                    const fieldDef = (cell.column.columnDef.meta as any)?.fieldDef;
+                                    return (
+                                        <div 
+                                            key={cell.id}
+                                            className="flex items-center border-r border-border h-full px-2 overflow-hidden"
+                                            style={{ width: cell.column.getSize() }}
                                         >
                                             {fieldDef ? (
-                                                <CellFactory
-                                                    value={cell.getValue()}
-                                                    columnDef={fieldDef}
-                                                    isEditing={isEditing}
-                                                    autoFocus={isEditing}
-                                                    onValueChange={(val) => onCellEdit?.(row.original.id, fieldDef.id, val)}
-                                                    onBlur={() => setEditingCell(null)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            setEditingCell(null);
-                                                        }
-                                                    }}
-                                                />
+                                                // Simplified Render for Drag Preview (non-interactive)
+                                                <span className="truncate">{String(cell.getValue())}</span>
                                             ) : (
                                                 flexRender(cell.column.columnDef.cell, cell.getContext())
                                             )}
@@ -356,9 +585,9 @@ export const SmartGrid = <T extends { id: string | number }>({
                                     );
                                 })}
                             </div>
-                        );
-                    })}
-                </div>
+                        )}
+                    </DragOverlay>
+                </DndContext>
 
                 {/* Append Row (Ghost Row) */}
                 <div 
@@ -385,7 +614,7 @@ export const SmartGrid = <T extends { id: string | number }>({
             </div>
         </div>
         
-        {/* Floating Add New Record Button (Bottom Left) - Kept as alternative access */}
+        {/* Floating Add New Record Button (Bottom Left) */}
         <div className="absolute bottom-12 left-4 z-30">
             <div className="flex shadow-lg rounded-md overflow-hidden bg-background border border-border">
                 <Button 

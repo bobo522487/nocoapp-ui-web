@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Filter, ArrowUpDown, Columns, PaintBucket, Download, MoreHorizontal, Plus, X, Check, MoveVertical } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, Columns, MoreHorizontal, Plus, X, Check, MoveVertical, ListTree, Maximize, Minimize } from 'lucide-react';
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { Separator } from "../../../../../components/ui/separator";
@@ -15,6 +15,8 @@ interface GridToolbarProps<T> {
   onAddRecord?: () => void;
   density: DensityState;
   setDensity: (d: DensityState) => void;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
 }
 
 // --- Helper Components ---
@@ -83,8 +85,8 @@ const ToolbarPopover = ({
     );
 };
 
-export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDensity }: GridToolbarProps<T>) => {
-  const [activePopover, setActivePopover] = useState<'fields' | 'filter' | 'sort' | 'height' | null>(null);
+export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDensity, isFullscreen, onToggleFullscreen }: GridToolbarProps<T>) => {
+  const [activePopover, setActivePopover] = useState<'fields' | 'filter' | 'sort' | 'height' | 'group' | null>(null);
 
   // --- Handlers ---
 
@@ -115,6 +117,19 @@ export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDens
       setActivePopover(null);
   };
 
+  const handleAddGroup = (columnId: string) => {
+      const current = table.getState().grouping;
+      if (!current.includes(columnId)) {
+          table.setGrouping([...current, columnId]);
+      }
+      setActivePopover(null);
+  };
+
+  const handleRemoveGroup = (columnId: string) => {
+      const current = table.getState().grouping;
+      table.setGrouping(current.filter(c => c !== columnId));
+  };
+
   // Helper to extract string label from column metadata
   const getColumnLabel = (col: Column<T, unknown>) => {
       const meta = col.columnDef.meta as any;
@@ -126,6 +141,7 @@ export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDens
   const visibleColumns = table.getVisibleLeafColumns().filter(c => c.id !== 'select');
   const sortState = table.getState().sorting;
   const filterState = table.getState().columnFilters;
+  const groupState = table.getState().grouping;
 
   const densityOptions: { id: DensityState, label: string, iconPath1: string, iconPath2: string }[] = [
     { 
@@ -143,7 +159,7 @@ export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDens
     { 
         id: 'tall', 
         label: 'Tall', 
-        iconPath1: "M3 6H12.75M3 6V5H12.75V6M3 6V7M12.75 6V7M3 10.5H12.75M3 10.5V9.625M3 10.5V11.625M12.75 10.5V9.625M12.75 10.5V11.625M3 19.5H12.75M3 7H12.75M3 7V7.875M12.75 7V7.875M12.75 8.75H3M12.75 8.75V7.875M12.75 8.75V9.625M3 8.75V7.875M3 8.75V9.625M3 7.875H12.75M12.75 9.625V10.5H3V9.625M12.75 9.625H3M12.75 12.75H3M12.75 12.75V11.625M12.75 12.75V13.875M3 12.75V11.625M3 12.75V14M3 11.625H12.75M12.75 13.875V15H3V14M12.75 13.875L3 14", 
+        iconPath1: "M3 6H12.75M3 6V5H12.75V6M3 6V7M12.75 6V7M3 10.5H12.75M3 10.5V9.625M3 10.5V11.625M12.75 10.5V9.625M12.75 10.5V11.625M3 19.5H12.75M3 7H12.75M3 7V7.875M12.75 7V7.875M12.75 8.75H3M12.75 8.75V7.875M12.75 8.75V9.625M3 8.75V7.875M3 8.75V9.625M3 7.875H12.75M12.75 9.625V10.5H3V9.625M12.75 9.625H3M12.75 12.75H3M12.75 12.75V11.625M12.75 12.75V13.875M3 12.75V11.625M3 12.75V14M3 11.625H12.75M12.75 13.875L3 14", 
         iconPath2: "M18.5 5V19.5M18.5 5L15.5 8M18.5 5L21.5 8M18.5 19.5L15.5 16.5M18.5 19.5L21.5 16.5" 
     },
     { 
@@ -321,11 +337,56 @@ export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDens
         {/* Separator */}
         <div className="h-4 w-px bg-border mx-1" />
 
-        {/* Color (Visual only) */}
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5 hidden sm:flex">
-            <PaintBucket size={14} />
-            <span>Color</span>
-        </Button>
+        {/* Group (Replaces Color) */}
+        <ToolbarPopover
+            isOpen={activePopover === 'group'}
+            onOpenChange={(open) => setActivePopover(open ? 'group' : null)}
+            width={240}
+            trigger={
+                <Button variant={(activePopover === 'group' || groupState.length > 0) ? 'secondary' : 'ghost'} size="sm" className={cn("h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5 hidden sm:flex", groupState.length > 0 && "text-primary")}>
+                    <ListTree size={14} />
+                    <span>Group</span>
+                    {groupState.length > 0 && (
+                        <span className="bg-primary/10 text-primary text-[10px] px-1 rounded-sm">{groupState.length}</span>
+                    )}
+                </Button>
+            }
+        >
+            <div className="p-3 space-y-3">
+                <div className="text-xs font-semibold text-muted-foreground uppercase">Group by</div>
+                
+                {groupState.length > 0 ? (
+                    <div className="space-y-1">
+                        {groupState.map((groupId) => (
+                            <div key={groupId} className="flex items-center justify-between bg-muted/30 p-1.5 rounded border border-border">
+                                <span className="text-xs font-medium text-foreground px-1">{groupId}</span>
+                                <button onClick={() => handleRemoveGroup(groupId)} className="text-muted-foreground hover:text-foreground">
+                                    <X size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-xs text-muted-foreground italic text-center py-1">No active groupings</div>
+                )}
+
+                <Separator />
+
+                <div className="space-y-1">
+                    <div className="px-2 py-1 text-xs text-muted-foreground">Select column to group</div>
+                    {allColumns.filter(c => !groupState.includes(c.id)).map(col => (
+                        <div 
+                            key={col.id} 
+                            className="flex items-center justify-between px-2 py-1.5 hover:bg-muted rounded-sm cursor-pointer"
+                            onClick={() => handleAddGroup(col.id)}
+                        >
+                            <span className="text-xs text-foreground">{getColumnLabel(col)}</span>
+                            <Plus size={12} className="text-muted-foreground" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </ToolbarPopover>
 
         {/* Height (Density) */}
         <ToolbarPopover
@@ -376,8 +437,14 @@ export const GridToolbar = <T,>({ table, onSearch, onAddRecord, density, setDens
                 onChange={(e) => onSearch(e.target.value)}
             />
         </div>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-            <Download size={14} />
+        <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+        >
+            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
         </Button>
       </div>
     </div>

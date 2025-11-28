@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { SmartGrid } from '../components/SmartGrid/SmartGrid';
 import { useAppStore } from '../../../store/useAppStore';
@@ -13,6 +14,7 @@ import CreateColumnDrawer from '../components/CreateColumnDrawer';
 import { MOCK_DB } from '../../../store/mockData';
 import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
 import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
+import { arrayMove } from '@dnd-kit/sortable';
 
 // --- Configuration ---
 const TYPE_CONFIG: Record<string, { pk: boolean; fk: boolean; unique: boolean; notNull: boolean }> = {
@@ -226,6 +228,14 @@ const DataPage: React.FC = () => {
       setRecords(prev => prev.filter(rec => !idsToDelete.has(String(rec.id))));
   };
 
+  const handleRowReorder = (activeId: string, overId: string) => {
+      setRecords((items) => {
+          const oldIndex = items.findIndex((item) => item.id === activeId);
+          const newIndex = items.findIndex((item) => item.id === overId);
+          return arrayMove(items, oldIndex, newIndex);
+      });
+  };
+
   // --- Legacy Model Columns Definition (Kept for Model View if using legacy grid) ---
   const modelColumns: ColumnDef<SchemaField>[] = [
       {
@@ -357,6 +367,7 @@ const DataPage: React.FC = () => {
             onAddColumn={handleSchemaAddClick}
             onAddRow={handleDataAdd}
             onRowSelect={() => {}} // Handle selection state if needed
+            onRowReorder={handleRowReorder}
           />
       )}
 

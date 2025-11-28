@@ -1,7 +1,6 @@
 
-
 import { create } from 'zustand';
-import { ViewMode, Page, GridItemData, DbTable, UserProfile } from '../types';
+import { ViewMode, Page, GridItemData, DbTable, UserProfile, DbView } from '../types';
 
 export type AppTheme = 'vercel' | 'supabase' | 'slack' | 'vscode';
 export type DeviceType = 'desktop' | 'tablet' | 'mobile';
@@ -34,12 +33,22 @@ interface AppState {
   // Data State
   tables: DbTable[];
   activeTableId: string;
+  dataViewMode: 'DATA' | 'MODEL'; // New state for Data/Model toggle
   setTables: (tables: DbTable[]) => void;
   setActiveTableId: (id: string) => void;
+  setDataViewMode: (mode: 'DATA' | 'MODEL') => void;
   addTable: (table: DbTable) => void;
   updateTable: (id: string, updates: Partial<DbTable>) => void;
   deleteTable: (id: string) => void;
   reorderTables: (tables: DbTable[]) => void;
+
+  // View State
+  views: DbView[];
+  activeViewId: string | null;
+  addView: (view: DbView) => void;
+  updateView: (id: string, updates: Partial<DbView>) => void;
+  deleteView: (id: string) => void;
+  setActiveViewId: (id: string | null) => void;
 
   // App Builder / Layout State
   pageLayouts: Record<string, Record<string, GridItemData[]>>;
@@ -62,6 +71,19 @@ const INITIAL_TABLES: DbTable[] = [
     { id: 'products', name: 'Products', code: 'products', kind: 'table', description: 'Product catalog' },
     { id: 'inventory_logs', name: 'Inventory Logs', code: 'inventory_logs', kind: 'table', description: 'Stock changes' }
 ];
+
+// Generate default views for initial tables
+const INITIAL_VIEWS: DbView[] = INITIAL_TABLES.map(table => ({
+    id: `view_${table.id}_default`,
+    tableId: table.id,
+    name: table.name, // Default view name matches table name
+    isDefault: true,
+    config: {
+        filters: [],
+        sort: null,
+        hiddenFields: []
+    }
+}));
 
 const INITIAL_LAYOUT: GridItemData[] = [
   { i: 'stat1', x: 0, y: 0, w: 3, h: 3, type: 'stat', title: 'Total Revenue', content: { value: '$45,231.89', trend: '+20.1%' } },
@@ -131,19 +153,69 @@ export const useAppStore = create<AppState>((set) => ({
   // Data State
   tables: INITIAL_TABLES,
   activeTableId: 'users',
+  dataViewMode: 'DATA',
   setTables: (tables) => set({ tables }),
   setActiveTableId: (id) => set({ activeTableId: id }),
-  addTable: (table) => set((state) => ({ tables: [...state.tables, table] })),
-  updateTable: (id, updates) => set((state) => ({
-    tables: state.tables.map(t => t.id === id ? { ...t, ...updates } : t)
-  })),
+  setDataViewMode: (mode) => set({ dataViewMode: mode }),
+  
+  // Custom addTable to also create a default view
+  addTable: (table) => set((state) => {
+      const defaultView: DbView = {
+          id: `view_${table.id}_default`,
+          tableId: table.id,
+          name: table.name, // Default view name matches table name
+          isDefault: true,
+          config: { filters: [], sort: null, hiddenFields: [] }
+      };
+      return { 
+          tables: [...state.tables, table],
+          views: [...state.views, defaultView],
+          activeViewId: defaultView.id // Switch to new table's default view
+      };
+  }),
+  
+  updateTable: (id, updates) => set((state) => {
+    const updatedTables = state.tables.map(t => t.id === id ? { ...t, ...updates } : t);
+    
+    // Sync default view name if table name changes
+    let updatedViews = state.views;
+    if (updates.name) {
+        updatedViews = state.views.map(v => {
+            if (v.tableId === id && v.isDefault) {
+                return { ...v, name: updates.name! };
+            }
+            return v;
+        });
+    }
+
+    return {
+        tables: updatedTables,
+        views: updatedViews
+    };
+  }),
+  
   deleteTable: (id) => set((state) => ({
       tables: state.tables.filter(t => t.id !== id),
+      // Also delete views associated with this table
+      views: state.views.filter(v => v.tableId !== id),
       activeTableId: state.activeTableId === id && state.tables.length > 1
         ? state.tables.find(t => t.id !== id)?.id || ''
         : state.activeTableId
   })),
   reorderTables: (tables) => set({ tables }),
+
+  // View State
+  views: INITIAL_VIEWS,
+  activeViewId: INITIAL_VIEWS[0]?.id || null,
+  addView: (view) => set((state) => ({ views: [...state.views, view], activeViewId: view.id })),
+  updateView: (id, updates) => set((state) => ({
+      views: state.views.map(v => v.id === id ? { ...v, ...updates } : v)
+  })),
+  deleteView: (id) => set((state) => ({
+      views: state.views.filter(v => v.id !== id),
+      activeViewId: state.activeViewId === id ? null : state.activeViewId
+  })),
+  setActiveViewId: (id) => set({ activeViewId: id }),
 
   // Layout State Implementation
   pageLayouts: INITIAL_PAGE_LAYOUTS,

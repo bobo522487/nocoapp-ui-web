@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DataGrid from '../../../components/DataGrid';
 import { ColumnDef } from '../../../components/DataTable';
 import { useAppStore } from '../../../store/useAppStore';
-import { SchemaField, DbTable } from '../../../types';
-import { FileKey, Type, Mail, CheckCircle2, Calendar, DollarSign, Package, ShoppingCart, ArrowUpDown, Database, TableIcon, Plus, Hash, Braces, ToggleLeft, Link2, Settings2 } from 'lucide-react';
+import { SchemaField, DbTable, ViewConfig, DbView } from '../../../types';
+import { FileKey, Type, Mail, CheckCircle2, Calendar, DollarSign, Package, ShoppingCart, ArrowUpDown, Database, TableIcon, Plus, Hash, Braces, ToggleLeft, Link2, Settings2, Save, Filter } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { Switch } from "../../../components/ui/switch";
 import { Checkbox } from "../../../components/ui/checkbox";
+import { Input } from "../../../components/ui/input";
 import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDrawer';
 import CreateColumnDrawer from '../components/CreateColumnDrawer';
 import { MOCK_DB } from '../../../store/mockData';
@@ -52,10 +53,9 @@ const getTypeIcon = (type: string) => {
 };
 
 const DataPage: React.FC = () => {
-  const { activeTableId, tables } = useAppStore();
-  const [viewMode, setViewMode] = useState<'MODEL' | 'DATA'>('MODEL');
+  const { activeTableId, tables, activeViewId, views, setActiveViewId, updateView, addView, dataViewMode } = useAppStore();
   
-  // Use state to manage the data locally since MOCK_DB is just the initial state
+  // Local Data State
   const [schema, setSchema] = useState<SchemaField[]>([]);
   const [records, setRecords] = useState<any[]>([]);
 
@@ -64,11 +64,27 @@ const DataPage: React.FC = () => {
   const [isCreateColumnDrawerOpen, setIsCreateColumnDrawerOpen] = useState(false);
   const [currentForeignKeyField, setCurrentForeignKeyField] = useState<SchemaField | null>(null);
 
+  // View Management
+  const activeView = views.find(v => v.id === activeViewId);
+  const currentTable = tables.find(t => t.id === activeTableId);
+  const title = currentTable ? currentTable.name : activeTableId;
+
+  // View Name Edit State (Currently handled in Breadcrumb or TablePanel in future, but functionality preserved here via store actions if needed)
+  // Since header is removed, renaming view via header is no longer accessible here.
+  // Renaming view is supported via Sidebar Context Menu.
+
+  // Auto-switch to default view if none active for this table
   useEffect(() => {
-    // Load data based on activeTableId
+      if (activeTableId && (!activeView || activeView.tableId !== activeTableId)) {
+          const defaultView = views.find(v => v.tableId === activeTableId && v.isDefault) || views.find(v => v.tableId === activeTableId);
+          if (defaultView) {
+              setActiveViewId(defaultView.id);
+          }
+      }
+  }, [activeTableId, activeView, views, setActiveViewId]);
+
+  useEffect(() => {
     const data = MOCK_DB[activeTableId];
-    
-    // Fallback if table ID doesn't match mock keys (e.g. new table)
     if (!data) {
         setSchema([
              { id: 'id', name: 'ID', type: 'serial', width: 60, icon: FileKey, isPrimary: true, isUnique: true, isNullable: false, defaultValue: 'auto-inc' }
@@ -79,11 +95,17 @@ const DataPage: React.FC = () => {
         setRecords(data.records);
     }
     
-    // Reset view mode on table switch
-    setViewMode('MODEL');
     setIsForeignKeyDrawerOpen(false);
     setIsCreateColumnDrawerOpen(false);
   }, [activeTableId]);
+
+  // Handlers
+  const handleViewConfigChange = (newConfig: ViewConfig) => {
+      if (activeView) {
+          // Debounce could be added here if needed, but for now direct update
+          updateView(activeView.id, { config: newConfig });
+      }
+  };
 
   // --- Handlers for DataGrid Actions ---
 
@@ -91,13 +113,7 @@ const DataPage: React.FC = () => {
       setSchema(prev => prev.map(field => {
           if (field.id === rowId) {
               const updated = { ...field, [colId]: value };
-
-              // If turning off FK, clear config
-              if (colId === 'isForeignKey' && value === false) {
-                  delete (updated as any).foreignKeyConfig;
-              }
-              
-              // If type changed, validate constraints
+              if (colId === 'isForeignKey' && value === false) delete (updated as any).foreignKeyConfig;
               if (colId === 'type') {
                   const config = TYPE_CONFIG[value as string];
                   if (!config.pk && updated.isPrimary) updated.isPrimary = false;
@@ -106,17 +122,12 @@ const DataPage: React.FC = () => {
                     updated.isForeignKey = false;
                     delete (updated as any).foreignKeyConfig;
                   }
-                  
-                  // Update icon based on type
                   updated.icon = getTypeIcon(value as string);
               }
-
-              // Trigger Drawer if Foreign Key is enabled
               if (colId === 'isForeignKey' && value === true) {
                   setCurrentForeignKeyField(updated);
                   setIsForeignKeyDrawerOpen(true);
               }
-
               return updated;
           }
           return field;
@@ -129,12 +140,10 @@ const DataPage: React.FC = () => {
   };
 
   const handleFKDrawerSave = (config: ForeignKeyConfig) => {
-      // Update the schema to reflect the FK setting
       if (currentForeignKeyField) {
           setSchema(prev => prev.map(f => f.id === currentForeignKeyField.id ? { 
               ...f, 
               isForeignKey: true,
-              // Store config loosely on the field object for display
               foreignKeyConfig: config
           } as any : f));
       }
@@ -156,12 +165,8 @@ const DataPage: React.FC = () => {
 
   const handleFKDrawerClose = () => {
       setIsForeignKeyDrawerOpen(false);
-      
-      // If we are closing without saving, check if we need to revert the isForeignKey toggle
       if (currentForeignKeyField) {
-          // Look up current state of the field
           const field = schema.find(f => f.id === currentForeignKeyField.id);
-          // If isForeignKey is true but no config exists, it means creation was cancelled
           if (field && field.isForeignKey && !(field as any).foreignKeyConfig) {
               setSchema(prev => prev.map(f => f.id === currentForeignKeyField.id ? { ...f, isForeignKey: false } : f));
           }
@@ -170,7 +175,6 @@ const DataPage: React.FC = () => {
   };
 
   const getTargetColumns = (tableId: string) => {
-      // Since MOCK_DB is local here but we need it for dropdowns, we access it directly
       const tableData = MOCK_DB[tableId];
       if (!tableData) return [];
       return tableData.schema.map(f => ({ id: f.id, name: f.name }));
@@ -182,7 +186,6 @@ const DataPage: React.FC = () => {
 
   const handleColumnCreate = (fieldConfig: Partial<SchemaField> & { targetTableId?: string, foreignKeyConfig?: ForeignKeyConfig }) => {
       const icon = getTypeIcon(fieldConfig.type || 'varchar');
-
       const newField: SchemaField = {
           id: `col_${Date.now()}`,
           name: fieldConfig.name || 'New Column',
@@ -198,12 +201,9 @@ const DataPage: React.FC = () => {
           width: 150,
           timeZone: fieldConfig.timeZone,
       };
-      
-      // Add foreignKeyConfig if present
       if (fieldConfig.foreignKeyConfig) {
           (newField as any).foreignKeyConfig = fieldConfig.foreignKeyConfig;
       }
-
       setSchema([...schema, newField]);
   };
 
@@ -230,14 +230,11 @@ const DataPage: React.FC = () => {
   };
 
   const handleDataDelete = (ids: (string | number)[]) => {
-      // Ensure we compare strings to avoid number vs string issues
       const idsToDelete = new Set(ids.map(String));
       setRecords(prev => prev.filter(rec => !idsToDelete.has(String(rec.id))));
   };
 
   // --- Column Definitions ---
-
-  // 1. Model View Columns (Editing Schema)
   const modelColumns: ColumnDef<SchemaField>[] = [
       {
           id: 'name',
@@ -289,11 +286,7 @@ const DataPage: React.FC = () => {
           width: 70,
           renderCell: (row) => (
               <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox 
-                    checked={row.isPrimary} 
-                    onCheckedChange={(checked) => handleSchemaChange(row.id, 'isPrimary', !!checked)}
-                    disabled={!TYPE_CONFIG[row.type].pk}
-                  />
+                  <Checkbox checked={row.isPrimary} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isPrimary', !!checked)} disabled={!TYPE_CONFIG[row.type].pk} />
               </div>
           )
       },
@@ -304,12 +297,7 @@ const DataPage: React.FC = () => {
           width: 70,
           renderCell: (row) => (
               <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Switch 
-                    checked={row.isUnique} 
-                    onCheckedChange={(checked) => handleSchemaChange(row.id, 'isUnique', checked)} 
-                    className="scale-75"
-                    disabled={!TYPE_CONFIG[row.type].unique}
-                  />
+                  <Switch checked={row.isUnique} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isUnique', checked)} className="scale-75" disabled={!TYPE_CONFIG[row.type].unique} />
               </div>
           )
       },
@@ -320,28 +308,7 @@ const DataPage: React.FC = () => {
           width: 70,
           renderCell: (row) => (
               <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Switch 
-                    checked={row.isNullable} 
-                    onCheckedChange={(checked) => handleSchemaChange(row.id, 'isNullable', checked)}
-                    className="scale-75"
-                    disabled={!TYPE_CONFIG[row.type].notNull}
-                  />
-              </div>
-          )
-      },
-      {
-          id: 'isForeignKey',
-          header: <div className="text-center w-full text-[10px] font-semibold text-muted-foreground uppercase">Foreign Key</div>,
-          accessorKey: 'isForeignKey',
-          width: 90,
-          renderCell: (row) => (
-              <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Switch 
-                    checked={!!row.isForeignKey} 
-                    onCheckedChange={(checked) => handleSchemaChange(row.id, 'isForeignKey', checked)}
-                    className="scale-75"
-                    disabled={!TYPE_CONFIG[row.type].fk}
-                  />
+                  <Switch checked={row.isNullable} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isNullable', checked)} className="scale-75" disabled={!TYPE_CONFIG[row.type].notNull} />
               </div>
           )
       },
@@ -373,7 +340,6 @@ const DataPage: React.FC = () => {
       }
   ];
 
-  // 2. Data View Columns (Generated from Schema)
   const dataColumns: ColumnDef<any>[] = schema.map(field => ({
       id: field.id,
       header: (
@@ -392,75 +358,50 @@ const DataPage: React.FC = () => {
       flex: field.flex,
       minWidth: 100,
       type: (field.type === 'int' || field.type === 'float' || field.type === 'bigint' || field.type === 'serial') ? 'number' : 'text',
-      editable: field.id !== 'id' && field.id !== 'created', // ID and Created read-only (generic rule assumption)
+      editable: field.id !== 'id' && field.id !== 'created',
       renderCell: (row, value) => {
           if (field.id === 'status') {
-               const variant = value === 'Active' || value === 'Completed' ? 'default' : 
-                               value === 'Inactive' || value === 'Damage' ? 'destructive' : 'secondary';
+               const variant = value === 'Active' || value === 'Completed' ? 'default' : value === 'Inactive' || value === 'Damage' ? 'destructive' : 'secondary';
                const className = variant === 'secondary' ? "text-foreground bg-muted" : "";
-               return (
-                   <Badge variant={variant} className={`text-[10px] h-5 px-1.5 font-normal ${className}`}>
-                        {value}
-                    </Badge>
-               );
+               return <Badge variant={variant} className={`text-[10px] h-5 px-1.5 font-normal ${className}`}>{value}</Badge>;
           }
-          if (field.id === 'role') {
-              return (
-                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-muted/30 text-foreground">
-                    {value}
-                  </Badge>
-              );
-          }
+          if (field.id === 'role') return <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-muted/30 text-foreground">{value}</Badge>;
           return <span className="truncate text-foreground pl-1">{value}</span>;
       }
   }));
 
-  const currentTable = tables.find(t => t.id === activeTableId);
-  const title = currentTable ? currentTable.name : activeTableId;
-
   return (
     <div className="flex-1 flex flex-col w-full h-full bg-background relative min-w-0">
-      {/* View Mode Toggle / Header Extension */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20">
-          <div className="flex bg-muted/50 p-1 rounded-md">
-              <Button 
-                variant={viewMode === 'MODEL' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('MODEL')}
-                className="h-7 text-xs gap-2"
-              >
-                  <Database size={14} /> Model
-              </Button>
-              <Button 
-                variant={viewMode === 'DATA' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('DATA')}
-                className="h-7 text-xs gap-2"
-              >
-                  <TableIcon size={14} /> Data
-              </Button>
-          </div>
-      </div>
+      
+      {/* Top Header Area Removed */}
     
-      {viewMode === 'MODEL' ? (
+      {dataViewMode === 'MODEL' ? (
           <DataGrid<SchemaField>
-            title={`${title} (Model)`}
             columns={modelColumns}
             data={schema}
             onAdd={handleSchemaAddClick}
+            addItemLabel="Add Column"
             onEdit={handleSchemaChange}
             onDelete={handleSchemaDelete}
             keyField="id"
+            // Hide Title and Search for Model View as well, or keep standard grid behavior
+            // Usually Model View doesn't need the standard data search/filter toolbar as much, or uses its own
+            // For consistency with request, we hide toolbar here too or rely on standard props
+            hideToolbar={true} 
           />
       ) : (
           <DataGrid<any>
-            title={`${title} (Data)`}
             columns={dataColumns}
             data={records}
             onAdd={handleDataAdd}
+            addItemLabel="New Row"
+            onAddColumn={handleSchemaAddClick}
             onEdit={handleDataChange}
             onDelete={handleDataDelete}
             keyField="id"
+            viewConfig={activeView?.config}
+            onViewConfigChange={handleViewConfigChange}
+            hideToolbar={true} // Hides redundant title/search row
           />
       )}
 
@@ -470,8 +411,8 @@ const DataPage: React.FC = () => {
             onClose={handleFKDrawerClose}
             sourceTableName={activeTableId}
             sourceColumnName={currentForeignKeyField.name}
-            tables={tables} // Pass tables from store
-            getTargetColumns={getTargetColumns} // Function to resolve columns for selected table
+            tables={tables} 
+            getTargetColumns={getTargetColumns} 
             onSave={handleFKDrawerSave}
             onDelete={handleFKDrawerDelete}
         />

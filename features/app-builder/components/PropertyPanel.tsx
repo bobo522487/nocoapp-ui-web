@@ -54,7 +54,7 @@ const ControlHeader = ({ label, fx = false }: { label: string, fx?: boolean }) =
   </div>
 );
 
-const Accordion = ({ title, children, defaultOpen = true }: { title: string, children?: React.ReactNode, defaultOpen?: boolean }) => {
+const Accordion: React.FC<{ title: string, children?: React.ReactNode, defaultOpen?: boolean }> = ({ title, children, defaultOpen = true }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (

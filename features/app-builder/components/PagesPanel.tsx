@@ -66,10 +66,9 @@ interface SortablePageItemProps {
     onRenameChange: (val: string) => void;
     onRenameSave: () => void;
     onRenameCancel: () => void;
-    childCount?: number;
 }
 
-const SortablePageItem = ({ 
+const SortablePageItem: React.FC<SortablePageItemProps> = ({ 
     page, 
     depth, 
     activePageId, 
@@ -81,7 +80,7 @@ const SortablePageItem = ({
     onRenameChange,
     onRenameSave,
     onRenameCancel
-}: SortablePageItemProps) => {
+}) => {
     const {
         attributes,
         listeners,
@@ -202,7 +201,7 @@ const PagesPanel = () => {
       activePageId, 
       addPage, 
       deletePage, 
-      updatePage,
+      updatePage, 
       togglePageFolder,
       reorderPages,
       pageLayouts, 

@@ -1,3 +1,4 @@
+
 export enum FileType {
   FILE = 'FILE',
   FOLDER = 'FOLDER'
@@ -75,11 +76,40 @@ export interface DbTable {
   name: string;
   code: string;
   physicalName?: string;
-  kind: 'table' | 'view';
+  kind: 'table' | 'view'; // 'view' here refers to Database Views (SQL), unrelated to UI Views
   description?: string;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
+}
+
+// --- UI View Definitions ---
+
+export interface FilterRule {
+  id: string;
+  fieldId: string;
+  operator: 'contains' | 'equals' | 'startsWith' | 'endsWith';
+  value: string;
+}
+
+export interface SortRule {
+  fieldId: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface ViewConfig {
+  filters: FilterRule[];
+  sort: SortRule | null;
+  hiddenFields: string[];
+}
+
+export interface DbView {
+  id: string;
+  tableId: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  config: ViewConfig;
 }
 
 export interface GridItemData {

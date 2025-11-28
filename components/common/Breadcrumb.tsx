@@ -1,23 +1,31 @@
 
 import React, { useState } from 'react';
 import Dropdown from './Dropdown';
-import { LayoutGrid, Database, Table, Plus, Box, File, Eye } from 'lucide-react';
+import { LayoutGrid, Database, Table, Plus, Box, File, Eye, Filter, TableIcon } from 'lucide-react';
 import { ViewMode } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
+import { Button } from "../ui/button";
 
 const Breadcrumb: React.FC = () => {
-  const { activeView, pages, activePageId, setActivePageId, activeTableId, setActiveTableId, tables } = useAppStore();
+  const { 
+      activeView, 
+      pages, 
+      activePageId, 
+      setActivePageId, 
+      activeTableId, 
+      setActiveTableId, 
+      tables, 
+      views, 
+      activeViewId, 
+      setActiveViewId,
+      dataViewMode,
+      setDataViewMode
+  } = useAppStore();
 
   // --- State ---
   const [selectedOrg, setSelectedOrg] = useState({ id: 'org-1', label: "bobo's Org" });
-
-  // Data View State (Source is still mocked locally as it's not in store yet)
   const [selectedSource, setSelectedSource] = useState({ id: 'src-1', label: "nocoapp-db" });
-  
-  // Apps View State (App is still mocked locally)
   const [selectedApp, setSelectedApp] = useState({ id: 'app-1', label: "Order App" });
-
-  // Dropdown control state
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // --- Mock Data ---
@@ -26,20 +34,18 @@ const Breadcrumb: React.FC = () => {
     { id: 'org-2', label: "nocoapp", group: 'Personal' },
   ];
 
-  // Data Context
   const sources = [
     { id: 'src-1', label: "nocoapp-db", group: 'Databases', icon: Database },
     { id: 'src-2', label: "production-db", group: 'Databases', icon: Database },
   ];
   
-  // App Context
   const apps = [
     { id: 'app-1', label: "Order App", group: 'Apps', icon: LayoutGrid },
     { id: 'app-2', label: "CRM Dashboard", group: 'Apps', icon: LayoutGrid },
     { id: 'app-3', label: "Employee Portal", group: 'Apps', icon: LayoutGrid },
   ];
   
-  // Derived state from Store
+  // Derived state
   const activePage = pages.find(p => p.id === activePageId);
   const pageItems = pages.map(p => ({
       id: p.id,
@@ -52,8 +58,16 @@ const Breadcrumb: React.FC = () => {
   const tableItems = tables.map(t => ({
       id: t.id,
       label: t.name,
-      group: t.kind === 'view' ? 'Views' : 'Tables',
+      group: t.kind === 'view' ? 'DB Views' : 'Tables',
       icon: t.kind === 'view' ? Eye : Table
+  }));
+
+  const activeViewItem = views.find(v => v.id === activeViewId);
+  const currentTableViews = views.filter(v => v.tableId === activeTableId).map(v => ({
+      id: v.id,
+      label: v.name,
+      group: v.isDefault ? 'Default' : 'Custom',
+      icon: Filter
   }));
 
   const Separator = () => (
@@ -62,7 +76,7 @@ const Breadcrumb: React.FC = () => {
 
   return (
     <div className="flex items-center text-sm">
-        {/* 1. Organization Selector (Always Visible) */}
+        {/* 1. Organization Selector */}
         <Dropdown
             triggerLabel={selectedOrg.label}
             triggerIcon={Box}
@@ -80,7 +94,7 @@ const Breadcrumb: React.FC = () => {
             }
         />
 
-        {/* 2. Apps View: Org / App / Page */}
+        {/* 2. Apps View */}
         {activeView === ViewMode.APPS && (
             <>
                 <Separator />
@@ -120,7 +134,7 @@ const Breadcrumb: React.FC = () => {
             </>
         )}
 
-        {/* 3. Data View: Org / Source / Table */}
+        {/* 3. Data View: Org / Source / Table / View */}
         {activeView === ViewMode.DATA && (
             <>
                 <Separator />
@@ -142,7 +156,7 @@ const Breadcrumb: React.FC = () => {
                 />
                 <Separator />
                 <Dropdown
-                    triggerLabel={activeTableItem?.name || activeTableId}
+                    triggerLabel={activeTableItem?.name || activeTableId || 'Select Table'}
                     triggerIcon={activeTableItem?.kind === 'view' ? Eye : Table}
                     items={tableItems}
                     selectedId={activeTableId}
@@ -157,6 +171,47 @@ const Breadcrumb: React.FC = () => {
                         </div>
                     }
                 />
+                {activeViewId && activeTableId && (
+                    <>
+                        <Separator />
+                        <Dropdown
+                            triggerLabel={activeViewItem?.name || 'View'}
+                            triggerIcon={Filter}
+                            items={currentTableViews}
+                            selectedId={activeViewId}
+                            onSelect={(item) => setActiveViewId(item.id)}
+                            searchPlaceholder="Find view..."
+                            open={activeDropdown === 'view'}
+                            onOpenChange={(isOpen) => setActiveDropdown(isOpen ? 'view' : null)}
+                            width={200}
+                        />
+                    </>
+                )}
+
+                {/* View Mode Toggle */}
+                {activeTableId && (
+                    <>
+                        <div className="h-4 w-px bg-border mx-2"></div>
+                        <div className="flex bg-muted/50 p-0.5 rounded-md">
+                            <Button 
+                                variant={dataViewMode === 'DATA' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                onClick={() => setDataViewMode('DATA')}
+                                className="h-6 text-xs gap-1.5 px-2"
+                            >
+                                <TableIcon size={12} /> Data
+                            </Button>
+                            <Button 
+                                variant={dataViewMode === 'MODEL' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                onClick={() => setDataViewMode('MODEL')}
+                                className="h-6 text-xs gap-1.5 px-2"
+                            >
+                                <Database size={12} /> Model
+                            </Button>
+                        </div>
+                    </>
+                )}
             </>
         )}
     </div>

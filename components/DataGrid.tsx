@@ -5,34 +5,30 @@ import {
   Search, Plus, ArrowUpDown, Table as TableIcon, 
   Trash2, CheckSquare, ChevronLeft, ChevronRight, 
   Columns, EyeOff, ArrowUpAZ, ArrowDownAZ, ListFilter, 
-  X, ChevronDown
+  X, ChevronDown, PlusCircle
 } from 'lucide-react';
 import DataTable, { ColumnDef } from './DataTable';
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { FilterRule, SortRule, ViewConfig } from '../types';
 
 // --- Types ---
-
-interface FilterRule {
-  id: string;
-  fieldId: string;
-  operator: 'contains' | 'equals' | 'startsWith' | 'endsWith';
-  value: string;
-}
-
-interface SortRule {
-  fieldId: string;
-  direction: 'asc' | 'desc';
-}
 
 export interface DataGridProps<T> {
     data: T[];
     columns: ColumnDef<T>[];
     onAdd?: () => void;
+    addItemLabel?: string;
+    onAddColumn?: () => void; // New prop for adding columns
     onEdit?: (rowId: string | number, colId: string, value: any) => void;
     onDelete?: (ids: (string | number)[]) => void;
     title?: string;
     keyField?: keyof T;
+    // View Config Props
+    viewConfig?: ViewConfig;
+    onViewConfigChange?: (config: ViewConfig) => void;
+    // New prop to hide the top toolbar
+    hideToolbar?: boolean;
 }
 
 // --- Internal Portal Component for Dropdowns ---
@@ -105,10 +101,15 @@ function DataGrid<T>({
     data,
     columns,
     onAdd,
+    addItemLabel = "Add Item",
+    onAddColumn,
     onEdit,
     onDelete,
     title,
-    keyField = "id" as keyof T
+    keyField = "id" as keyof T,
+    viewConfig,
+    onViewConfigChange,
+    hideToolbar = false
 }: DataGridProps<T>) {
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
   
@@ -118,24 +119,41 @@ function DataGrid<T>({
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showPageSizeMenu, setShowPageSizeMenu] = useState(false);
 
-  const [hiddenFields, setHiddenFields] = useState<string[]>([]);
-  
-  // Filter & Sort State
-  const [filters, setFilters] = useState<FilterRule[]>([]);
-  const [sort, setSort] = useState<SortRule | null>(null);
+  // Local State fallback (if viewConfig not provided)
+  const [localHiddenFields, setLocalHiddenFields] = useState<string[]>([]);
+  const [localFilters, setLocalFilters] = useState<FilterRule[]>([]);
+  const [localSort, setLocalSort] = useState<SortRule | null>(null);
+
+  // Derived State (controlled vs uncontrolled)
+  const hiddenFields = viewConfig ? viewConfig.hiddenFields : localHiddenFields;
+  const filters = viewConfig ? viewConfig.filters : localFilters;
+  const sort = viewConfig ? viewConfig.sort : localSort;
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // Reset state when title changes (implies context switch)
+  // Reset local state when title changes (implies context switch), but if controlled, parent handles it
   useEffect(() => {
     setSelectedIds([]);
-    setFilters([]);
-    setSort(null);
     setCurrentPage(1);
-    setHiddenFields([]);
+    if (!viewConfig) {
+        setLocalFilters([]);
+        setLocalSort(null);
+        setLocalHiddenFields([]);
+    }
   }, [title]);
+
+  // Helpers to update config
+  const updateConfig = (updates: Partial<ViewConfig>) => {
+      if (viewConfig && onViewConfigChange) {
+          onViewConfigChange({ ...viewConfig, ...updates });
+      } else {
+          if (updates.hiddenFields !== undefined) setLocalHiddenFields(updates.hiddenFields);
+          if (updates.filters !== undefined) setLocalFilters(updates.filters);
+          if (updates.sort !== undefined) setLocalSort(updates.sort);
+      }
+  };
 
   // Refs
   const fieldsBtnRef = useRef<HTMLButtonElement>(null);
@@ -207,48 +225,52 @@ function DataGrid<T>({
   };
 
   const toggleFieldVisibility = (fieldId: string) => {
-    setHiddenFields(prev => 
-        prev.includes(fieldId) 
-        ? prev.filter(id => id !== fieldId) 
-        : [...prev, fieldId]
-    );
+    const newHidden = hiddenFields.includes(fieldId) 
+        ? hiddenFields.filter(id => id !== fieldId) 
+        : [...hiddenFields, fieldId];
+    updateConfig({ hiddenFields: newHidden });
   };
 
   // Filter Actions
   const addFilter = () => {
       const firstField = columns[0]?.id || 'id';
-      setFilters([...filters, { id: `f_${Date.now()}`, fieldId: firstField, operator: 'contains', value: '' }]);
+      const newFilter: FilterRule = { id: `f_${Date.now()}`, fieldId: firstField, operator: 'contains', value: '' };
+      updateConfig({ filters: [...filters, newFilter] });
   };
 
   const updateFilter = (id: string, updates: Partial<FilterRule>) => {
-      setFilters(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+      const newFilters = filters.map(f => f.id === id ? { ...f, ...updates } : f);
+      updateConfig({ filters: newFilters });
   };
 
   const removeFilter = (id: string) => {
-      setFilters(prev => prev.filter(f => f.id !== id));
+      const newFilters = filters.filter(f => f.id !== id);
+      updateConfig({ filters: newFilters });
   };
 
   const visibleColumns = useMemo(() => columns.filter(col => !hiddenFields.includes(col.id)), [columns, hiddenFields]);
 
   return (
     <div className="flex-1 flex flex-col bg-background h-full min-w-0 overflow-hidden font-sans text-sm transition-colors">
-      {/* Top Toolbar */}
-      <div className="relative h-12 border-b border-border flex items-center px-4 bg-background shrink-0 z-10 transition-colors">
-        
-        {/* Title / Label */}
-        {title && (
-             <div className="flex items-center gap-2 mr-4 text-sm font-semibold text-foreground">
-                <TableIcon size={16} className="text-muted-foreground"/>
-                <span>{title}</span>
-            </div>
-        )}
+      {/* Top Toolbar - Hidden if hideToolbar is true */}
+      {!hideToolbar && (
+        <div className="relative h-12 border-b border-border flex items-center px-4 bg-background shrink-0 z-10 transition-colors">
+            
+            {/* Title / Label */}
+            {title && (
+                <div className="flex items-center gap-2 mr-4 text-sm font-semibold text-foreground">
+                    <TableIcon size={16} className="text-muted-foreground"/>
+                    <span>{title}</span>
+                </div>
+            )}
 
-        {/* Right Side - Search */}
-        <div className="ml-auto relative group hidden lg:block z-20">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <Input type="text" placeholder="Search records..." className="pl-8 h-8 w-48 text-xs bg-muted/20" />
+            {/* Right Side - Search */}
+            <div className="ml-auto relative group hidden lg:block z-20">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input type="text" placeholder="Search records..." className="pl-8 h-8 w-48 text-xs bg-muted/20" />
+            </div>
         </div>
-      </div>
+      )}
 
       {/* Secondary Toolbar - Contextual */}
       {selectedIds.length > 0 ? (
@@ -280,7 +302,18 @@ function DataGrid<T>({
                     variant="default"
                     className="h-7 gap-1.5 text-xs"
                 >
-                    <Plus size={14} strokeWidth={2.5} /> Add Item
+                    <Plus size={14} strokeWidth={2.5} /> {addItemLabel}
+                </Button>
+            )}
+
+            {onAddColumn && (
+                <Button 
+                    size="sm"
+                    onClick={onAddColumn}
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs bg-background hover:bg-accent"
+                >
+                    <PlusCircle size={14} /> Add Column
                 </Button>
             )}
 
@@ -309,7 +342,7 @@ function DataGrid<T>({
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-muted-foreground uppercase">Filters</span>
                         {filters.length > 0 && (
-                            <button onClick={() => setFilters([])} className="text-[10px] text-primary hover:underline">Clear all</button>
+                            <button onClick={() => updateConfig({ filters: [] })} className="text-[10px] text-primary hover:underline">Clear all</button>
                         )}
                     </div>
                     
@@ -388,9 +421,9 @@ function DataGrid<T>({
                             key={field.id}
                             onClick={() => {
                                 if (sort && sort.fieldId === field.accessorKey) {
-                                    setSort(sort?.direction === 'asc' ? { ...sort, direction: 'desc' } : null);
+                                    updateConfig({ sort: sort?.direction === 'asc' ? { ...sort, direction: 'desc' } : null });
                                 } else if (field.accessorKey) {
-                                    setSort({ fieldId: field.accessorKey as string, direction: 'asc' });
+                                    updateConfig({ sort: { fieldId: field.accessorKey as string, direction: 'asc' } });
                                 }
                             }}
                             className={`flex items-center justify-between px-2 py-1.5 hover:bg-muted rounded cursor-pointer text-xs transition-colors ${sort?.fieldId === field.accessorKey ? 'text-primary font-medium' : 'text-foreground'} ${!field.accessorKey ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -406,7 +439,7 @@ function DataGrid<T>({
                     {sort && (
                         <div className="border-t border-border mt-1 pt-1">
                             <div 
-                                onClick={() => setSort(null)}
+                                onClick={() => updateConfig({ sort: null })}
                                 className="px-2 py-1.5 hover:bg-muted rounded cursor-pointer text-xs text-muted-foreground text-center"
                             >
                                 Clear Sort

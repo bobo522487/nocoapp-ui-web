@@ -1,6 +1,7 @@
 import React, { forwardRef, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../../../lib/utils';
-import { ChevronRight, ChevronDown, Pencil, Trash2, File, Folder, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, Trash2, File, Folder, Plus, MoreVertical, Copy } from 'lucide-react';
 import { FlattenedItem } from '../types';
 
 export interface TreeItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>, 'onClick'> {
@@ -19,6 +20,7 @@ export interface TreeItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>,
   onRemove?: (id: string) => void;
   onRename?: (id: string, name: string) => void;
   onAdd?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   renderIcon?: (item: FlattenedItem) => React.ReactNode;
   renderActions?: (item: FlattenedItem) => React.ReactNode;
   activeId?: string | null;
@@ -43,6 +45,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
       onRemove,
       onRename,
       onAdd,
+      onDuplicate,
       renderIcon,
       renderActions,
       style,
@@ -57,6 +60,12 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(item.data?.name || '');
     const inputRef = useRef<HTMLInputElement>(null);
+    
+    // Menu State
+    const [showMenu, setShowMenu] = useState(false);
+    const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+    const menuTriggerRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isEditing && inputRef.current) {
@@ -64,6 +73,35 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
             inputRef.current.select();
         }
     }, [isEditing]);
+
+    // Close menu on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                menuRef.current && 
+                !menuRef.current.contains(event.target as Node) &&
+                menuTriggerRef.current && 
+                !menuTriggerRef.current.contains(event.target as Node)
+            ) {
+                setShowMenu(false);
+            }
+        };
+
+        const handleScroll = () => {
+            if (showMenu) setShowMenu(false);
+        };
+
+        if (showMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('scroll', handleScroll, true);
+            window.addEventListener('resize', handleScroll);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+            window.removeEventListener('resize', handleScroll);
+        };
+    }, [showMenu]);
 
     const handleSave = () => {
         if (onRename && editName.trim()) {
@@ -75,6 +113,18 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') handleSave();
         if (e.key === 'Escape') setIsEditing(false);
+    };
+
+    const handleMenuOpen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (menuTriggerRef.current) {
+            const rect = menuTriggerRef.current.getBoundingClientRect();
+            setMenuPos({ 
+                top: rect.bottom + 4, 
+                left: rect.left
+            });
+            setShowMenu(!showMenu);
+        }
     };
 
     // --- Ghost / Indicator State ---
@@ -168,7 +218,10 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
 
             {/* Actions (Hover) */}
             {!isClone && !disableInteraction && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={cn(
+                    "flex items-center gap-1 transition-opacity",
+                    showMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}>
                     {renderActions ? renderActions(item) : (
                         <>
                             {onAdd && (
@@ -176,27 +229,76 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                     onClick={(e) => { e.stopPropagation(); onAdd(item.id as string); }}
                                     onPointerDown={(e) => e.stopPropagation()} // Prevent drag
                                     className="p-1 rounded-sm hover:bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
+                                    title="Add"
                                 >
-                                    <Plus size={12} />
+                                    <Plus size={14} />
                                 </button>
                             )}
-                            {onRename && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag
-                                    className="p-1 rounded-sm hover:bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
-                                >
-                                    <Pencil size={12} />
-                                </button>
-                            )}
-                            {onRemove && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onRemove?.(item.id as string); }}
-                                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag
-                                    className="p-1 rounded-sm hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-destructive"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
+                            
+                            {(onRename || onRemove || onDuplicate) && (
+                                <>
+                                    <button 
+                                        ref={menuTriggerRef}
+                                        onClick={handleMenuOpen}
+                                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag
+                                        className={cn(
+                                            "p-1 rounded-sm hover:bg-muted-foreground/10 text-muted-foreground hover:text-foreground transition-colors",
+                                            showMenu && "bg-muted-foreground/10 text-foreground"
+                                        )}
+                                    >
+                                        <MoreVertical size={14} />
+                                    </button>
+
+                                    {showMenu && createPortal(
+                                        <div 
+                                            ref={menuRef}
+                                            className="fixed z-[9999] w-36 bg-popover text-popover-foreground border border-border rounded-md shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 flex flex-col"
+                                            style={{ top: menuPos.top, left: menuPos.left }}
+                                            onMouseDown={(e) => e.stopPropagation()} // Prevent drag/click outside during interaction
+                                        >
+                                            {onRename && (
+                                                <button 
+                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50 text-left w-full transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowMenu(false);
+                                                        setIsEditing(true);
+                                                    }}
+                                                >
+                                                    <Pencil size={12} className="opacity-70" />
+                                                    Rename
+                                                </button>
+                                            )}
+                                            {onDuplicate && (
+                                                <button 
+                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50 text-left w-full transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowMenu(false);
+                                                        onDuplicate(item.id as string);
+                                                    }}
+                                                >
+                                                    <Copy size={12} className="opacity-70" />
+                                                    Duplicate
+                                                </button>
+                                            )}
+                                            {onRemove && (
+                                                <button 
+                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-destructive text-left w-full transition-colors"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowMenu(false);
+                                                        onRemove(item.id as string);
+                                                    }}
+                                                >
+                                                    <Trash2 size={12} />
+                                                    Delete
+                                                </button>
+                                            )}
+                                        </div>,
+                                        document.body
+                                    )}
+                                </>
                             )}
                         </>
                     )}

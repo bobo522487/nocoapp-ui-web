@@ -18,6 +18,8 @@ const TablePanel: React.FC = () => {
       addTable, 
       updateTable, 
       deleteTable, 
+      duplicateTable,
+      duplicateView,
       views, 
       setViews,
       addView, 
@@ -171,6 +173,12 @@ const TablePanel: React.FC = () => {
       else deleteView(id);
   };
 
+  const handleDuplicate = (id: string) => {
+      const isTable = tables.some(t => t.id === id);
+      if (isTable) duplicateTable(id);
+      else duplicateView(id);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-muted/10">
@@ -204,6 +212,7 @@ const TablePanel: React.FC = () => {
                     onSelect={handleSelect}
                     onRename={handleRename}
                     onRemove={handleRemove}
+                    onDuplicate={handleDuplicate}
                     // Add View via onAdd on Table items
                     onAdd={(id) => {
                         const table = tables.find(t => t.id === id);

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Plus, 
@@ -39,6 +40,7 @@ const PagesPanel = () => {
       addPage, 
       deletePage, 
       updatePage, 
+      duplicatePage,
       reorderPages,
       togglePageFolder,
       pageLayouts, 
@@ -281,6 +283,7 @@ const PagesPanel = () => {
                                 handleAddItemToFolder(id);
                             }
                         }}
+                        onDuplicate={(id) => duplicatePage(id)}
                         renderIcon={renderPageIcon}
                         collapsible
                         removable

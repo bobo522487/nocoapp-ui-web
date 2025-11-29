@@ -1,6 +1,6 @@
-
 import { create } from 'zustand';
 import { ViewMode, Page, GridItemData, DbTable, UserProfile, DbView } from '../types';
+import { MOCK_DB } from './mockData';
 
 export type AppTheme = 'vercel' | 'supabase' | 'slack' | 'vscode';
 export type DeviceType = 'desktop' | 'tablet' | 'mobile';
@@ -26,6 +26,7 @@ interface AppState {
   setActivePageId: (id: string) => void;
   updatePage: (id: string, updates: Partial<Page>) => void;
   addPage: (page: Page) => void;
+  duplicatePage: (id: string) => void;
   deletePage: (id: string) => void;
   togglePageFolder: (id: string) => void;
   reorderPages: (pages: Page[]) => void;
@@ -38,6 +39,8 @@ interface AppState {
   setActiveTableId: (id: string) => void;
   setDataViewMode: (mode: 'DATA' | 'MODEL') => void;
   addTable: (table: DbTable) => void;
+  duplicateTable: (id: string) => void;
+  duplicateView: (id: string) => void;
   updateTable: (id: string, updates: Partial<DbTable>) => void;
   deleteTable: (id: string) => void;
   reorderTables: (tables: DbTable[]) => void;
@@ -135,6 +138,54 @@ export const useAppStore = create<AppState>((set) => ({
         [page.id]: { lg: [] } // Initialize empty layout for new page
     }
   })),
+  duplicatePage: (id) => set((state) => {
+      const getCopies = (pageId: string, newParentId?: string): { pages: Page[], layouts: Record<string, any> } => {
+          const page = state.pages.find(p => p.id === pageId);
+          if (!page) return { pages: [], layouts: {} };
+
+          const newId = `page-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+          const newPage: Page = {
+              ...page,
+              id: newId,
+              parentId: newParentId ?? page.parentId,
+              name: newParentId ? page.name : `${page.name} Copy`,
+              isHome: false,
+          };
+
+          // Copy Layout
+          const originalLayouts = state.pageLayouts[pageId] || { lg: [] };
+          const newLayoutsMap: Record<string, GridItemData[]> = {};
+          Object.keys(originalLayouts).forEach(bp => {
+              newLayoutsMap[bp] = originalLayouts[bp].map(item => ({
+                  ...item,
+                  i: `${item.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+              }));
+          });
+
+          let resultPages = [newPage];
+          let resultLayouts = { [newId]: newLayoutsMap };
+
+          // Find children (recursive copy)
+          const children = state.pages.filter(p => p.parentId === pageId);
+          children.forEach(child => {
+              const childCopies = getCopies(child.id, newId);
+              resultPages = [...resultPages, ...childCopies.pages];
+              resultLayouts = { ...resultLayouts, ...childCopies.layouts };
+          });
+
+          return { pages: resultPages, layouts: resultLayouts };
+      };
+
+      const { pages: newPages, layouts: newLayouts } = getCopies(id);
+
+      return {
+          pages: [...state.pages, ...newPages],
+          pageLayouts: {
+              ...state.pageLayouts,
+              ...newLayouts
+          }
+      };
+  }),
   deletePage: (id) => set((state) => {
     // Remove layout data for deleted page
     const { [id]: removed, ...remainingLayouts } = state.pageLayouts;
@@ -172,6 +223,57 @@ export const useAppStore = create<AppState>((set) => ({
           tables: [...state.tables, table],
           views: [...state.views, defaultView],
           activeViewId: defaultView.id // Switch to new table's default view
+      };
+  }),
+
+  duplicateTable: (id) => set((state) => {
+      const table = state.tables.find(t => t.id === id);
+      if (!table) return {};
+
+      const timestamp = Date.now();
+      const newId = `${table.code}_copy_${timestamp}`;
+      const newTable: DbTable = {
+          ...table,
+          id: newId,
+          name: `${table.name} Copy`,
+          code: `${table.code}_copy_${timestamp}`.substring(0, 50),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+      };
+
+      // Clone Data in MOCK_DB (Side Effect for Mock purpose)
+      if (MOCK_DB[id]) {
+          MOCK_DB[newId] = JSON.parse(JSON.stringify(MOCK_DB[id]));
+      }
+
+      // Clone associated views
+      const tableViews = state.views.filter(v => v.tableId === id);
+      const newViews = tableViews.map((v, idx) => ({
+          ...v,
+          id: `view_${newId}_${timestamp}_${idx}`,
+          tableId: newId,
+          name: v.isDefault ? newTable.name : `${v.name} Copy`
+      }));
+
+      return {
+          tables: [...state.tables, newTable],
+          views: [...state.views, ...newViews]
+      };
+  }),
+
+  duplicateView: (id) => set((state) => {
+      const view = state.views.find(v => v.id === id);
+      if (!view) return {};
+
+      const newView: DbView = {
+          ...view,
+          id: `view_${view.tableId}_${Date.now()}`,
+          name: `${view.name} Copy`,
+          isDefault: false
+      };
+
+      return {
+          views: [...state.views, newView]
       };
   }),
   

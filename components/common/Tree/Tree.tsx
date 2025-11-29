@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -60,6 +59,7 @@ interface TreeProps {
   onRename?: (id: string, name: string) => void;
   onRemove?: (id: string) => void;
   onAdd?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   collapsible?: boolean;
   removable?: boolean;
   indicator?: boolean;
@@ -78,6 +78,7 @@ export function Tree({
   onRename,
   onRemove,
   onAdd,
+  onDuplicate,
   collapsible,
   removable,
   indicator = true,
@@ -257,6 +258,7 @@ export function Tree({
                 onRemove={removable || onRemove ? handleRemoveItem : undefined}
                 onRename={onRename ? handleRenameItem : undefined}
                 onAdd={showAdd ? onAdd : undefined}
+                onDuplicate={onDuplicate}
                 renderIcon={renderIcon}
                 renderActions={renderActions}
                 onClick={onSelect}

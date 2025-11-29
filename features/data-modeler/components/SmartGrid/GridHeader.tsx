@@ -1,14 +1,19 @@
+
 import React from 'react';
 import { flexRender, HeaderGroup } from '@tanstack/react-table';
-import { Plus } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { SchemaField } from '../../../../types';
+import Dropdown from '../../../../components/common/Dropdown';
 
 interface GridHeaderProps<T> {
   headerGroups: HeaderGroup<T>[];
   onAddColumn?: () => void;
+  onEditColumn?: (field: SchemaField) => void;
+  onDeleteColumn?: (id: string) => void;
 }
 
-const GridHeader = <T,>({ headerGroups, onAddColumn }: GridHeaderProps<T>) => {
+const GridHeader = <T,>({ headerGroups, onAddColumn, onEditColumn, onDeleteColumn }: GridHeaderProps<T>) => {
   return (
     <div className="flex flex-col bg-background shadow-[0_1px_0_hsl(var(--border))]">
       {headerGroups.map((headerGroup) => (
@@ -18,6 +23,9 @@ const GridHeader = <T,>({ headerGroups, onAddColumn }: GridHeaderProps<T>) => {
         >
           {headerGroup.headers.map((header) => {
             const isResizing = header.column.getIsResizing();
+            const fieldDef = (header.column.columnDef.meta as any)?.fieldDef as SchemaField;
+            const isSelectColumn = header.id === 'select';
+
             return (
               <div
                 key={header.id}
@@ -34,6 +42,31 @@ const GridHeader = <T,>({ headerGroups, onAddColumn }: GridHeaderProps<T>) => {
                     {flexRender(header.column.columnDef.header, header.getContext())}
                 </div>
                 
+                {/* Column Actions (Not for selection column) */}
+                {!isSelectColumn && fieldDef && (onEditColumn || onDeleteColumn) && (
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bg-muted/20 rounded">
+                        <Dropdown
+                            triggerLabel=""
+                            triggerIcon={MoreVertical}
+                            items={[
+                                { id: 'edit', label: 'Edit Column', icon: Pencil },
+                                { id: 'delete', label: 'Delete Column', icon: Trash2 },
+                            ]}
+                            onSelect={(item) => {
+                                if (item.id === 'edit' && onEditColumn) {
+                                    onEditColumn(fieldDef);
+                                } else if (item.id === 'delete' && onDeleteColumn) {
+                                    onDeleteColumn(fieldDef.id);
+                                }
+                            }}
+                            className="h-6 w-6 p-0 justify-center hover:bg-muted"
+                            width={160}
+                            align="start"
+                            searchPlaceholder=""
+                        />
+                    </div>
+                )}
+
                 {/* Resizer Handle */}
                 <div
                   onMouseDown={header.getResizeHandler()}

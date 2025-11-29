@@ -48,6 +48,8 @@ interface SmartGridProps<T> {
   schema: SchemaField[]; // Used to generate columns
   onCellEdit?: (rowId: string | number, colId: string, value: any) => void;
   onAddColumn?: () => void;
+  onEditColumn?: (field: SchemaField) => void;
+  onDeleteColumn?: (id: string) => void;
   onAddRow?: () => void;
   onRowSelect?: (selectedIds: (string | number)[]) => void;
   onRowReorder?: (activeId: string, overId: string) => void;
@@ -208,6 +210,8 @@ export const SmartGrid = <T extends { id: string | number }>({
     schema,
     onCellEdit,
     onAddColumn,
+    onEditColumn,
+    onDeleteColumn,
     onAddRow,
     onRowSelect,
     onRowReorder
@@ -441,7 +445,12 @@ export const SmartGrid = <T extends { id: string | number }>({
             <div style={{ width: table.getTotalSize() }} className="min-w-full">
                 {/* Sticky Header */}
                 <div className="sticky top-0 z-20">
-                    <GridHeader headerGroups={table.getHeaderGroups()} onAddColumn={onAddColumn} />
+                    <GridHeader 
+                        headerGroups={table.getHeaderGroups()} 
+                        onAddColumn={onAddColumn}
+                        onEditColumn={onEditColumn}
+                        onDeleteColumn={onDeleteColumn}
+                    />
                 </div>
 
                 {/* Virtualized Rows */}

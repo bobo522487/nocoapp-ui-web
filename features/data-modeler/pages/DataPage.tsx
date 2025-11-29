@@ -11,6 +11,7 @@ import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
 import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDrawer';
 import CreateColumnDrawer from '../components/CreateColumnDrawer';
+import EditColumnDrawer from '../components/EditColumnDrawer';
 import { MOCK_DB } from '../../../store/mockData';
 import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
 import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
@@ -38,17 +39,6 @@ const DATA_TYPES = [
     { id: 'serial', label: 'Serial', icon: FileKey },
 ];
 
-const TIMEZONE_OFFSET_MAP: Record<string, string> = {
-    'UTC': 'UTC+00:00',
-    'America/New_York': 'UTC-05:00',
-    'America/Los_Angeles': 'UTC-08:00',
-    'Europe/London': 'UTC+00:00',
-    'Europe/Paris': 'UTC+01:00',
-    'Asia/Tokyo': 'UTC+09:00',
-    'Asia/Shanghai': 'UTC+08:00',
-    'Australia/Sydney': 'UTC+11:00',
-};
-
 const getTypeIcon = (type: string) => {
     const found = DATA_TYPES.find(t => t.id === type);
     return found ? found.icon : Type;
@@ -64,7 +54,10 @@ const DataPage: React.FC = () => {
   // Drawers State
   const [isForeignKeyDrawerOpen, setIsForeignKeyDrawerOpen] = useState(false);
   const [isCreateColumnDrawerOpen, setIsCreateColumnDrawerOpen] = useState(false);
+  const [isEditColumnDrawerOpen, setIsEditColumnDrawerOpen] = useState(false);
+  
   const [currentForeignKeyField, setCurrentForeignKeyField] = useState<SchemaField | null>(null);
+  const [editingField, setEditingField] = useState<SchemaField | null>(null);
 
   // View Management
   const activeView = views.find(v => v.id === activeViewId);
@@ -94,6 +87,7 @@ const DataPage: React.FC = () => {
     
     setIsForeignKeyDrawerOpen(false);
     setIsCreateColumnDrawerOpen(false);
+    setIsEditColumnDrawerOpen(false);
   }, [activeTableId]);
 
   // Handlers
@@ -178,6 +172,15 @@ const DataPage: React.FC = () => {
       setIsCreateColumnDrawerOpen(true);
   };
 
+  const handleEditColumn = (field: SchemaField) => {
+      setEditingField(field);
+      setIsEditColumnDrawerOpen(true);
+  };
+
+  const handleColumnUpdate = (updatedField: SchemaField) => {
+      setSchema(prev => prev.map(f => f.id === updatedField.id ? updatedField : f));
+  };
+
   const handleColumnCreate = (fieldConfig: Partial<SchemaField> & { targetTableId?: string, foreignKeyConfig?: ForeignKeyConfig }) => {
       const icon = getTypeIcon(fieldConfig.type || 'varchar');
       const newField: SchemaField = {
@@ -201,8 +204,9 @@ const DataPage: React.FC = () => {
       setSchema([...schema, newField]);
   };
 
-  const handleSchemaDelete = (ids: (string | number)[]) => {
-      const idsToDelete = new Set(ids.map(String));
+  // Supports single string ID or array of IDs (legacy)
+  const handleSchemaDelete = (idOrIds: string | (string | number)[]) => {
+      const idsToDelete = new Set(Array.isArray(idOrIds) ? idOrIds.map(String) : [String(idOrIds)]);
       setSchema(prev => prev.filter(col => !idsToDelete.has(String(col.id))));
   };
 
@@ -346,8 +350,7 @@ const DataPage: React.FC = () => {
     <div className="flex-1 flex flex-col w-full h-full bg-background relative min-w-0">
       
       {dataViewMode === 'MODEL' ? (
-          // Keeping Legacy DataGrid for Model View for now as it has specific custom renderers for Switch/Checkbox in cells
-          // or we could upgrade Model View to SmartGrid later too.
+          // Keeping Legacy DataGrid for Model View for now
           <DataGrid<SchemaField>
             columns={modelColumns}
             data={schema}
@@ -365,6 +368,8 @@ const DataPage: React.FC = () => {
             schema={schema}
             onCellEdit={handleDataChange}
             onAddColumn={handleSchemaAddClick}
+            onEditColumn={handleEditColumn}
+            onDeleteColumn={handleSchemaDelete}
             onAddRow={handleDataAdd}
             onRowSelect={() => {}} // Handle selection state if needed
             onRowReorder={handleRowReorder}
@@ -388,6 +393,17 @@ const DataPage: React.FC = () => {
         isOpen={isCreateColumnDrawerOpen}
         onClose={() => setIsCreateColumnDrawerOpen(false)}
         onCreate={handleColumnCreate}
+        tables={tables}
+        activeTableName={currentTable?.name || activeTableId}
+        getTargetColumns={getTargetColumns}
+      />
+
+      <EditColumnDrawer
+        isOpen={isEditColumnDrawerOpen}
+        onClose={() => setIsEditColumnDrawerOpen(false)}
+        initialField={editingField}
+        onSave={handleColumnUpdate}
+        onDelete={handleSchemaDelete}
         tables={tables}
         activeTableName={currentTable?.name || activeTableId}
         getTargetColumns={getTargetColumns}

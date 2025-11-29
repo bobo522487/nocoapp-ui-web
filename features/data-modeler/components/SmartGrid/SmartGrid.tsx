@@ -70,8 +70,7 @@ const DragHandleCell = () => {
 interface SortableRowProps {
     row: Row<any>;
     virtualRow: VirtualItem;
-    children: React.ReactNode;
-    key?: React.Key;
+    children?: React.ReactNode;
 }
 
 const SortableRow = ({ row, virtualRow, children }: SortableRowProps) => {
@@ -525,7 +524,7 @@ export const SmartGrid = <T extends { id: string | number }>({
                                                     className={cn(
                                                         "flex items-center border-r border-border h-full relative outline-none",
                                                         cell.column.getIsPinned() && "sticky left-0 bg-background z-10 shadow-[1px_0_0_hsl(var(--border))]",
-                                                        isFocused && "ring-2 ring-primary z-10 inset-0"
+                                                        isFocused && "ring-1 ring-primary ring-inset z-10"
                                                     )}
                                                     style={{
                                                         width: cell.column.getSize(),

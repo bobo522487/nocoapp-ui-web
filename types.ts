@@ -18,6 +18,7 @@ export enum ViewMode {
   HOME = 'HOME',
   APPS = 'APPS',
   DATA = 'DATA',
+  DATASOURCE = 'DATASOURCE',
   SETTINGS = 'SETTINGS'
 }
 

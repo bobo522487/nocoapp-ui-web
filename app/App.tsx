@@ -5,6 +5,8 @@ import ActivityBar from '../components/layout/ActivityBar';
 import Sidebar from '../components/layout/Sidebar';
 import Editor from '../features/editor/components/Editor';
 import DataPage from '../features/data-modeler/pages/DataPage';
+import DataSourcePage from '../features/datasource/pages/DataSourcePage';
+import PostgreSQLPage from '../features/datasource/pages/PostgreSQLPage';
 import Header from '../components/layout/Header';
 import AppBuilderPage from '../features/app-builder/pages/AppBuilderPage';
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
@@ -65,6 +67,22 @@ const DataRoute = () => {
   return <DataPage />;
 };
 
+const DataSourceRoute = () => {
+    const { setActiveView } = useAppStore();
+    useEffect(() => {
+        setActiveView(ViewMode.DATASOURCE);
+    }, [setActiveView]);
+    return <DataSourcePage />;
+};
+
+const PostgreSQLRoute = () => {
+    const { setActiveView } = useAppStore();
+    useEffect(() => {
+        setActiveView(ViewMode.DATASOURCE);
+    }, [setActiveView]);
+    return <PostgreSQLPage />;
+};
+
 const EditorRoute = ({ tabs, activeTabId, activeFileContent, onCloseTab, onSelectTab, onContentChange }: any) => {
     const { setActiveView } = useAppStore();
     useEffect(() => {
@@ -94,6 +112,10 @@ const MainLayout: React.FC<{
   const location = useLocation();
   const { activeView } = useAppStore();
   const isHome = activeView === ViewMode.HOME;
+  // The main content area is handled by the routes themselves (e.g. DataSourcePage)
+  // If we want full width for the catalog, we can hide the sidebar, but the user asked for a sidebar in the prompt.
+  // "left sidebar display Data sources list; content area use the page just created"
+  // So we show sidebar for DATASOURCE view mode.
 
   return (
     <div className={`flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden font-sans transition-colors duration-200 ${isResizingSidebar ? 'cursor-col-resize select-none' : ''}`}>
@@ -317,7 +339,13 @@ const App: React.FC = () => {
 
              {/* Data Modeler Routes */}
              <Route path="/data" element={<Navigate to={`/data/${defaultTableId}`} replace />} />
+             <Route path="/data/new" element={<Navigate to={`/datasources`} replace />} />
              <Route path="/data/:tableId" element={<DataRoute />} />
+
+             {/* Datasource Routes */}
+             <Route path="/datasources" element={<DataSourceRoute />} />
+             <Route path="/datasources/postgresql" element={<PostgreSQLRoute />} />
+             <Route path="/datasources/postgresql/:id" element={<PostgreSQLRoute />} />
 
              {/* Editor/Settings Route */}
              <Route path="/files" element={

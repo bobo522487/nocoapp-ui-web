@@ -262,6 +262,84 @@ const DataPage: React.FC = () => {
       });
   };
 
+  // --- Import / Export Handlers ---
+
+  const handleImport = (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          const text = e.target?.result;
+          if (typeof text === 'string') {
+              try {
+                  // Basic CSV Parse
+                  const rows = text.split('\n').filter(r => r.trim());
+                  if (rows.length > 0) {
+                      // Assuming first row is header
+                      const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+                      
+                      const newRecords = rows.slice(1).map((row, idx) => {
+                          const values = row.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                          const record: any = { id: Math.max(...records.map(r => Number(r.id) || 0), 0) + idx + 1 };
+                          headers.forEach((header, i) => {
+                              // Find schema match or use header as key
+                              const schemaCol = schema.find(s => s.name === header) || { id: header.toLowerCase() };
+                              record[schemaCol.id] = values[i] || '';
+                          });
+                          return record;
+                      });
+                      
+                      setRecords(prev => [...prev, ...newRecords]);
+                  }
+              } catch (error) {
+                  console.error("Error parsing CSV:", error);
+              }
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  const handleExport = (type: 'csv' | 'excel') => {
+      const headers = schema.map(f => f.name);
+      const keys = schema.map(f => f.id);
+      
+      const csvContent = [
+          headers.join(','),
+          ...records.map(row => keys.map(key => `"${row[key] ?? ''}"`).join(','))
+      ].join('\n');
+
+      let blob: Blob;
+      let filename = `${activeTableId || 'export'}`;
+
+      if (type === 'excel') {
+          // Simple HTML-based fake Excel for immediate download without heavy libs
+          const htmlContent = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="utf-8" /></head>
+            <body>
+                <table>
+                    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                    <tbody>
+                        ${records.map(row => `<tr>${keys.map(key => `<td>${row[key] ?? ''}</td>`).join('')}</tr>`).join('')}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+          `;
+          blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel' });
+          filename += '.xls';
+      } else {
+          blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          filename += '.csv';
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   // --- Legacy Model Columns Definition (Kept for Model View if using legacy grid) ---
   const modelColumns: ColumnDef<SchemaField>[] = [
       {
@@ -397,6 +475,8 @@ const DataPage: React.FC = () => {
             onRowReorder={handleRowReorder}
             onEditRow={handleEditRow}
             onDeleteRows={handleDataDelete}
+            onImport={handleImport}
+            onExport={handleExport}
           />
       )}
 

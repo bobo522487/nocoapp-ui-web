@@ -55,6 +55,8 @@ interface SmartGridProps<T> {
   onRowReorder?: (activeId: string, overId: string) => void;
   onEditRow?: (id: string | number) => void;
   onDeleteRows?: (ids: (string | number)[]) => void;
+  onImport?: (file: File) => void;
+  onExport?: (type: 'csv' | 'excel') => void;
   isLoading?: boolean;
 }
 
@@ -218,7 +220,9 @@ export const SmartGrid = <T extends { id: string | number }>({
     onRowSelect,
     onRowReorder,
     onEditRow,
-    onDeleteRows
+    onDeleteRows,
+    onImport,
+    onExport
 }: SmartGridProps<T>) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -441,6 +445,8 @@ export const SmartGrid = <T extends { id: string | number }>({
             onToggleFullscreen={toggleFullscreen}
             onEditRow={onEditRow}
             onDeleteRows={onDeleteRows}
+            onImport={onImport}
+            onExport={onExport}
         />
 
         {/* Scrollable Area (Header + Body) */}

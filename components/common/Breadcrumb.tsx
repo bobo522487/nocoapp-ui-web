@@ -1,12 +1,14 @@
 
 import React, { useState } from 'react';
 import Dropdown from './Dropdown';
-import { LayoutGrid, Database, Table, Plus, Box, File, Eye, Filter, TableIcon } from 'lucide-react';
+import { LayoutGrid, Database, Table, Plus, Box, File, Eye, Filter, TableIcon, Server } from 'lucide-react';
 import { ViewMode } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from "../ui/button";
+import { useNavigate } from 'react-router-dom';
 
 const Breadcrumb: React.FC = () => {
+  const navigate = useNavigate();
   const { 
       activeView, 
       pages, 
@@ -148,7 +150,13 @@ const Breadcrumb: React.FC = () => {
                     open={activeDropdown === 'source'}
                     onOpenChange={(isOpen) => setActiveDropdown(isOpen ? 'source' : null)}
                     footer={
-                        <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-muted cursor-pointer w-full text-foreground gap-2 transition-colors">
+                        <div 
+                            className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-muted cursor-pointer w-full text-foreground gap-2 transition-colors"
+                            onClick={() => {
+                                setActiveDropdown(null);
+                                navigate('/datasources');
+                            }}
+                        >
                             <Plus size={14} className="text-muted-foreground" />
                             <span>New Source</span>
                         </div>
@@ -212,6 +220,19 @@ const Breadcrumb: React.FC = () => {
                         </div>
                     </>
                 )}
+            </>
+        )}
+        
+        {/* 4. Datasource View */}
+        {activeView === ViewMode.DATASOURCE && (
+            <>
+               <Separator />
+               <div className="flex items-center gap-2 text-foreground font-medium px-2 py-1 rounded hover:bg-muted/50 cursor-pointer">
+                   <Server size={14} className="text-muted-foreground" />
+                   <span>Datasources</span>
+               </div>
+               <Separator />
+               <span className="text-muted-foreground">New Source</span>
             </>
         )}
     </div>

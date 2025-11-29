@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Filter, ArrowUpDown, Columns, MoreHorizontal, Plus, X, Check, MoveVertical, ListTree, Maximize, Minimize, Pencil, Trash2 } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, Columns, MoreHorizontal, Plus, X, Check, MoveVertical, ListTree, Maximize, Minimize, Pencil, Trash2, Upload, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
 import { Separator } from "../../../../../components/ui/separator";
@@ -19,6 +19,8 @@ interface GridToolbarProps<T> {
   onToggleFullscreen: () => void;
   onEditRow?: (id: string | number) => void;
   onDeleteRows?: (ids: (string | number)[]) => void;
+  onImport?: (file: File) => void;
+  onExport?: (type: 'csv' | 'excel') => void;
 }
 
 // --- Helper Components ---
@@ -96,9 +98,12 @@ export const GridToolbar = <T extends { id: string | number }>({
     isFullscreen, 
     onToggleFullscreen,
     onEditRow,
-    onDeleteRows
+    onDeleteRows,
+    onImport,
+    onExport
 }: GridToolbarProps<T>) => {
-  const [activePopover, setActivePopover] = useState<'fields' | 'filter' | 'sort' | 'height' | 'group' | null>(null);
+  const [activePopover, setActivePopover] = useState<'fields' | 'filter' | 'sort' | 'height' | 'group' | 'export' | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Handlers ---
 
@@ -140,6 +145,16 @@ export const GridToolbar = <T extends { id: string | number }>({
   const handleRemoveGroup = (columnId: string) => {
       const current = table.getState().grouping;
       table.setGrouping(current.filter(c => c !== columnId));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file && onImport) {
+          onImport(file);
+      }
+      if (e.target) {
+          e.target.value = ''; // Reset
+      }
   };
 
   // Selection Logic
@@ -446,6 +461,62 @@ export const GridToolbar = <T extends { id: string | number }>({
                         </div>
                     </div>
                 </ToolbarPopover>
+
+                {/* Import / Export */}
+                <div className="h-4 w-px bg-border mx-1" />
+                
+                {onImport && (
+                    <>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept=".csv,.xlsx,.xls" 
+                            onChange={handleFileChange}
+                        />
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
+                            onClick={() => fileInputRef.current?.click()}
+                            title="Import CSV/Excel"
+                        >
+                            <Upload size={14} />
+                            <span className="hidden xl:inline">Import</span>
+                        </Button>
+                    </>
+                )}
+
+                {onExport && (
+                    <ToolbarPopover
+                        isOpen={activePopover === 'export'}
+                        onOpenChange={(open) => setActivePopover(open ? 'export' : null)}
+                        width={160}
+                        trigger={
+                            <Button variant={activePopover === 'export' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5">
+                                <Download size={14} />
+                                <span className="hidden xl:inline">Export</span>
+                            </Button>
+                        }
+                    >
+                        <div className="p-1 space-y-0.5">
+                            <div 
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded-sm cursor-pointer text-xs"
+                                onClick={() => { onExport('csv'); setActivePopover(null); }}
+                            >
+                                <FileText size={14} className="text-blue-500" />
+                                <span>Download CSV</span>
+                            </div>
+                            <div 
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded-sm cursor-pointer text-xs"
+                                onClick={() => { onExport('excel'); setActivePopover(null); }}
+                            >
+                                <FileSpreadsheet size={14} className="text-green-600" />
+                                <span>Download Excel</span>
+                            </div>
+                        </div>
+                    </ToolbarPopover>
+                )}
 
                 {/* Height (Density) */}
                 <ToolbarPopover

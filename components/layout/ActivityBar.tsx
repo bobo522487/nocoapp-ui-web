@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Home, LayoutGrid, Database, Settings } from 'lucide-react';
+import { Home, LayoutGrid, Database, Settings, Server } from 'lucide-react';
 import { Button } from "../ui/button";
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -17,7 +18,8 @@ const ActivityBar: React.FC = () => {
   const icons = [
     { route: '/', icon: Home, label: '首页' },
     { route: '/apps', icon: LayoutGrid, label: '应用' },
-    { route: '/data', icon: Database, label: '数据' },
+    { route: '/data', icon: Database, label: '数据模型' },
+    { route: '/datasources', icon: Server, label: '数据源' },
   ];
 
   return (

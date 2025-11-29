@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, File as FileIcon, Folder as FolderIcon, Fold
 import { FileSystemNode, FileType, ViewMode } from '../../types';
 import PagesPanel from '../../features/app-builder/components/PagesPanel';
 import TablePanel from '../../features/data-modeler/components/TablePanel';
+import DataSourcePanel from '../../features/datasource/components/DataSourcePanel';
 import { useAppStore } from '../../store/useAppStore';
 
 // --- File Tree Component (Used in other views if needed) ---
@@ -90,6 +91,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         return <PagesPanel />;
       case ViewMode.DATA:
         return <TablePanel />;
+      case ViewMode.DATASOURCE:
+        return <DataSourcePanel />;
       case ViewMode.HOME:
         return null;
       case ViewMode.SETTINGS:

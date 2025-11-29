@@ -43,6 +43,10 @@ const DashboardPage: React.FC = () => {
       navigate(`/data`); // Navigate to generic data page which likely handles creation or defaults
   };
 
+  const handleNewSourceClick = () => {
+      navigate('/datasources');
+  };
+
   // Mock Data - Apps
   const apps = [
     {
@@ -218,7 +222,12 @@ const DashboardPage: React.FC = () => {
                <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold text-foreground">Data Sources</h2>
                   <div className="h-4 w-px bg-border mx-2"></div>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-primary">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-primary"
+                    onClick={handleNewSourceClick}
+                  >
                        <Plus size={12} /> New Source
                   </Button>
                </div>

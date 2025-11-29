@@ -5,7 +5,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragStartEvent,
@@ -17,13 +18,13 @@ import {
   DropAnimation,
   Modifier,
   defaultDropAnimationSideEffects,
+  UniqueIdentifier
 } from '@dnd-kit/core';
 import {
   SortableContext,
   arrayMove,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 import {
   buildTree,
@@ -37,7 +38,7 @@ import { FlattenedItem, SensorContext, TreeItem as TreeItemType } from './types'
 import { SortableTreeItem } from './components/SortableTreeItem';
 import { TreeItem } from './components/TreeItem';
 
-const indentationWidth = 24;
+const indentationWidth = 20;
 
 const dropAnimationConfig: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({
@@ -53,26 +54,40 @@ interface TreeProps {
   items: TreeItemType[];
   onItemsChange: (items: TreeItemType[]) => void;
   renderIcon?: (item: FlattenedItem) => React.ReactNode;
+  renderActions?: (item: FlattenedItem) => React.ReactNode;
+  activeId?: string | null;
+  onSelect?: (item: FlattenedItem) => void;
+  onRename?: (id: string, name: string) => void;
+  onRemove?: (id: string) => void;
+  onAdd?: (id: string) => void;
   collapsible?: boolean;
   removable?: boolean;
   indicator?: boolean;
+  canHaveChildren?: (item: FlattenedItem) => boolean;
+  validateParent?: (item: FlattenedItem, parentId: UniqueIdentifier | null) => boolean;
+  hideCollapseButton?: boolean;
 }
 
 export function Tree({
   items: initialItems,
   onItemsChange,
   renderIcon,
+  renderActions,
+  activeId: selectedId,
+  onSelect,
+  onRename,
+  onRemove,
+  onAdd,
   collapsible,
   removable,
   indicator = true,
+  canHaveChildren,
+  validateParent,
+  hideCollapseButton
 }: TreeProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [offsetLeft, setOffsetLeft] = useState(0);
-  const [currentPosition, setCurrentPosition] = useState<{
-    parentId: string | null;
-    overId: string;
-  } | null>(null);
 
   const flattenedItems = useMemo(() => {
     return flattenTree(initialItems);
@@ -88,12 +103,19 @@ export function Tree({
   });
   
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-        activationConstraint: { distance: 5 } // Require movement to start drag
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 3, // Start dragging after moving 3px
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // Hold for 250ms to pick up
+        tolerance: 3, // Tolerance of movement during hold
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: (event, { context: { active, droppableContainers, collisionRect } }) => {
-          // Custom keyboard logic could go here, simplified for now
           return { x: 0, y: 0 }; 
       }
     })
@@ -132,7 +154,6 @@ export function Tree({
       const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
       const activeTreeItem = clonedItems[activeIndex];
 
-      // Update the active item with new depth and parentId
       clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
 
       const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
@@ -150,7 +171,6 @@ export function Tree({
     setOverId(null);
     setActiveId(null);
     setOffsetLeft(0);
-    setCurrentPosition(null);
     document.body.style.cursor = '';
   };
 
@@ -160,18 +180,24 @@ export function Tree({
     onItemsChange(newItems);
   };
 
-  const handleRemove = (id: string) => {
-    if (!removable) return;
-    const newItems = removeItem(initialItems, id);
-    onItemsChange(newItems);
+  const handleRemoveItem = (id: string) => {
+    if(onRemove) {
+        onRemove(id);
+    } else if (removable) {
+        const newItems = removeItem(initialItems, id);
+        onItemsChange(newItems);
+    }
   };
 
-  const handleRename = (id: string, name: string) => {
-      const newItems = setProperty(initialItems, id, 'name', () => name);
-      onItemsChange(newItems);
+  const handleRenameItem = (id: string, name: string) => {
+      if(onRename) {
+          onRename(id, name);
+      } else {
+          const newItems = setProperty(initialItems, id, 'data', (data) => ({...data, name}));
+          onItemsChange(newItems);
+      }
   };
 
-  // Logic to calculate projected position
   const projected =
     activeId && overId && activeId !== overId
       ? getProjection(
@@ -179,7 +205,9 @@ export function Tree({
           activeId,
           overId,
           offsetLeft,
-          indentationWidth
+          indentationWidth,
+          canHaveChildren,
+          validateParent
         )
       : null;
 
@@ -191,7 +219,7 @@ export function Tree({
   const adjustTranslate: Modifier = ({ transform }) => {
     return {
       ...transform,
-      y: transform.y - 25,
+      y: transform.y - 10,
     };
   };
 
@@ -213,6 +241,9 @@ export function Tree({
       <SortableContext items={sortedIds} strategy={verticalListSortingStrategy}>
         <ul className="p-0 m-0">
           {flattenedItems.map((item) => {
+            // Only show add button if allowed to have children, or if no constraint is provided
+            const showAdd = onAdd && (!canHaveChildren || canHaveChildren(item));
+
             return (
               <SortableTreeItem
                 key={item.id}
@@ -223,9 +254,14 @@ export function Tree({
                 indicator={indicator}
                 collapsed={Boolean(item.collapsed && item.children.length)}
                 onCollapse={handleCollapse}
-                onRemove={removable ? handleRemove : undefined}
-                onRename={handleRename}
+                onRemove={removable || onRemove ? handleRemoveItem : undefined}
+                onRename={onRename ? handleRenameItem : undefined}
+                onAdd={showAdd ? onAdd : undefined}
                 renderIcon={renderIcon}
+                renderActions={renderActions}
+                onClick={onSelect}
+                activeId={selectedId}
+                hideCollapseButton={hideCollapseButton}
               />
             );
           })}
@@ -245,6 +281,7 @@ export function Tree({
               childCount={getChildCount(initialItems, activeId)}
               indentationWidth={indentationWidth}
               renderIcon={renderIcon}
+              hideCollapseButton={hideCollapseButton}
             />
           ) : null}
         </DragOverlay>,

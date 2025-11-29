@@ -45,6 +45,7 @@ interface AppState {
   // View State
   views: DbView[];
   activeViewId: string | null;
+  setViews: (views: DbView[]) => void;
   addView: (view: DbView) => void;
   updateView: (id: string, updates: Partial<DbView>) => void;
   deleteView: (id: string) => void;
@@ -207,6 +208,7 @@ export const useAppStore = create<AppState>((set) => ({
   // View State
   views: INITIAL_VIEWS,
   activeViewId: INITIAL_VIEWS[0]?.id || null,
+  setViews: (views) => set({ views }),
   addView: (view) => set((state) => ({ views: [...state.views, view], activeViewId: view.id })),
   updateView: (id, updates) => set((state) => ({
       views: state.views.map(v => v.id === id ? { ...v, ...updates } : v)

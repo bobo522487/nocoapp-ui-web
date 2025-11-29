@@ -1,224 +1,13 @@
 
-import React, { useState, useRef, useEffect, memo } from 'react';
-import { Search, Plus, Table, MoreVertical, Pencil, Trash2, ChevronRight, ChevronDown, Filter } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Plus, Table, Filter, MoreVertical } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { useAppStore } from '../../../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
-import { DbTable, DbView } from '../../../types';
-
-interface TableItemProps {
-    table: DbTable;
-    views: DbView[];
-    activeTableId: string;
-    activeViewId: string | null;
-    isExpanded: boolean;
-    onToggleExpand: (id: string) => void;
-    onSelectView: (view: DbView) => void;
-    onCreateView: (tableId: string) => void;
-    onDeleteView: (viewId: string) => void;
-    onDeleteTable: (tableId: string) => void;
-    
-    // Rename Props
-    renamingId: string | null;
-    renameValue: string;
-    onStartRename: (id: string, name: string, type: 'table' | 'view') => void;
-    onRenameChange: (val: string) => void;
-    onRenameSave: () => void;
-    onRenameCancel: () => void;
-}
-
-const TableItem = memo<TableItemProps>(({
-    table,
-    views,
-    activeTableId,
-    activeViewId,
-    isExpanded,
-    onToggleExpand,
-    onSelectView,
-    onCreateView,
-    onDeleteView,
-    onDeleteTable,
-    renamingId,
-    renameValue,
-    onStartRename,
-    onRenameChange,
-    onRenameSave,
-    onRenameCancel
-}) => {
-    const [isHovered, setIsHovered] = useState(false);
-    const [menuOpen, setMenuOpen] = useState<'table' | string | null>(null); // 'table' or viewId
-    const menuRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    const isRenamingTable = renamingId === table.id;
-
-    // Close menu when clicking outside
-    useEffect(() => {
-        const handleClick = (e: MouseEvent) => {
-            if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
-                setMenuOpen(null);
-            }
-        };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, [menuOpen]);
-
-    // Ensure focus when renaming starts
-    useEffect(() => {
-        if (isRenamingTable && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [isRenamingTable]);
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') onRenameSave();
-        if (e.key === 'Escape') onRenameCancel();
-        e.stopPropagation();
-    };
-
-    return (
-        <div className="mb-1">
-            {/* Table Row */}
-            <div 
-                className={`relative px-3 py-1.5 flex items-center gap-2 text-sm cursor-pointer transition-colors group select-none ${
-                    activeTableId === table.id && !activeViewId
-                    ? 'bg-accent/50 text-accent-foreground font-medium' 
-                    : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
-                }`}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                onClick={() => onToggleExpand(table.id)}
-            >
-                <span className="opacity-70 w-4 h-4 flex items-center justify-center">
-                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </span>
-                
-                <div className="flex flex-col items-center justify-center pt-0.5">
-                    <Table size={14} className={activeTableId === table.id ? 'text-primary' : ''} />
-                </div>
-                
-                {isRenamingTable ? (
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => onRenameChange(e.target.value)}
-                        onBlur={onRenameSave}
-                        onKeyDown={handleKeyDown}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 min-w-0 w-full h-6 -my-1 bg-background border border-primary rounded-sm px-2 text-xs outline-none text-foreground focus:ring-2 focus:ring-primary/20"
-                    />
-                ) : (
-                    <span className="truncate leading-tight flex-1">{table.name}</span>
-                )}
-                
-                {/* Actions */}
-                {!isRenamingTable && (
-                    <div className={`flex items-center opacity-0 ${isHovered || menuOpen === 'table' ? 'opacity-100' : ''} transition-opacity gap-1`}>
-                        <button 
-                            className="p-1 hover:bg-muted rounded"
-                            title="Create View"
-                            onClick={(e) => { e.stopPropagation(); onCreateView(table.id); }}
-                        >
-                            <Plus size={14} />
-                        </button>
-                        <button 
-                            className="p-1 hover:bg-muted rounded"
-                            onClick={(e) => { e.stopPropagation(); setMenuOpen('table'); }}
-                        >
-                            <MoreVertical size={14} />
-                        </button>
-                    </div>
-                )}
-
-                {/* Table Context Menu */}
-                {menuOpen === 'table' && (
-                    <div ref={menuRef} className="absolute right-2 top-8 w-40 bg-popover border border-border rounded-md shadow-lg z-50 flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100">
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onStartRename(table.id, table.name, 'table'); setMenuOpen(null); }} 
-                            className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left transition-colors"
-                        >
-                            <Pencil size={12} /> Rename
-                        </button>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDeleteTable(table.id); setMenuOpen(null); }} 
-                            className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50 dark:hover:bg-red-900/10 text-destructive text-left transition-colors"
-                        >
-                            <Trash2 size={12} /> Delete
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {/* Views List (Children) */}
-            {isExpanded && (
-                <div className="flex flex-col">
-                    {views.map(view => {
-                        const isRenamingView = renamingId === view.id;
-                        return (
-                            <div 
-                                key={view.id}
-                                onClick={() => onSelectView(view)}
-                                className={`relative pl-10 pr-3 py-1.5 flex items-center gap-2 text-xs cursor-pointer transition-colors group/view select-none ${
-                                    activeViewId === view.id
-                                    ? 'bg-accent text-accent-foreground font-medium' 
-                                    : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
-                                }`}
-                            >
-                                <Filter size={12} className={activeViewId === view.id ? 'text-primary' : 'opacity-70'} />
-                                
-                                {isRenamingView ? (
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        value={renameValue}
-                                        onChange={(e) => onRenameChange(e.target.value)}
-                                        onBlur={onRenameSave}
-                                        onKeyDown={handleKeyDown}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="flex-1 min-w-0 w-full h-5 -my-0.5 bg-background border border-primary rounded-sm px-2 text-[10px] outline-none text-foreground focus:ring-2 focus:ring-primary/20"
-                                    />
-                                ) : (
-                                    <span className="truncate flex-1">{view.name}</span>
-                                )}
-                                
-                                {!isRenamingView && (
-                                    <div className={`opacity-0 group-hover/view:opacity-100 transition-opacity ${menuOpen === view.id ? 'opacity-100' : ''}`}>
-                                        <button 
-                                            className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
-                                            onClick={(e) => { e.stopPropagation(); setMenuOpen(view.id); }}
-                                        >
-                                            <MoreVertical size={12} />
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* View Context Menu */}
-                                {menuOpen === view.id && (
-                                    <div ref={menuRef} className="absolute right-2 top-6 w-36 bg-popover border border-border rounded-md shadow-lg z-50 flex flex-col py-1 animate-in fade-in zoom-in-95 duration-100">
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); onStartRename(view.id, view.name, 'view'); setMenuOpen(null); }} 
-                                            className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left transition-colors text-foreground"
-                                        >
-                                            <Pencil size={12} /> Rename
-                                        </button>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); onDeleteView(view.id); setMenuOpen(null); }} 
-                                            className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50 dark:hover:bg-red-900/10 text-destructive text-left transition-colors"
-                                        >
-                                            <Trash2 size={12} /> Delete
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-});
+import { DbView, DbTable } from '../../../types';
+import { Tree } from '../../../components/common/Tree/Tree';
+import { TreeItem } from '../../../components/common/Tree/types';
 
 const TablePanel: React.FC = () => {
   const navigate = useNavigate();
@@ -230,36 +19,91 @@ const TablePanel: React.FC = () => {
       updateTable, 
       deleteTable, 
       views, 
+      setViews,
       addView, 
       updateView,
       deleteView, 
       setActiveViewId,
-      setActiveTableId
+      setActiveTableId,
+      reorderTables
   } = useAppStore();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
 
-  // Rename State
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameType, setRenameType] = useState<'table' | 'view' | null>(null);
-  const [renameValue, setRenameValue] = useState('');
+  // --- Tree Data Conversion ---
+  const treeItems: TreeItem[] = useMemo(() => {
+      // 1. Filter tables
+      const filteredTables = tables.filter(t => 
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        t.code.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
-  // Initialize expanded state
-  useEffect(() => {
-      if (activeTableId && !expandedTables[activeTableId]) {
-          setExpandedTables(prev => ({ ...prev, [activeTableId]: true }));
+      // 2. Build Tree
+      return filteredTables.map(table => {
+          const tableViews = views.filter(v => v.tableId === table.id);
+          return {
+              id: table.id,
+              type: 'table',
+              children: tableViews.map(view => ({
+                  id: view.id,
+                  type: 'view',
+                  children: [],
+                  data: { name: view.name, icon: 'view', tableId: table.id }
+              })),
+              collapsed: false,
+              data: { name: table.name, icon: 'table', code: table.code }
+          };
+      });
+  }, [tables, views, searchTerm]);
+
+  const handleTreeChange = (newItems: TreeItem[]) => {
+      // Prevent reordering while searching to avoid data loss or inconsistent state
+      if (searchTerm) return;
+
+      // 1. Reorder Tables
+      const newTables = newItems.map(item => tables.find(t => t.id === item.id)).filter(Boolean) as DbTable[];
+      if (newTables.length === tables.length) {
+          reorderTables(newTables);
       }
-  }, [activeTableId]);
 
-  const handleToggleExpand = (tableId: string) => {
-      setExpandedTables(prev => ({ ...prev, [tableId]: !prev[tableId] }));
+      // 2. Reorder Views
+      // We start with the current full list of views to preserve those not in the tree (e.g. if we had some collapsed/hidden logic, though here we generally have them all or none)
+      const processedViewIds = new Set<string>();
+      const newViewsOrdered: DbView[] = [];
+
+      newItems.forEach(tableItem => {
+          if (tableItem.children) {
+              tableItem.children.forEach(viewItem => {
+                  const originalView = views.find(v => v.id === viewItem.id);
+                  if (originalView) {
+                      const updatedView = { ...originalView, tableId: tableItem.id as string };
+                      newViewsOrdered.push(updatedView);
+                      processedViewIds.add(viewItem.id as string);
+                  }
+              });
+          }
+      });
+
+      // Keep views that were not involved in the reorder (e.g. if we had hidden logic)
+      const remainingViews = views.filter(v => !processedViewIds.has(v.id));
+      
+      setViews([...newViewsOrdered, ...remainingViews]);
   };
 
-  const handleSelectView = (view: DbView) => {
-      setActiveTableId(view.tableId);
-      setActiveViewId(view.id);
-      navigate(`/data/${view.tableId}`);
+  // --- Actions ---
+  const handleSelect = (item: any) => {
+      if (item.type === 'table') {
+          navigate(`/data/${item.id}`);
+          setActiveTableId(item.id);
+          setActiveViewId(null);
+      } else if (item.type === 'view') {
+          const view = views.find(v => v.id === item.id);
+          if (view) {
+              setActiveTableId(view.tableId);
+              setActiveViewId(view.id);
+              navigate(`/data/${view.tableId}`);
+          }
+      }
   };
 
   const handleCreateView = (tableId: string) => {
@@ -270,9 +114,7 @@ const TablePanel: React.FC = () => {
           config: { filters: [], sort: null, hiddenFields: [] }
       };
       addView(newView);
-      // Auto select new view
-      setExpandedTables(prev => ({ ...prev, [tableId]: true }));
-      handleSelectView(newView);
+      handleSelect({ type: 'view', id: newView.id });
   };
 
   const handleAddTable = () => {
@@ -285,39 +127,49 @@ const TablePanel: React.FC = () => {
           kind: 'table'
       });
       navigate(`/data/${newId}`);
-      setExpandedTables(prev => ({ ...prev, [newId]: true }));
   };
 
-  // --- Rename Handlers ---
-  const handleStartRename = (id: string, currentName: string, type: 'table' | 'view') => {
-      setRenamingId(id);
-      setRenameType(type);
-      setRenameValue(currentName);
+  const renderIcon = (item: any) => {
+      if (item.type === 'table') return <Table size={14} className={activeTableId === item.id ? "text-primary" : ""} />;
+      if (item.type === 'view') return <Filter size={12} className={activeViewId === item.id ? "text-primary" : "opacity-70"} />;
+      return null;
   };
 
-  const handleSaveRename = () => {
-      if (renamingId && renameValue.trim()) {
-          if (renameType === 'table') {
-              updateTable(renamingId, { name: renameValue.trim() });
-          } else if (renameType === 'view') {
-              updateView(renamingId, { name: renameValue.trim() });
-          }
-      }
-      setRenamingId(null);
-      setRenameType(null);
-      setRenameValue('');
+  const renderActions = (item: any) => {
+      const [isOpen, setIsOpen] = useState(false);
+      
+      return (
+        <>
+            <button 
+                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+            >
+                <MoreVertical size={14} />
+            </button>
+            {item.type === 'table' && (
+                <button 
+                    className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground ml-1"
+                    onClick={(e) => { e.stopPropagation(); handleCreateView(item.id); }}
+                    title="Add View"
+                >
+                    <Plus size={14} />
+                </button>
+            )}
+        </>
+      );
   };
 
-  const handleCancelRename = () => {
-      setRenamingId(null);
-      setRenameType(null);
-      setRenameValue('');
+  const handleRename = (id: string, name: string) => {
+      const isTable = tables.some(t => t.id === id);
+      if (isTable) updateTable(id, { name });
+      else updateView(id, { name });
   };
 
-  const filteredTables = tables.filter(t => 
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    t.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleRemove = (id: string) => {
+      const isTable = tables.some(t => t.id === id);
+      if (isTable) deleteTable(id);
+      else deleteView(id);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -345,30 +197,36 @@ const TablePanel: React.FC = () => {
                 />
             </div>
 
-            <div className="mt-2">
-                {filteredTables.map(table => (
-                    <TableItem 
-                        key={table.id}
-                        table={table}
-                        views={views.filter(v => v.tableId === table.id)}
-                        activeTableId={activeTableId}
-                        activeViewId={activeViewId}
-                        isExpanded={!!expandedTables[table.id]}
-                        onToggleExpand={handleToggleExpand}
-                        onSelectView={handleSelectView}
-                        onCreateView={handleCreateView}
-                        onDeleteView={deleteView}
-                        onDeleteTable={deleteTable}
-                        
-                        // Rename Props
-                        renamingId={renamingId}
-                        renameValue={renameValue}
-                        onStartRename={handleStartRename}
-                        onRenameChange={setRenameValue}
-                        onRenameSave={handleSaveRename}
-                        onRenameCancel={handleCancelRename}
-                    />
-                ))}
+            <div className="px-2 mt-2">
+                <Tree 
+                    items={treeItems}
+                    onItemsChange={handleTreeChange}
+                    onSelect={handleSelect}
+                    onRename={handleRename}
+                    onRemove={handleRemove}
+                    // Add View via onAdd on Table items
+                    onAdd={(id) => {
+                        const table = tables.find(t => t.id === id);
+                        if (table) handleCreateView(id);
+                    }}
+                    activeId={activeViewId || activeTableId}
+                    renderIcon={renderIcon}
+                    collapsible
+                    removable
+                    indicator
+                    canHaveChildren={(item) => item.type === 'table'}
+                    validateParent={(item, parentId) => {
+                        // Table Logic: Root only
+                        if (item.type === 'table') {
+                            return parentId === null;
+                        }
+                        // View Logic: Must stay under original parent
+                        if (item.type === 'view') {
+                            return parentId === item.data.tableId;
+                        }
+                        return true;
+                    }}
+                />
             </div>
          </div>
       </div>

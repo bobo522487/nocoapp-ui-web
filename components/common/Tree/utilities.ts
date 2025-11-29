@@ -1,4 +1,3 @@
-
 import { arrayMove } from '@dnd-kit/sortable';
 import { FlattenedItem, TreeItem } from './types';
 import { UniqueIdentifier } from '@dnd-kit/core';
@@ -14,7 +13,9 @@ export function getProjection(
   activeId: UniqueIdentifier,
   overId: UniqueIdentifier,
   dragOffset: number,
-  indentationWidth: number
+  indentationWidth: number,
+  canHaveChildren?: (item: FlattenedItem) => boolean,
+  validateParent?: (item: FlattenedItem, parentId: UniqueIdentifier | null) => boolean
 ) {
   const overItemIndex = items.findIndex(({ id }) => id === overId);
   const activeItemIndex = items.findIndex(({ id }) => id === activeId);
@@ -34,7 +35,26 @@ export function getProjection(
     depth = minDepth;
   }
 
-  return { depth, maxDepth, minDepth, parentId: getParentId() };
+  // Constraint: Check if previous item can have children
+  if (previousItem && depth > previousItem.depth) {
+    if (canHaveChildren && !canHaveChildren(previousItem)) {
+        // If the previous item cannot have children, force depth to match previous item (sibling)
+        depth = previousItem.depth;
+    }
+  }
+
+  let parentId = getParentId();
+
+  // Constraint: Validate Parent (Strict Hierarchy)
+  if (validateParent) {
+      if (!validateParent(activeItem, parentId)) {
+          // If the projected parent is invalid, snap back to original hierarchy level
+          depth = activeItem.depth;
+          parentId = activeItem.parentId;
+      }
+  }
+
+  return { depth, maxDepth, minDepth, parentId };
 
   function getParentId() {
     if (depth === 0 || !previousItem) {
@@ -86,7 +106,7 @@ export function buildTree(flattenedItems: FlattenedItem[]): TreeItem[] {
   for (const item of items) {
     const { id, children, collapsed, ...rest } = item;
     const parentId = item.parentId ?? 'root';
-    const parent = nodes[parentId] ?? nodes['root']; // Fallback to root
+    const parent = nodes[parentId] ?? nodes['root'];
 
     nodes[id] = { id, children, collapsed, ...rest };
     parent.children.push(nodes[id]);

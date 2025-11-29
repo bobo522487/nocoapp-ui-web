@@ -53,6 +53,8 @@ interface SmartGridProps<T> {
   onAddRow?: () => void;
   onRowSelect?: (selectedIds: (string | number)[]) => void;
   onRowReorder?: (activeId: string, overId: string) => void;
+  onEditRow?: (id: string | number) => void;
+  onDeleteRows?: (ids: (string | number)[]) => void;
   isLoading?: boolean;
 }
 
@@ -214,7 +216,9 @@ export const SmartGrid = <T extends { id: string | number }>({
     onDeleteColumn,
     onAddRow,
     onRowSelect,
-    onRowReorder
+    onRowReorder,
+    onEditRow,
+    onDeleteRows
 }: SmartGridProps<T>) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -435,6 +439,8 @@ export const SmartGrid = <T extends { id: string | number }>({
             setDensity={setDensity}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            onEditRow={onEditRow}
+            onDeleteRows={onDeleteRows}
         />
 
         {/* Scrollable Area (Header + Body) */}
@@ -631,27 +637,6 @@ export const SmartGrid = <T extends { id: string | number }>({
             </div>
         </div>
         
-        {/* Floating Add New Record Button (Bottom Left) */}
-        <div className="absolute bottom-12 left-4 z-30">
-            <div className="flex shadow-lg rounded-md overflow-hidden bg-background border border-border">
-                <Button 
-                    variant="secondary" 
-                    className="h-9 px-3 rounded-none border-r border-border/50 text-xs font-medium gap-2 bg-background hover:bg-muted"
-                    onClick={onAddRow}
-                >
-                    <Plus size={14} className="text-primary" />
-                    New record
-                </Button>
-                <Button 
-                    variant="secondary" 
-                    size="icon"
-                    className="h-9 w-9 rounded-none bg-background hover:bg-muted"
-                >
-                    <MoreHorizontal size={14} />
-                </Button>
-            </div>
-        </div>
-
         {/* Pagination Footer */}
         <div className="h-10 border-t border-border bg-background flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0 select-none z-30">
             <div className="flex items-center gap-4 pl-1">

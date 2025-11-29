@@ -22,7 +22,7 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
     return (
       <input
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-sm"
+        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-sm font-normal"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -30,7 +30,11 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
       />
     );
   }
-  return <span className="truncate px-2 text-sm">{value}</span>;
+  return (
+    <div className="w-full h-full px-2 flex items-center text-sm font-normal">
+        <span className="truncate">{value}</span>
+    </div>
+  );
 };
 
 const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocus }: CellRendererProps) => {
@@ -39,7 +43,7 @@ const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
       <input
         type="number"
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs text-right font-mono"
+        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs text-right font-mono font-normal"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -47,7 +51,11 @@ const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
       />
     );
   }
-  return <span className="truncate w-full text-right px-2 font-mono text-xs opacity-90">{value}</span>;
+  return (
+    <div className="w-full h-full px-2 flex items-center justify-end text-xs font-mono font-normal opacity-90">
+        <span className="truncate">{value}</span>
+    </div>
+  );
 };
 
 const BooleanCell = ({ value, isEditing, onValueChange }: CellRendererProps) => {
@@ -77,7 +85,7 @@ const SelectCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
                 onChange={(e) => { onValueChange(e.target.value); onBlur(); }}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
-                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-xs"
+                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-xs font-normal"
             >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -94,7 +102,7 @@ const SelectCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
     else if (value === 'Deleted' || value === 'Banned') variant = "destructive";
 
     return (
-        <div className="px-2">
+        <div className="w-full h-full px-2 flex items-center">
             <Badge variant={variant} className="text-[10px] h-5 px-1.5 font-normal">{value}</Badge>
         </div>
     );
@@ -106,7 +114,7 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
             <input
                 type="datetime-local"
                 autoFocus={autoFocus}
-                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-sm"
+                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-sm font-normal"
                 value={value ?? ''}
                 onChange={(e) => onValueChange(e.target.value)}
                 onBlur={onBlur}
@@ -115,7 +123,7 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
         );
     }
     return (
-        <div className="flex items-center gap-1.5 px-2 text-muted-foreground text-sm">
+        <div className="w-full h-full px-2 flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
             {value && <Calendar size={12} />}
             <span className="truncate text-foreground">{value}</span>
         </div>

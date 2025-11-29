@@ -13,6 +13,7 @@ import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDraw
 import CreateColumnDrawer from '../components/CreateColumnDrawer';
 import EditColumnDrawer from '../components/EditColumnDrawer';
 import CreateRowDrawer from '../components/CreateRowDrawer';
+import EditRowDrawer from '../components/EditRowDrawer';
 import { MOCK_DB } from '../../../store/mockData';
 import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
 import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
@@ -57,9 +58,11 @@ const DataPage: React.FC = () => {
   const [isCreateColumnDrawerOpen, setIsCreateColumnDrawerOpen] = useState(false);
   const [isEditColumnDrawerOpen, setIsEditColumnDrawerOpen] = useState(false);
   const [isCreateRowDrawerOpen, setIsCreateRowDrawerOpen] = useState(false);
+  const [isEditRowDrawerOpen, setIsEditRowDrawerOpen] = useState(false);
   
   const [currentForeignKeyField, setCurrentForeignKeyField] = useState<SchemaField | null>(null);
   const [editingField, setEditingField] = useState<SchemaField | null>(null);
+  const [editingRecord, setEditingRecord] = useState<any | null>(null);
 
   // View Management
   const activeView = views.find(v => v.id === activeViewId);
@@ -91,6 +94,7 @@ const DataPage: React.FC = () => {
     setIsCreateColumnDrawerOpen(false);
     setIsEditColumnDrawerOpen(false);
     setIsCreateRowDrawerOpen(false);
+    setIsEditRowDrawerOpen(false);
   }, [activeTableId]);
 
   // Handlers
@@ -223,10 +227,26 @@ const DataPage: React.FC = () => {
       setIsCreateRowDrawerOpen(true);
   };
 
+  const handleEditRow = (id: string | number) => {
+      const record = records.find(r => r.id === id);
+      if (record) {
+          setEditingRecord(record);
+          setIsEditRowDrawerOpen(true);
+      }
+  };
+
   const handleConfirmCreateRow = (recordData: Record<string, any>) => {
       const newId = Math.max(...records.map(r => Number(r.id) || 0), 0) + 1;
       const newRecord = { id: newId, ...recordData };
       setRecords([...records, newRecord]);
+  };
+
+  const handleConfirmEditRow = (recordData: Record<string, any>) => {
+      if (!editingRecord) return;
+      // Merge updates
+      const updatedRecord = { ...editingRecord, ...recordData };
+      setRecords(prev => prev.map(r => r.id === editingRecord.id ? updatedRecord : r));
+      setEditingRecord(null);
   };
 
   const handleDataDelete = (ids: (string | number)[]) => {
@@ -373,8 +393,10 @@ const DataPage: React.FC = () => {
             onEditColumn={handleEditColumn}
             onDeleteColumn={handleSchemaDelete}
             onAddRow={handleAddRowClick}
-            onRowSelect={() => {}} // Handle selection state if needed
+            onRowSelect={() => {}} // Internal state used in toolbar
             onRowReorder={handleRowReorder}
+            onEditRow={handleEditRow}
+            onDeleteRows={handleDataDelete}
           />
       )}
 
@@ -415,6 +437,14 @@ const DataPage: React.FC = () => {
         isOpen={isCreateRowDrawerOpen}
         onClose={() => setIsCreateRowDrawerOpen(false)}
         onCreate={handleConfirmCreateRow}
+        schema={schema}
+      />
+
+      <EditRowDrawer
+        isOpen={isEditRowDrawerOpen}
+        onClose={() => { setIsEditRowDrawerOpen(false); setEditingRecord(null); }}
+        initialData={editingRecord}
+        onSave={handleConfirmEditRow}
         schema={schema}
       />
     </div>

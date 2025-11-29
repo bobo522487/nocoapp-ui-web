@@ -44,7 +44,7 @@ const GridHeader = <T,>({ headerGroups, onAddColumn, onEditColumn, onDeleteColum
                 
                 {/* Column Actions (Not for selection column) */}
                 {!isSelectColumn && fieldDef && (onEditColumn || onDeleteColumn) && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bg-muted/20 rounded">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute right-1">
                         <Dropdown
                             triggerLabel=""
                             triggerIcon={MoreVertical}
@@ -59,10 +59,12 @@ const GridHeader = <T,>({ headerGroups, onAddColumn, onEditColumn, onDeleteColum
                                     onDeleteColumn(fieldDef.id);
                                 }
                             }}
-                            className="h-6 w-6 p-0 justify-center hover:bg-muted"
+                            className="h-6 w-6 p-0 justify-center hover:bg-muted/50 rounded-sm"
                             width={160}
                             align="start"
                             searchPlaceholder=""
+                            showChevron={false}
+                            iconSize={14}
                         />
                     </div>
                 )}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Info, Plus, FileKey, Type, Hash, DollarSign, ToggleLeft, Calendar, Braces, Trash2, Database, Link2 } from 'lucide-react';
+import { X, Info, Plus, FileKey, Type, Hash, DollarSign, ToggleLeft, Calendar, Braces, Trash2, Database, Link2, ShieldCheck, Settings2, Globe } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Switch } from "../../../components/ui/switch";
@@ -172,7 +172,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
         className={`fixed inset-y-0 right-0 w-[600px] bg-background shadow-2xl transform transition-transform duration-300 z-[70] flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
             <h3 className="text-xl font-semibold text-foreground tracking-tight">Create a new table</h3>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
                 <X size={18} />
@@ -180,7 +180,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-background">
             
             {/* Table Name */}
             <div className="mb-6">

@@ -184,7 +184,7 @@ const EditColumnDrawer: React.FC<EditColumnDrawerProps> = ({
         className={`fixed inset-y-0 right-0 w-[560px] bg-background shadow-2xl transform transition-transform duration-300 z-[70] flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
             <h3 className="text-xl font-semibold text-foreground tracking-tight">Edit column</h3>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
                 <X size={18} />
@@ -192,7 +192,7 @@ const EditColumnDrawer: React.FC<EditColumnDrawerProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-background">
             
             {/* GENERAL Section */}
             <div className="mb-8">
@@ -345,7 +345,7 @@ const EditColumnDrawer: React.FC<EditColumnDrawerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-background mt-auto flex justify-between items-center">
+        <div className="p-4 border-t border-border bg-background mt-auto flex justify-between items-center shrink-0">
              <Button variant="ghost" onClick={() => { if (initialField) onDelete(initialField.id); onClose(); }} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                  <Trash2 size={14} className="mr-2" /> Delete
              </Button>

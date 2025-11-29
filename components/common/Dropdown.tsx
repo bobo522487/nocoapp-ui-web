@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface DropdownItem {
   id: string;
@@ -23,6 +24,8 @@ interface DropdownProps {
   onOpenChange?: (open: boolean) => void;
   anchorRef?: React.RefObject<HTMLElement>;
   align?: 'start' | 'end';
+  showChevron?: boolean;
+  iconSize?: number;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -38,7 +41,9 @@ const Dropdown: React.FC<DropdownProps> = ({
   open,
   onOpenChange,
   anchorRef,
-  align = 'start'
+  align = 'start',
+  showChevron = true,
+  iconSize = 16
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -93,6 +98,7 @@ const Dropdown: React.FC<DropdownProps> = ({
 
   const toggleDropdown = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
     if (!isOpen && !anchorRef && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -229,13 +235,19 @@ const Dropdown: React.FC<DropdownProps> = ({
       <div 
         ref={triggerRef}
         onMouseDown={toggleDropdown}
-        className={`flex items-center gap-2 hover:bg-muted/50 px-2 py-1.5 rounded-md cursor-pointer transition-colors group select-none ${
-            isOpen ? 'bg-muted/50' : ''
-        } ${className}`}
+        className={cn(
+            "flex items-center gap-2 hover:bg-muted/50 px-2 py-1.5 rounded-md cursor-pointer transition-colors group select-none",
+            isOpen && "bg-muted/50",
+            className
+        )}
       >
-         {Icon && <Icon size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />}
-         <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate max-w-[150px]">{triggerLabel}</span>
-         <ChevronDown size={14} className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors" />
+         {Icon && <Icon size={iconSize} className="text-muted-foreground group-hover:text-foreground transition-colors" />}
+         {triggerLabel && (
+             <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate max-w-[150px]">
+                 {triggerLabel}
+             </span>
+         )}
+         {showChevron && <ChevronDown size={14} className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors" />}
       </div>
       {isOpen && createPortal(DropdownContent, document.body)}
     </>

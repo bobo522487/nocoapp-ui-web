@@ -130,17 +130,6 @@ const TablePanel: React.FC = () => {
       const timestamp = Date.now();
       const newId = `table_${timestamp}`;
       
-      // In a real app, we would pass 'columns' to the store or backend API to initialize the schema
-      // Since our mock store manages data in MOCK_DB separately (in DataPage mainly), 
-      // we are just creating the metadata here. 
-      // Ideally, addTable should accept schema too. 
-      
-      // For now, we simulate schema creation by ensuring DataPage will pick up default/empty if not found,
-      // but to make it persistent in this mock we would need to write to MOCK_DB.
-      // Let's assume DataPage handles initialization if MOCK_DB[newId] is missing, 
-      // OR we can export a way to update MOCK_DB from here. 
-      
-      // We will just create the table definition in store
       addTable({ 
           id: newId, 
           name: tableName, 
@@ -148,8 +137,6 @@ const TablePanel: React.FC = () => {
           kind: 'table'
       });
       
-      // Important: In a real app, you'd send `columns` to the backend here.
-      // Since we are mocking, we'll initialize MOCK_DB directly so the DataPage picks up the columns
       MOCK_DB[newId] = {
           schema: columns,
           records: []

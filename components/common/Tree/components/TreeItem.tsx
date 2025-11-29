@@ -1,3 +1,4 @@
+
 import React, { forwardRef, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../../../lib/utils';
@@ -121,7 +122,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
             const rect = menuTriggerRef.current.getBoundingClientRect();
             setMenuPos({ 
                 top: rect.bottom + 4, 
-                left: rect.left
+                left: rect.left // Left align with the icon as requested
             });
             setShowMenu(!showMenu);
         }

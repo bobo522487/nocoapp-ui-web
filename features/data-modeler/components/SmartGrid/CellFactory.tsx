@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SchemaField } from '../../../../types';
 import { Checkbox } from "../../../../../components/ui/checkbox";
@@ -21,7 +22,7 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
     return (
       <input
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs"
+        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-sm"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -29,7 +30,7 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
       />
     );
   }
-  return <span className="truncate px-2">{value}</span>;
+  return <span className="truncate px-2 text-sm">{value}</span>;
 };
 
 const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocus }: CellRendererProps) => {
@@ -38,7 +39,7 @@ const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
       <input
         type="number"
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs text-right"
+        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs text-right font-mono"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -105,7 +106,7 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
             <input
                 type="datetime-local"
                 autoFocus={autoFocus}
-                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-xs"
+                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-sm"
                 value={value ?? ''}
                 onChange={(e) => onValueChange(e.target.value)}
                 onBlur={onBlur}
@@ -114,7 +115,7 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
         );
     }
     return (
-        <div className="flex items-center gap-1.5 px-2 text-muted-foreground">
+        <div className="flex items-center gap-1.5 px-2 text-muted-foreground text-sm">
             {value && <Calendar size={12} />}
             <span className="truncate text-foreground">{value}</span>
         </div>

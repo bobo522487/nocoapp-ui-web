@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Table, Filter, MoreVertical } from 'lucide-react';
+import { Search, Plus, Table, Filter } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { useAppStore } from '../../../store/useAppStore';
@@ -72,7 +72,6 @@ const TablePanel: React.FC = () => {
       }
 
       // 2. Reorder Views
-      // We start with the current full list of views to preserve those not in the tree (e.g. if we had some collapsed/hidden logic, though here we generally have them all or none)
       const processedViewIds = new Set<string>();
       const newViewsOrdered: DbView[] = [];
 
@@ -89,7 +88,7 @@ const TablePanel: React.FC = () => {
           }
       });
 
-      // Keep views that were not involved in the reorder (e.g. if we had hidden logic)
+      // Keep views that were not involved in the reorder
       const remainingViews = views.filter(v => !processedViewIds.has(v.id));
       
       setViews([...newViewsOrdered, ...remainingViews]);

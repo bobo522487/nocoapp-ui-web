@@ -12,6 +12,7 @@ import { Input } from "../../../components/ui/input";
 import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDrawer';
 import CreateColumnDrawer from '../components/CreateColumnDrawer';
 import EditColumnDrawer from '../components/EditColumnDrawer';
+import CreateRowDrawer from '../components/CreateRowDrawer';
 import { MOCK_DB } from '../../../store/mockData';
 import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
 import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
@@ -55,6 +56,7 @@ const DataPage: React.FC = () => {
   const [isForeignKeyDrawerOpen, setIsForeignKeyDrawerOpen] = useState(false);
   const [isCreateColumnDrawerOpen, setIsCreateColumnDrawerOpen] = useState(false);
   const [isEditColumnDrawerOpen, setIsEditColumnDrawerOpen] = useState(false);
+  const [isCreateRowDrawerOpen, setIsCreateRowDrawerOpen] = useState(false);
   
   const [currentForeignKeyField, setCurrentForeignKeyField] = useState<SchemaField | null>(null);
   const [editingField, setEditingField] = useState<SchemaField | null>(null);
@@ -88,6 +90,7 @@ const DataPage: React.FC = () => {
     setIsForeignKeyDrawerOpen(false);
     setIsCreateColumnDrawerOpen(false);
     setIsEditColumnDrawerOpen(false);
+    setIsCreateRowDrawerOpen(false);
   }, [activeTableId]);
 
   // Handlers
@@ -216,14 +219,13 @@ const DataPage: React.FC = () => {
       ));
   };
 
-  const handleDataAdd = () => {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      const newRecord: any = { id: newId };
-      schema.forEach(field => {
-          if (field.id !== 'id') {
-              newRecord[field.id] = '';
-          }
-      });
+  const handleAddRowClick = () => {
+      setIsCreateRowDrawerOpen(true);
+  };
+
+  const handleConfirmCreateRow = (recordData: Record<string, any>) => {
+      const newId = Math.max(...records.map(r => Number(r.id) || 0), 0) + 1;
+      const newRecord = { id: newId, ...recordData };
       setRecords([...records, newRecord]);
   };
 
@@ -370,7 +372,7 @@ const DataPage: React.FC = () => {
             onAddColumn={handleSchemaAddClick}
             onEditColumn={handleEditColumn}
             onDeleteColumn={handleSchemaDelete}
-            onAddRow={handleDataAdd}
+            onAddRow={handleAddRowClick}
             onRowSelect={() => {}} // Handle selection state if needed
             onRowReorder={handleRowReorder}
           />
@@ -407,6 +409,13 @@ const DataPage: React.FC = () => {
         tables={tables}
         activeTableName={currentTable?.name || activeTableId}
         getTargetColumns={getTargetColumns}
+      />
+
+      <CreateRowDrawer
+        isOpen={isCreateRowDrawerOpen}
+        onClose={() => setIsCreateRowDrawerOpen(false)}
+        onCreate={handleConfirmCreateRow}
+        schema={schema}
       />
     </div>
   );

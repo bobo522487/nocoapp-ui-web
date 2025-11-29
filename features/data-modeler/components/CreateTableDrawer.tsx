@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Info, Plus, FileKey, Type, Hash, DollarSign, ToggleLeft, Calendar, Braces, Trash2, Database, Link2, ShieldCheck, Settings2, Globe } from 'lucide-react';
+import { X, Plus, FileKey, Type, Hash, DollarSign, ToggleLeft, Calendar, Braces, Trash2, Link2, Settings2, HelpCircle, Info } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Switch } from "../../../components/ui/switch";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { SchemaField, DbTable } from '../../../types';
 import Dropdown from '../../../components/common/Dropdown';
 import { cn } from '../../../lib/utils';
@@ -201,7 +202,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
                 {/* Column Headers */}
                 <div className="flex items-center mb-2 px-1">
                     <div className="flex items-center w-[30%] text-xs font-medium text-muted-foreground">
-                        <Database size={12} className="mr-1.5" />
+                        <Info size={12} className="mr-1.5 opacity-0" /> {/* Spacer */}
                         Column name
                     </div>
                     <div className="flex items-center w-[25%] text-xs font-medium text-muted-foreground pl-2">
@@ -214,7 +215,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
                         Primary
                     </div>
                     <div className="flex items-center justify-center w-[10%] text-xs font-medium text-muted-foreground">
-                        Actions
+                        
                     </div>
                 </div>
 
@@ -226,11 +227,14 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
                         return (
                             <div key={col.id} className="flex items-center bg-card border border-border rounded-md p-1.5 group hover:border-primary/50 transition-colors">
                                 {/* Name */}
-                                <div className="w-[30%] pr-2">
+                                <div className="w-[30%] pr-2 flex items-center">
+                                    <span className="mr-1 opacity-0">
+                                        <Info size={12} />
+                                    </span>
                                     <Input 
                                         value={col.name}
                                         onChange={(e) => handleColumnChange(col.id, 'name', e.target.value)}
-                                        placeholder="Column name"
+                                        placeholder="Enter name"
                                         disabled={isIdRow}
                                         className={cn("h-8 text-xs border-transparent bg-transparent focus-visible:bg-muted/50 focus-visible:ring-0 focus-visible:border-input px-2", isIdRow && "opacity-70")}
                                     />
@@ -261,7 +265,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
                                     <Input 
                                         value={col.defaultValue}
                                         onChange={(e) => handleColumnChange(col.id, 'defaultValue', e.target.value)}
-                                        placeholder="NULL"
+                                        placeholder={isIdRow ? "Auto-generated" : "Enter value"}
                                         disabled={isIdRow}
                                         className={cn("h-8 text-xs border-transparent bg-transparent focus-visible:bg-muted/50 focus-visible:ring-0 focus-visible:border-input px-2", isIdRow && "opacity-70")}
                                     />
@@ -269,30 +273,33 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
 
                                 {/* Primary Checkbox */}
                                 <div className="w-[10%] flex justify-center">
-                                    <input 
-                                        type="checkbox"
+                                    <Checkbox 
                                         checked={col.isPrimary}
                                         disabled
-                                        className="h-4 w-4 rounded border-input text-primary focus:ring-primary/20 cursor-not-allowed opacity-50"
+                                        className="h-4 w-4 rounded-sm border-input opacity-50 cursor-not-allowed"
                                     />
                                 </div>
 
                                 {/* Actions / Nullable */}
                                 <div className="w-[10%] flex items-center justify-center gap-2">
                                     {isIdRow ? (
-                                        <div className="text-[10px] font-bold text-muted-foreground opacity-50">PK</div>
+                                        <div className="flex items-center gap-1">
+                                            <Switch checked disabled className="scale-75 opacity-70" />
+                                            <span className="text-[10px] text-muted-foreground">NOT NULL</span>
+                                        </div>
                                     ) : (
                                         <>
-                                            <button 
-                                                onClick={() => handleColumnChange(col.id, 'isNullable', !col.isNullable)}
-                                                className={cn("text-[10px] font-bold cursor-pointer transition-colors", !col.isNullable ? "text-primary" : "text-muted-foreground/40 hover:text-foreground")}
-                                                title="Toggle Not Null"
-                                            >
-                                                NN
-                                            </button>
+                                            <div className="flex items-center gap-1" title="Toggle Nullable">
+                                                <Switch 
+                                                    checked={!col.isNullable} 
+                                                    onCheckedChange={(c) => handleColumnChange(col.id, 'isNullable', !c)}
+                                                    className="scale-75"
+                                                />
+                                                <span className="text-[10px] text-muted-foreground">NOT NULL</span>
+                                            </div>
                                             <button 
                                                 onClick={() => handleRemoveColumn(col.id)}
-                                                className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                                className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all ml-1"
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -306,7 +313,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
 
                 <Button 
                     variant="ghost" 
-                    className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 w-full justify-start h-9 text-xs font-medium"
+                    className="mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 w-auto h-8 text-xs font-medium px-3 ml-1"
                     onClick={handleAddColumn}
                 >
                     <Plus size={14} className="mr-2" /> Add more columns
@@ -354,7 +361,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
 
                 <Button 
                     variant="ghost" 
-                    className="mt-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 w-full justify-start h-9 text-xs font-medium"
+                    className="mt-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 w-auto h-8 text-xs font-medium px-3"
                     onClick={() => setShowFKDrawer(true)}
                 >
                     <Plus size={14} className="mr-2" /> Add relation
@@ -366,7 +373,7 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
         {/* Footer */}
         <div className="p-4 border-t border-border bg-background flex justify-between items-center shrink-0">
              <a href="#" className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                 <Info size={14} />
+                 <HelpCircle size={14} />
                  Read documentation
              </a>
              
@@ -405,3 +412,5 @@ export const CreateTableDrawer: React.FC<CreateTableDrawerProps> = ({
 
   return createPortal(content, document.body);
 };
+
+export default CreateTableDrawer;

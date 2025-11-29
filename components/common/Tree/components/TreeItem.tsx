@@ -122,7 +122,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
             const rect = menuTriggerRef.current.getBoundingClientRect();
             setMenuPos({ 
                 top: rect.bottom + 4, 
-                left: rect.left // Left align with the icon as requested
+                left: rect.left // Align with the left edge of the icon as requested
             });
             setShowMenu(!showMenu);
         }

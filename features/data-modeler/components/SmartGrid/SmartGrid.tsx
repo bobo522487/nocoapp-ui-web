@@ -444,7 +444,7 @@ export const SmartGrid = <T extends { id: string | number }>({
         >
             <div style={{ width: table.getTotalSize() }} className="min-w-full">
                 {/* Sticky Header */}
-                <div className="sticky top-0 z-20">
+                <div className="sticky top-0 z-50">
                     <GridHeader 
                         headerGroups={table.getHeaderGroups()} 
                         onAddColumn={onAddColumn}
@@ -532,8 +532,12 @@ export const SmartGrid = <T extends { id: string | number }>({
                                                     key={cell.id}
                                                     className={cn(
                                                         "flex items-center border-r border-border h-full relative outline-none",
-                                                        cell.column.getIsPinned() && "sticky left-0 bg-background z-10 shadow-[1px_0_0_hsl(var(--border))]",
-                                                        isFocused && "ring-1 ring-primary ring-inset z-10"
+                                                        // Sticky - High Z
+                                                        cell.column.getIsPinned() && "sticky left-0 bg-background z-40 shadow-[1px_0_0_hsl(var(--border))]",
+                                                        // Focused - Med Z (above normal cells, below sticky if scrolling usually, but needs to pop)
+                                                        !cell.column.getIsPinned() && isFocused && "z-30",
+                                                        // Sticky + Focused - Top Z
+                                                        cell.column.getIsPinned() && isFocused && "z-40",
                                                     )}
                                                     style={{
                                                         width: cell.column.getSize(),
@@ -557,6 +561,11 @@ export const SmartGrid = <T extends { id: string | number }>({
                                                         />
                                                     ) : (
                                                         flexRender(cell.column.columnDef.cell, cell.getContext())
+                                                    )}
+
+                                                    {/* Active Indicator Overlay - Rendered AFTER content to ensure visibility */}
+                                                    {isFocused && (
+                                                        <div className="absolute inset-0 z-50 ring-2 ring-primary ring-inset pointer-events-none" />
                                                     )}
                                                 </div>
                                             );

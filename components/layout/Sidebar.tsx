@@ -1,13 +1,12 @@
-
 import React from 'react';
-import { ChevronRight, ChevronDown, File as FileIcon, Folder as FolderIcon, FolderOpen, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, File as FileIcon, Folder as FolderIcon, FolderOpen } from 'lucide-react';
 import { FileSystemNode, FileType, ViewMode } from '../../types';
 import PagesPanel from '../../features/app-builder/components/PagesPanel';
 import TablePanel from '../../features/data-modeler/components/TablePanel';
 import DataSourcePanel from '../../features/datasource/components/DataSourcePanel';
 import { useAppStore } from '../../store/useAppStore';
 
-// --- File Tree Component (Used in other views if needed) ---
+// --- File Tree Component ---
 interface FileTreeProps {
   node: FileSystemNode;
   depth: number;
@@ -69,22 +68,15 @@ const FileTree: React.FC<FileTreeProps> = ({ node, depth, onToggleFolder, onSele
 
 // --- Main Sidebar Container ---
 interface SidebarProps {
-  files: FileSystemNode[];
-  onToggleFolder: (id: string) => void;
-  onSelectFile: (node: FileSystemNode) => void;
-  selectedFileId: string | null;
   width: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  files, 
-  onToggleFolder, 
-  onSelectFile, 
-  selectedFileId, 
-  width
-}) => {
-  const { activeView } = useAppStore();
+const Sidebar: React.FC<SidebarProps> = ({ width }) => {
+  const { activeView, files, toggleFolder, selectFile, tabs, editorActiveTabId } = useAppStore();
   
+  const activeTab = tabs.find(t => t.id === editorActiveTabId);
+  const selectedFileId = activeTab?.fileId || null;
+
   const renderContent = () => {
     switch (activeView) {
       case ViewMode.APPS:
@@ -108,8 +100,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                              key={node.id}
                              node={node}
                              depth={0}
-                             onToggleFolder={onToggleFolder}
-                             onSelectFile={onSelectFile}
+                             onToggleFolder={toggleFolder}
+                             onSelectFile={selectFile}
                              selectedFileId={selectedFileId}
                          />
                      ))}

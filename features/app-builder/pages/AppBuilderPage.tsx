@@ -113,7 +113,7 @@ interface AppBuilderPageProps {
   onItemConsumed?: () => void;
 }
 
-const AppBuilderPage: React.FC<AppBuilderPageProps> = ({ draggedItem, droppedItem, onItemConsumed }) => {
+const AppBuilderPage: React.FC<AppBuilderPageProps> = (props) => {
   const { 
       pages, 
       activePageId, 
@@ -124,8 +124,15 @@ const AppBuilderPage: React.FC<AppBuilderPageProps> = ({ draggedItem, droppedIte
       setSelectedComponentId,
       updateLayoutItem,
       activeDevice,
-      setActiveDevice
+      setActiveDevice,
+      draggedWidget,
+      droppedWidget,
+      setDroppedWidget
   } = useAppStore();
+
+  const draggedItem = props.draggedItem ?? draggedWidget;
+  const droppedItem = props.droppedItem ?? droppedWidget;
+  const onItemConsumed = props.onItemConsumed ?? (() => setDroppedWidget(null));
   
   // Derived active page and layout
   const activePage = pages.find(p => p.id === activePageId);

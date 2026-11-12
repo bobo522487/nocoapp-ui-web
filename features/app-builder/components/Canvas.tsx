@@ -243,10 +243,24 @@ const Canvas: React.FC<CanvasProps> = ({
           }).filter(Boolean) as GridItemData[];
       });
 
-      // Optimization: Only update if layouts have actually changed deeply
-      // This prevents the React #310 error which is often caused by infinite render loops 
-      // or updates during render phase in RGL.
-      if (!_.isEqual(newLayoutsState, currentLayoutsState)) {
+      // Fast O(N) layout difference check to avoid unnecessary re-renders and React #310 loops
+      const hasLayoutChanged = () => {
+          for (const bp of breakpoints) {
+              const listA = newLayoutsState[bp] || [];
+              const listB = currentLayoutsState[bp] || [];
+              if (listA.length !== listB.length) return true;
+              for (let i = 0; i < listA.length; i++) {
+                  const itemA = listA[i];
+                  const itemB = listB[i];
+                  if (!itemB || itemA.i !== itemB.i || itemA.x !== itemB.x || itemA.y !== itemB.y || itemA.w !== itemB.w || itemA.h !== itemB.h) {
+                      return true;
+                  }
+              }
+          }
+          return false;
+      };
+
+      if (hasLayoutChanged()) {
           onLayoutChange(newLayoutsState);
       }
   }, [onLayoutChange]);

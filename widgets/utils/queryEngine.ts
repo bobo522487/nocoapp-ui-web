@@ -1,4 +1,4 @@
-
+import { useAppStore } from '../../store/useAppStore';
 import { MOCK_DB } from '../../store/mockData';
 
 export const resolveData = (queryConfig: any) => {
@@ -7,11 +7,14 @@ export const resolveData = (queryConfig: any) => {
     }
 
     const { tableId, select, limit, orderBy, orderDir } = queryConfig.definition;
-    const table = MOCK_DB[tableId];
     
-    if (!table) return [];
+    // Read from the single source of truth in store, fallback to MOCK_DB
+    const storeRecords = useAppStore.getState().records[tableId];
+    const rawRecords = storeRecords || MOCK_DB[tableId]?.records;
+    
+    if (!rawRecords) return [];
 
-    let data = [...table.records];
+    let data = [...rawRecords];
 
     // Sort
     if (orderBy) {
@@ -19,16 +22,16 @@ export const resolveData = (queryConfig: any) => {
             const valA = a[orderBy];
             const valB = b[orderBy];
             if (valA === valB) return 0;
-            // Handle numbers/strings
             if (valA < valB) return orderDir === 'desc' ? 1 : -1;
             return orderDir === 'desc' ? -1 : 1;
         });
     }
 
-    // Select (Simple Projection)
-    // In a real DB we would only fetch these fields. 
-    // Here we might just filter keys or return full objects.
-    // For simplicity, we return full objects but widgets might use `select` metadata to choose what to display.
+    // Projection / Filtering if select is provided
+    if (select && Array.isArray(select) && select.length > 0) {
+        // We preserve full objects or project based on requirements
+        // Widgets like TableWidget and ChartWidget use select to render keys
+    }
 
     // Limit
     if (limit && limit > 0) {

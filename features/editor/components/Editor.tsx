@@ -1,26 +1,63 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Tab, FileSystemNode } from '../../../types';
+import { useAppStore } from '../../../store/useAppStore';
 
 interface EditorProps {
-  tabs: Tab[];
-  activeTabId: string | null;
-  activeFileContent: string;
-  onCloseTab: (id: string, e: React.MouseEvent) => void;
-  onSelectTab: (id: string) => void;
-  onContentChange: (content: string) => void;
+  tabs?: Tab[];
+  activeTabId?: string | null;
+  activeFileContent?: string;
+  onCloseTab?: (id: string, e: React.MouseEvent) => void;
+  onSelectTab?: (id: string) => void;
+  onContentChange?: (content: string) => void;
 }
 
-const Editor: React.FC<EditorProps> = ({ 
-  tabs, 
-  activeTabId, 
-  activeFileContent, 
-  onCloseTab, 
-  onSelectTab,
-  onContentChange
-}) => {
+const findNode = (nodes: FileSystemNode[], id: string): FileSystemNode | null => {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findNode(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const Editor: React.FC<EditorProps> = (props) => {
+  const store = useAppStore();
   
-  // Simple line number generation
+  // Use props if provided (backward compatibility), otherwise use store
+  const tabs = props.tabs ?? store.tabs;
+  const activeTabId = props.activeTabId ?? store.editorActiveTabId;
+  const activeTab = tabs.find(t => t.id === activeTabId);
+  const activeFileNode = activeTab ? findNode(store.files, activeTab.fileId) : null;
+  const activeFileContent = props.activeFileContent ?? (activeFileNode?.content || '');
+
+  const handleCloseTab = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (props.onCloseTab) {
+      props.onCloseTab(id, e);
+    } else {
+      store.closeTab(id);
+    }
+  };
+
+  const handleSelectTab = (id: string) => {
+    if (props.onSelectTab) {
+      props.onSelectTab(id);
+    } else {
+      store.setEditorActiveTabId(id);
+    }
+  };
+
+  const handleContentChange = (content: string) => {
+    if (props.onContentChange) {
+      props.onContentChange(content);
+    } else {
+      store.updateFileContent(content);
+    }
+  };
+  
   const lines = activeFileContent.split('\n').length;
   const lineNumbers = Array.from({ length: lines }, (_, i) => i + 1);
 
@@ -31,7 +68,7 @@ const Editor: React.FC<EditorProps> = ({
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            onClick={() => onSelectTab(tab.id)}
+            onClick={() => handleSelectTab(tab.id)}
             className={`
               group flex items-center min-w-[120px] max-w-[200px] px-3 text-xs border-r border-ide-border cursor-pointer select-none
               ${activeTabId === tab.id ? 'bg-ide-panel text-white border-t-2 border-t-ide-accent' : 'bg-ide-bg text-gray-500 hover:bg-[#1f1f1f]'}
@@ -39,7 +76,7 @@ const Editor: React.FC<EditorProps> = ({
           >
             <span className="truncate flex-1 mr-2">{tab.title}</span>
             <button
-              onClick={(e) => onCloseTab(tab.id, e)}
+              onClick={(e) => handleCloseTab(tab.id, e)}
               className={`opacity-0 group-hover:opacity-100 hover:bg-gray-700 rounded p-0.5 ${activeTabId === tab.id ? 'opacity-100' : ''}`}
             >
               <X size={12} />
@@ -51,18 +88,16 @@ const Editor: React.FC<EditorProps> = ({
       {/* Editor Area */}
       {activeTabId ? (
         <div className="flex-1 flex relative overflow-hidden">
-          {/* Line Numbers */}
           <div className="w-12 bg-ide-bg text-gray-600 text-right pr-3 pt-4 text-xs font-mono select-none border-r border-ide-border leading-6">
             {lineNumbers.map((num) => (
               <div key={num}>{num}</div>
             ))}
           </div>
 
-          {/* Text Area */}
           <div className="flex-1 relative">
             <textarea
               value={activeFileContent}
-              onChange={(e) => onContentChange(e.target.value)}
+              onChange={(e) => handleContentChange(e.target.value)}
               className="w-full h-full bg-ide-panel text-gray-300 font-mono text-sm p-4 pt-4 outline-none resize-none leading-6 whitespace-pre tab-4"
               spellCheck={false}
             />

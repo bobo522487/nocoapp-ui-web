@@ -1,72 +1,50 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SmartGrid } from '../components/SmartGrid/SmartGrid';
+import { SchemaModelGrid } from '../components/SchemaModelGrid';
 import { useAppStore } from '../../../store/useAppStore';
-import { SchemaField, DbTable, ViewConfig, DbView } from '../../../types';
-import { FileKey, Type, Mail, CheckCircle2, Calendar, DollarSign, Package, ShoppingCart, ArrowUpDown, Database, TableIcon, Plus, Hash, Braces, ToggleLeft, Link2, Settings2, Save, Filter } from 'lucide-react';
-import { Button } from "../../../components/ui/button";
-import { Badge } from "../../../components/ui/badge";
-import { Switch } from "../../../components/ui/switch";
-import { Checkbox } from "../../../components/ui/checkbox";
-import { Input } from "../../../components/ui/input";
+import { SchemaField, ViewConfig } from '../../../types';
 import ForeignKeyDrawer, { ForeignKeyConfig } from '../components/ForeignKeyDrawer';
-import CreateColumnDrawer from '../components/CreateColumnDrawer';
-import EditColumnDrawer from '../components/EditColumnDrawer';
-import CreateRowDrawer from '../components/CreateRowDrawer';
-import EditRowDrawer from '../components/EditRowDrawer';
-import { MOCK_DB } from '../../../store/mockData';
-import DataGrid from '../components/DataGrid';
-import { ColumnDef } from '../components/DataTable';
-import { arrayMove } from '@dnd-kit/sortable';
-
-// --- Configuration ---
-const TYPE_CONFIG: Record<string, { pk: boolean; fk: boolean; unique: boolean; notNull: boolean }> = {
-    'serial':          { pk: true,  fk: false, unique: true,  notNull: true },
-    'varchar':         { pk: true,  fk: true,  unique: true,  notNull: true },
-    'int':             { pk: true,  fk: true,  unique: true,  notNull: true },
-    'bigint':          { pk: true,  fk: true,  unique: true,  notNull: true },
-    'float':           { pk: true,  fk: true,  unique: true,  notNull: true },
-    'boolean':         { pk: false, fk: false, unique: false, notNull: true },
-    'date with time':  { pk: false, fk: false, unique: false, notNull: true },
-    'jsonb':           { pk: false, fk: false, unique: false, notNull: true },
-};
-
-const DATA_TYPES = [
-    { id: 'varchar', label: 'Varchar', icon: Type },
-    { id: 'int', label: 'Integer', icon: Hash },
-    { id: 'float', label: 'Float', icon: DollarSign },
-    { id: 'boolean', label: 'Boolean', icon: ToggleLeft },
-    { id: 'date with time', label: 'Date with Time', icon: Calendar },
-    { id: 'jsonb', label: 'JSONB', icon: Braces },
-    { id: 'serial', label: 'Serial', icon: FileKey },
-];
-
-const getTypeIcon = (type: string) => {
-    const found = DATA_TYPES.find(t => t.id === type);
-    return found ? found.icon : Type;
-};
+import ColumnDrawer from '../components/ColumnDrawer';
+import RecordDrawer from '../components/RecordDrawer';
 
 const DataPage: React.FC = () => {
-  const { activeTableId, tables, activeViewId, views, setActiveViewId, updateView, addView, dataViewMode } = useAppStore();
+  const { 
+    activeTableId, 
+    tables, 
+    activeViewId, 
+    views, 
+    setActiveViewId, 
+    updateView, 
+    dataViewMode,
+    schemas,
+    records,
+    addTableColumn,
+    updateTableColumn,
+    deleteTableColumn,
+    setTableRecords,
+    addTableRecord,
+    updateTableRecord,
+    updateTableCell,
+    deleteTableRecords,
+    reorderTableRecords
+  } = useAppStore();
   
-  // Local Data State
-  const [schema, setSchema] = useState<SchemaField[]>([]);
-  const [records, setRecords] = useState<any[]>([]);
+  // Active table schema and records directly from store (Single Source of Truth)
+  const currentSchema = schemas[activeTableId] || [];
+  const currentRecords = records[activeTableId] || [];
+  const currentTable = tables.find(t => t.id === activeTableId);
 
   // Drawers State
   const [isForeignKeyDrawerOpen, setIsForeignKeyDrawerOpen] = useState(false);
-  const [isCreateColumnDrawerOpen, setIsCreateColumnDrawerOpen] = useState(false);
-  const [isEditColumnDrawerOpen, setIsEditColumnDrawerOpen] = useState(false);
-  const [isCreateRowDrawerOpen, setIsCreateRowDrawerOpen] = useState(false);
-  const [isEditRowDrawerOpen, setIsEditRowDrawerOpen] = useState(false);
+  const [isColumnDrawerOpen, setIsColumnDrawerOpen] = useState(false);
+  const [isRecordDrawerOpen, setIsRecordDrawerOpen] = useState(false);
   
   const [currentForeignKeyField, setCurrentForeignKeyField] = useState<SchemaField | null>(null);
   const [editingField, setEditingField] = useState<SchemaField | null>(null);
-  const [editingRecord, setEditingRecord] = useState<any | null>(null);
+  const [editingRecord, setEditingRecord] = useState<Record<string, any> | null>(null);
 
   // View Management
   const activeView = views.find(v => v.id === activeViewId);
-  const currentTable = tables.find(t => t.id === activeTableId);
 
   // Auto-switch to default view if none active for this table
   useEffect(() => {
@@ -78,57 +56,6 @@ const DataPage: React.FC = () => {
       }
   }, [activeTableId, activeView, views, setActiveViewId]);
 
-  useEffect(() => {
-    const data = MOCK_DB[activeTableId];
-    if (!data) {
-        setSchema([
-             { id: 'id', name: 'ID', type: 'serial', width: 60, icon: FileKey, isPrimary: true, isUnique: true, isNullable: false, defaultValue: 'auto-inc' }
-        ]);
-        setRecords([]);
-    } else {
-        setSchema(data.schema);
-        setRecords(data.records);
-    }
-    
-    setIsForeignKeyDrawerOpen(false);
-    setIsCreateColumnDrawerOpen(false);
-    setIsEditColumnDrawerOpen(false);
-    setIsCreateRowDrawerOpen(false);
-    setIsEditRowDrawerOpen(false);
-  }, [activeTableId]);
-
-  // Handlers
-  const handleViewConfigChange = (newConfig: ViewConfig) => {
-      if (activeView) {
-          updateView(activeView.id, { config: newConfig });
-      }
-  };
-
-  const handleSchemaChange = (rowId: string | number, colId: string, value: any) => {
-      setSchema(prev => prev.map(field => {
-          if (field.id === rowId) {
-              const updated = { ...field, [colId]: value };
-              if (colId === 'isForeignKey' && value === false) delete (updated as any).foreignKeyConfig;
-              if (colId === 'type') {
-                  const config = TYPE_CONFIG[value as string];
-                  if (!config.pk && updated.isPrimary) updated.isPrimary = false;
-                  if (!config.unique && updated.isUnique) updated.isUnique = false;
-                  if (!config.fk && updated.isForeignKey) {
-                    updated.isForeignKey = false;
-                    delete (updated as any).foreignKeyConfig;
-                  }
-                  updated.icon = getTypeIcon(value as string);
-              }
-              if (colId === 'isForeignKey' && value === true) {
-                  setCurrentForeignKeyField(updated);
-                  setIsForeignKeyDrawerOpen(true);
-              }
-              return updated;
-          }
-          return field;
-      }));
-  };
-
   const handleOpenRelationDrawer = (field: SchemaField) => {
       setCurrentForeignKeyField(field);
       setIsForeignKeyDrawerOpen(true);
@@ -136,11 +63,10 @@ const DataPage: React.FC = () => {
 
   const handleFKDrawerSave = (config: ForeignKeyConfig) => {
       if (currentForeignKeyField) {
-          setSchema(prev => prev.map(f => f.id === currentForeignKeyField.id ? { 
-              ...f, 
+          updateTableColumn(activeTableId, currentForeignKeyField.id, {
               isForeignKey: true,
               foreignKeyConfig: config
-          } as any : f));
+          } as any);
       }
       setIsForeignKeyDrawerOpen(false);
       setCurrentForeignKeyField(null);
@@ -148,11 +74,10 @@ const DataPage: React.FC = () => {
 
   const handleFKDrawerDelete = () => {
       if (currentForeignKeyField) {
-          setSchema(prev => prev.map(f => f.id === currentForeignKeyField.id ? { 
-              ...f, 
+          updateTableColumn(activeTableId, currentForeignKeyField.id, {
               isForeignKey: false,
               foreignKeyConfig: undefined
-          } as any : f));
+          } as any);
       }
       setIsForeignKeyDrawerOpen(false);
       setCurrentForeignKeyField(null);
@@ -161,133 +86,110 @@ const DataPage: React.FC = () => {
   const handleFKDrawerClose = () => {
       setIsForeignKeyDrawerOpen(false);
       if (currentForeignKeyField) {
-          const field = schema.find(f => f.id === currentForeignKeyField.id);
+          const field = currentSchema.find(f => f.id === currentForeignKeyField.id);
           if (field && field.isForeignKey && !(field as any).foreignKeyConfig) {
-              setSchema(prev => prev.map(f => f.id === currentForeignKeyField.id ? { ...f, isForeignKey: false } : f));
+              updateTableColumn(activeTableId, currentForeignKeyField.id, { isForeignKey: false });
           }
       }
       setCurrentForeignKeyField(null);
   };
 
   const getTargetColumns = (tableId: string) => {
-      const tableData = MOCK_DB[tableId];
-      if (!tableData) return [];
-      return tableData.schema.map(f => ({ id: f.id, name: f.name }));
+      const targetCols = schemas[tableId];
+      if (!targetCols) return [];
+      return targetCols.map(f => ({ id: f.id, name: f.name }));
   };
 
-  const handleSchemaAddClick = () => {
-      setIsCreateColumnDrawerOpen(true);
+  const handleAddColumnClick = () => {
+      setEditingField(null);
+      setIsColumnDrawerOpen(true);
   };
 
-  const handleEditColumn = (field: SchemaField) => {
+  const handleEditColumnClick = (field: SchemaField) => {
       setEditingField(field);
-      setIsEditColumnDrawerOpen(true);
+      setIsColumnDrawerOpen(true);
   };
 
-  const handleColumnUpdate = (updatedField: SchemaField) => {
-      setSchema(prev => prev.map(f => f.id === updatedField.id ? updatedField : f));
-  };
-
-  const handleColumnCreate = (fieldConfig: Partial<SchemaField> & { targetTableId?: string, foreignKeyConfig?: ForeignKeyConfig }) => {
-      const icon = getTypeIcon(fieldConfig.type || 'varchar');
-      const newField: SchemaField = {
-          id: `col_${Date.now()}`,
-          name: fieldConfig.name || 'New Column',
-          type: fieldConfig.type || 'varchar',
-          defaultValue: fieldConfig.defaultValue || '',
-          isPrimary: fieldConfig.isPrimary || false,
-          isForeignKey: fieldConfig.isForeignKey || false,
-          isUnique: fieldConfig.isUnique || false,
-          isNullable: fieldConfig.isNullable !== undefined ? fieldConfig.isNullable : true,
-          description: '',
-          flex: true,
-          icon: icon,
-          width: 150,
-          timeZone: fieldConfig.timeZone,
-      };
-      if (fieldConfig.foreignKeyConfig) {
-          (newField as any).foreignKeyConfig = fieldConfig.foreignKeyConfig;
+  const handleColumnSave = (fieldConfig: any) => {
+      if (editingField) {
+          updateTableColumn(activeTableId, editingField.id, fieldConfig);
+      } else {
+          const newField: SchemaField = {
+              id: `col_${Date.now()}`,
+              name: fieldConfig.name || 'New Column',
+              type: fieldConfig.type || 'varchar',
+              defaultValue: fieldConfig.defaultValue || '',
+              isPrimary: fieldConfig.isPrimary || false,
+              isForeignKey: fieldConfig.isForeignKey || false,
+              isUnique: fieldConfig.isUnique || false,
+              isNullable: fieldConfig.isNullable !== undefined ? fieldConfig.isNullable : true,
+              description: '',
+              flex: true,
+              icon: fieldConfig.icon,
+              width: 150,
+              timeZone: fieldConfig.timeZone,
+          };
+          if (fieldConfig.foreignKeyConfig) {
+              (newField as any).foreignKeyConfig = fieldConfig.foreignKeyConfig;
+          }
+          addTableColumn(activeTableId, newField);
       }
-      setSchema([...schema, newField]);
+      setIsColumnDrawerOpen(false);
+      setEditingField(null);
   };
 
-  // Supports single string ID or array of IDs (legacy)
-  const handleSchemaDelete = (idOrIds: string | (string | number)[]) => {
-      const idsToDelete = new Set(Array.isArray(idOrIds) ? idOrIds.map(String) : [String(idOrIds)]);
-      setSchema(prev => prev.filter(col => !idsToDelete.has(String(col.id))));
-  };
-
-  const handleDataChange = (rowId: string | number, colId: string, value: any) => {
-      setRecords(prev => prev.map(record => 
-          record.id === rowId ? { ...record, [colId]: value } : record
-      ));
+  const handleColumnDelete = (id: string) => {
+      deleteTableColumn(activeTableId, id);
+      setIsColumnDrawerOpen(false);
+      setEditingField(null);
   };
 
   const handleAddRowClick = () => {
-      setIsCreateRowDrawerOpen(true);
+      setEditingRecord(null);
+      setIsRecordDrawerOpen(true);
   };
 
-  const handleEditRow = (id: string | number) => {
-      const record = records.find(r => r.id === id);
+  const handleEditRowClick = (id: string | number) => {
+      const record = currentRecords.find(r => r.id === id);
       if (record) {
           setEditingRecord(record);
-          setIsEditRowDrawerOpen(true);
+          setIsRecordDrawerOpen(true);
       }
   };
 
-  const handleConfirmCreateRow = (recordData: Record<string, any>) => {
-      const newId = Math.max(...records.map(r => Number(r.id) || 0), 0) + 1;
-      const newRecord = { id: newId, ...recordData };
-      setRecords([...records, newRecord]);
-  };
-
-  const handleConfirmEditRow = (recordData: Record<string, any>) => {
-      if (!editingRecord) return;
-      // Merge updates
-      const updatedRecord = { ...editingRecord, ...recordData };
-      setRecords(prev => prev.map(r => r.id === editingRecord.id ? updatedRecord : r));
+  const handleRecordSave = (recordData: Record<string, any>) => {
+      if (editingRecord) {
+          updateTableRecord(activeTableId, editingRecord.id, recordData);
+      } else {
+          addTableRecord(activeTableId, recordData);
+      }
+      setIsRecordDrawerOpen(false);
       setEditingRecord(null);
   };
 
-  const handleDataDelete = (ids: (string | number)[]) => {
-      const idsToDelete = new Set(ids.map(String));
-      setRecords(prev => prev.filter(rec => !idsToDelete.has(String(rec.id))));
-  };
-
-  const handleRowReorder = (activeId: string, overId: string) => {
-      setRecords((items) => {
-          const oldIndex = items.findIndex((item) => item.id === activeId);
-          const newIndex = items.findIndex((item) => item.id === overId);
-          return arrayMove(items, oldIndex, newIndex);
-      });
-  };
-
   // --- Import / Export Handlers ---
-
   const handleImport = (file: File) => {
       const reader = new FileReader();
       reader.onload = (e) => {
           const text = e.target?.result;
           if (typeof text === 'string') {
               try {
-                  // Basic CSV Parse
                   const rows = text.split('\n').filter(r => r.trim());
                   if (rows.length > 0) {
-                      // Assuming first row is header
                       const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+                      const maxId = Math.max(...currentRecords.map(r => Number(r.id) || 0), 0);
                       
                       const newRecords = rows.slice(1).map((row, idx) => {
                           const values = row.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                          const record: any = { id: Math.max(...records.map(r => Number(r.id) || 0), 0) + idx + 1 };
+                          const record: any = { id: maxId + idx + 1 };
                           headers.forEach((header, i) => {
-                              // Find schema match or use header as key
-                              const schemaCol = schema.find(s => s.name === header) || { id: header.toLowerCase() };
+                              const schemaCol = currentSchema.find(s => s.name === header) || { id: header.toLowerCase() };
                               record[schemaCol.id] = values[i] || '';
                           });
                           return record;
                       });
                       
-                      setRecords(prev => [...prev, ...newRecords]);
+                      setTableRecords(activeTableId, [...currentRecords, ...newRecords]);
                   }
               } catch (error) {
                   console.error("Error parsing CSV:", error);
@@ -298,19 +200,18 @@ const DataPage: React.FC = () => {
   };
 
   const handleExport = (type: 'csv' | 'excel') => {
-      const headers = schema.map(f => f.name);
-      const keys = schema.map(f => f.id);
+      const headers = currentSchema.map(f => f.name);
+      const keys = currentSchema.map(f => f.id);
       
       const csvContent = [
           headers.join(','),
-          ...records.map(row => keys.map(key => `"${row[key] ?? ''}"`).join(','))
+          ...currentRecords.map(row => keys.map(key => `"${row[key] ?? ''}"`).join(','))
       ].join('\n');
 
       let blob: Blob;
       let filename = `${activeTableId || 'export'}`;
 
       if (type === 'excel') {
-          // Simple HTML-based fake Excel for immediate download without heavy libs
           const htmlContent = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8" /></head>
@@ -318,7 +219,7 @@ const DataPage: React.FC = () => {
                 <table>
                     <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
                     <tbody>
-                        ${records.map(row => `<tr>${keys.map(key => `<td>${row[key] ?? ''}</td>`).join('')}</tr>`).join('')}
+                        ${currentRecords.map(row => `<tr>${keys.map(key => `<td>${row[key] ?? ''}</td>`).join('')}</tr>`).join('')}
                     </tbody>
                 </table>
             </body>
@@ -340,141 +241,31 @@ const DataPage: React.FC = () => {
       document.body.removeChild(link);
   };
 
-  // --- Legacy Model Columns Definition (Kept for Model View if using legacy grid) ---
-  const modelColumns: ColumnDef<SchemaField>[] = [
-      {
-          id: 'name',
-          header: 'Column Name',
-          accessorKey: 'name',
-          minWidth: 200,
-          flex: true,
-          editable: true,
-          renderCell: (row) => (
-              <div className="flex items-center gap-2 font-medium text-foreground pl-1 h-full">
-                  {row.name}
-                  {row.isPrimary && <FileKey size={12} className="text-yellow-500 ml-1" />}
-              </div>
-          )
-      },
-      {
-          id: 'type',
-          header: 'Data Type',
-          accessorKey: 'type',
-          width: 150,
-          minWidth: 140,
-          editable: true,
-          type: 'select',
-          options: DATA_TYPES.map(t => ({ id: t.id, label: t.label, icon: t.icon })),
-          renderCell: (row) => {
-              const typeObj = DATA_TYPES.find(t => t.id === row.type) || DATA_TYPES[0];
-              const Icon = typeObj.icon;
-              return (
-                 <div className="flex items-center gap-2 text-foreground pl-1">
-                     <Icon size={14} className="text-muted-foreground" />
-                     <span className="text-sm">{typeObj.label}</span>
-                 </div>
-              );
-          }
-      },
-      {
-          id: 'defaultValue',
-          header: 'Default Value',
-          accessorKey: 'defaultValue',
-          width: 120,
-          minWidth: 100,
-          editable: true,
-          renderCell: (row) => <span className="text-foreground font-mono text-xs pl-1">{row.defaultValue}</span>
-      },
-      {
-          id: 'isPrimary',
-          header: <div className="text-center w-full text-[10px] font-semibold text-muted-foreground uppercase">Primary</div>,
-          accessorKey: 'isPrimary',
-          width: 70,
-          renderCell: (row) => (
-              <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={row.isPrimary} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isPrimary', !!checked)} disabled={!TYPE_CONFIG[row.type].pk} />
-              </div>
-          )
-      },
-      {
-          id: 'isUnique',
-          header: <div className="text-center w-full text-[10px] font-semibold text-muted-foreground uppercase">Unique</div>,
-          accessorKey: 'isUnique',
-          width: 70,
-          renderCell: (row) => (
-              <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Switch checked={row.isUnique} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isUnique', checked)} className="scale-75" disabled={!TYPE_CONFIG[row.type].unique} />
-              </div>
-          )
-      },
-      {
-          id: 'isNullable',
-          header: <div className="text-center w-full text-[10px] font-semibold text-muted-foreground uppercase">Nullable</div>,
-          accessorKey: 'isNullable',
-          width: 70,
-          renderCell: (row) => (
-              <div className="flex justify-center w-full" onClick={(e) => e.stopPropagation()}>
-                  <Switch checked={row.isNullable} onCheckedChange={(checked) => handleSchemaChange(row.id, 'isNullable', checked)} className="scale-75" disabled={!TYPE_CONFIG[row.type].notNull} />
-              </div>
-          )
-      },
-      {
-          id: 'fkInfo',
-          header: 'Relation',
-          width: 150,
-          flex: true,
-          renderCell: (row) => {
-              if (!row.isForeignKey) return <span className="text-muted-foreground/30 text-xs pl-1">-</span>;
-              const fkConfig = (row as any).foreignKeyConfig as ForeignKeyConfig;
-              if (fkConfig && fkConfig.targetTableId) {
-                  const targetTable = tables.find(t => t.id === fkConfig.targetTableId);
-                  const targetTableDisplay = targetTable ? targetTable.name : fkConfig.targetTableId;
-                  return (
-                      <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); handleOpenRelationDrawer(row); }}>
-                           <Link2 size={10} />
-                           <span>{targetTableDisplay}</span>
-                      </div>
-                  );
-              }
-               return (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground pl-1" onClick={(e) => { e.stopPropagation(); handleOpenRelationDrawer(row); }}>
-                       <Settings2 size={10} />
-                       <span className="italic">Configure</span>
-                  </div>
-              );
-          }
-      }
-  ];
-
   return (
     <div className="flex-1 flex flex-col w-full h-full bg-background relative min-w-0">
-      
       {dataViewMode === 'MODEL' ? (
-          // Keeping Legacy DataGrid for Model View for now
-          <DataGrid<SchemaField>
-            columns={modelColumns}
-            data={schema}
-            onAdd={handleSchemaAddClick}
-            addItemLabel="Add Column"
-            onEdit={handleSchemaChange}
-            onDelete={handleSchemaDelete}
-            keyField="id"
-            hideToolbar={true} 
+          <SchemaModelGrid
+            schema={currentSchema}
+            tables={tables}
+            onAddColumn={handleAddColumnClick}
+            onEditColumn={handleEditColumnClick}
+            onDeleteColumn={(id) => deleteTableColumn(activeTableId, id)}
+            onUpdateField={(fieldId, updates) => updateTableColumn(activeTableId, fieldId, updates)}
+            onOpenRelation={handleOpenRelationDrawer}
           />
       ) : (
-          // Using new SmartGrid for Data View
           <SmartGrid<any>
-            data={records}
-            schema={schema}
-            onCellEdit={handleDataChange}
-            onAddColumn={handleSchemaAddClick}
-            onEditColumn={handleEditColumn}
-            onDeleteColumn={handleSchemaDelete}
+            data={currentRecords}
+            schema={currentSchema}
+            onCellEdit={(rowId, colId, value) => updateTableCell(activeTableId, rowId, colId, value)}
+            onAddColumn={handleAddColumnClick}
+            onEditColumn={handleEditColumnClick}
+            onDeleteColumn={(id) => deleteTableColumn(activeTableId, id)}
             onAddRow={handleAddRowClick}
-            onRowSelect={() => {}} // Internal state used in toolbar
-            onRowReorder={handleRowReorder}
-            onEditRow={handleEditRow}
-            onDeleteRows={handleDataDelete}
+            onRowSelect={() => {}}
+            onRowReorder={(activeId, overId) => reorderTableRecords(activeTableId, activeId, overId)}
+            onEditRow={handleEditRowClick}
+            onDeleteRows={(ids) => deleteTableRecords(activeTableId, ids)}
             onImport={handleImport}
             onExport={handleExport}
           />
@@ -493,39 +284,23 @@ const DataPage: React.FC = () => {
         />
       )}
 
-      <CreateColumnDrawer
-        isOpen={isCreateColumnDrawerOpen}
-        onClose={() => setIsCreateColumnDrawerOpen(false)}
-        onCreate={handleColumnCreate}
-        tables={tables}
-        activeTableName={currentTable?.name || activeTableId}
-        getTargetColumns={getTargetColumns}
-      />
-
-      <EditColumnDrawer
-        isOpen={isEditColumnDrawerOpen}
-        onClose={() => setIsEditColumnDrawerOpen(false)}
+      <ColumnDrawer
+        isOpen={isColumnDrawerOpen}
+        onClose={() => { setIsColumnDrawerOpen(false); setEditingField(null); }}
         initialField={editingField}
-        onSave={handleColumnUpdate}
-        onDelete={handleSchemaDelete}
+        onSave={handleColumnSave}
+        onDelete={handleColumnDelete}
         tables={tables}
         activeTableName={currentTable?.name || activeTableId}
         getTargetColumns={getTargetColumns}
       />
 
-      <CreateRowDrawer
-        isOpen={isCreateRowDrawerOpen}
-        onClose={() => setIsCreateRowDrawerOpen(false)}
-        onCreate={handleConfirmCreateRow}
-        schema={schema}
-      />
-
-      <EditRowDrawer
-        isOpen={isEditRowDrawerOpen}
-        onClose={() => { setIsEditRowDrawerOpen(false); setEditingRecord(null); }}
-        initialData={editingRecord}
-        onSave={handleConfirmEditRow}
-        schema={schema}
+      <RecordDrawer
+        isOpen={isRecordDrawerOpen}
+        onClose={() => { setIsRecordDrawerOpen(false); setEditingRecord(null); }}
+        initialRecord={editingRecord}
+        onSave={handleRecordSave}
+        schema={currentSchema}
       />
     </div>
   );

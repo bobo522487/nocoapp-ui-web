@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Search, Plus, Table, Filter } from 'lucide-react';
 import { Button } from "../../../components/ui/button";
@@ -9,7 +8,6 @@ import { DbView, DbTable, SchemaField } from '../../../types';
 import { Tree } from '../../../components/common/Tree/Tree';
 import { TreeItem } from '../../../components/common/Tree/types';
 import { CreateTableDrawer } from './CreateTableDrawer';
-import { MOCK_DB } from '../../../store/mockData';
 
 const TablePanel: React.FC = () => {
   const navigate = useNavigate();
@@ -25,11 +23,12 @@ const TablePanel: React.FC = () => {
       views, 
       setViews,
       addView, 
-      updateView,
+      updateView, 
       deleteView, 
       setActiveViewId,
       setActiveTableId,
-      reorderTables
+      reorderTables,
+      schemas
   } = useAppStore();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,13 +36,11 @@ const TablePanel: React.FC = () => {
 
   // --- Tree Data Conversion ---
   const treeItems: TreeItem[] = useMemo(() => {
-      // 1. Filter tables
       const filteredTables = tables.filter(t => 
         t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         t.code.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      // 2. Build Tree
       return filteredTables.map(table => {
           const tableViews = views.filter(v => v.tableId === table.id);
           return {
@@ -62,16 +59,13 @@ const TablePanel: React.FC = () => {
   }, [tables, views, searchTerm]);
 
   const handleTreeChange = (newItems: TreeItem[]) => {
-      // Prevent reordering while searching to avoid data loss or inconsistent state
       if (searchTerm) return;
 
-      // 1. Reorder Tables
       const newTables = newItems.map(item => tables.find(t => t.id === item.id)).filter(Boolean) as DbTable[];
       if (newTables.length === tables.length) {
           reorderTables(newTables);
       }
 
-      // 2. Reorder Views
       const processedViewIds = new Set<string>();
       const newViewsOrdered: DbView[] = [];
 
@@ -88,13 +82,10 @@ const TablePanel: React.FC = () => {
           }
       });
 
-      // Keep views that were not involved in the reorder
       const remainingViews = views.filter(v => !processedViewIds.has(v.id));
-      
       setViews([...newViewsOrdered, ...remainingViews]);
   };
 
-  // --- Actions ---
   const handleSelect = (item: any) => {
       if (item.type === 'table') {
           navigate(`/data/${item.id}`);
@@ -134,12 +125,7 @@ const TablePanel: React.FC = () => {
           name: tableName, 
           code: tableName.toLowerCase().replace(/\s+/g, '_'),
           kind: 'table'
-      });
-      
-      MOCK_DB[newId] = {
-          schema: columns,
-          records: []
-      };
+      }, columns, []);
       
       navigate(`/data/${newId}`);
   };
@@ -169,9 +155,9 @@ const TablePanel: React.FC = () => {
   };
 
   const getTargetColumns = (tableId: string) => {
-      const tableData = MOCK_DB[tableId];
-      if (!tableData) return [];
-      return tableData.schema.map(f => ({ id: f.id, name: f.name }));
+      const tableCols = schemas[tableId];
+      if (!tableCols) return [];
+      return tableCols.map(f => ({ id: f.id, name: f.name }));
   };
 
   return (
@@ -194,7 +180,6 @@ const TablePanel: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Search Box */}
                 <div className="px-3 mb-2 relative">
                     <Search size={12} className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input 
@@ -213,7 +198,6 @@ const TablePanel: React.FC = () => {
                         onRename={handleRename}
                         onRemove={handleRemove}
                         onDuplicate={handleDuplicate}
-                        // Add View via onAdd on Table items
                         onAdd={(id) => {
                             const table = tables.find(t => t.id === id);
                             if (table) handleCreateView(id);
@@ -225,11 +209,9 @@ const TablePanel: React.FC = () => {
                         indicator
                         canHaveChildren={(item) => item.type === 'table'}
                         validateParent={(item, parentId) => {
-                            // Table Logic: Root only
                             if (item.type === 'table') {
                                 return parentId === null;
                             }
-                            // View Logic: Must stay under original parent
                             if (item.type === 'view') {
                                 return parentId === item.data.tableId;
                             }

@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Filter, ArrowUpDown, Columns, MoreHorizontal, Plus, X, Check, MoveVertical, ListTree, Maximize, Minimize, Pencil, Trash2, Upload, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import { Button } from "../../../../../components/ui/button";
-import { Input } from "../../../../../components/ui/input";
-import { Separator } from "../../../../../components/ui/separator";
+import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
+import { Separator } from "../../../../components/ui/separator";
 import { Table, Column } from '@tanstack/react-table';
 import { createPortal } from 'react-dom';
-import { cn } from '../../../../../lib/utils';
+import { cn } from '../../../../lib/utils';
 import { DensityState } from './SmartGrid';
 
 interface GridToolbarProps<T> {

@@ -111,7 +111,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ width }) => {
   return (
     <div 
       style={{ width }}
-      className="bg-card flex flex-col h-full shrink-0 overflow-hidden transition-colors border-l border-border"
+      className="bg-card flex flex-col h-full shrink-0 overflow-hidden transition-colors"
     >
       
       {/* Header */}

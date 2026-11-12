@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import Dropdown from './Dropdown';
-import { LayoutGrid, Database, Table, Plus, Box, File, Eye, Filter, TableIcon, Server } from 'lucide-react';
+import Dropdown, { DropdownItem } from './Dropdown';
+import { LayoutGrid, Database, Table, Plus, Box, File, Eye, Filter, TableIcon, Server, Copy } from 'lucide-react';
 import { ViewMode } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { Button } from "../ui/button";
 import { useNavigate } from 'react-router-dom';
+import CreateWorkspaceDialog from '../../features/workspace/components/CreateWorkspaceDialog';
 
 const Breadcrumb: React.FC = () => {
   const navigate = useNavigate();
@@ -25,16 +26,18 @@ const Breadcrumb: React.FC = () => {
   } = useAppStore();
 
   // --- State ---
-  const [selectedOrg, setSelectedOrg] = useState({ id: 'org-1', label: "bobo's Org" });
+  const [selectedOrg, setSelectedOrg] = useState({ id: 'org-1', label: "bobo's Org", color: 'bg-blue-500' });
   const [selectedSource, setSelectedSource] = useState({ id: 'src-1', label: "nocoapp-db" });
   const [selectedApp, setSelectedApp] = useState({ id: 'app-1', label: "Order App" });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-
-  // --- Mock Data ---
-  const orgs = [
-    { id: 'org-1', label: "bobo's Org", group: 'Personal' },
-    { id: 'org-2', label: "nocoapp", group: 'Personal' },
-  ];
+  
+  // Organization State
+  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
+  const [orgs, setOrgs] = useState([
+    { id: 'org-1', label: "bobo's Org", group: 'Personal', description: 'Free Plan • 2 members', color: 'bg-indigo-500' },
+    { id: 'org-2', label: "nocoapp", group: 'Organization', description: 'Pro Plan • 15 members', color: 'bg-emerald-500' },
+    { id: 'org-3', label: "Test Workspace", group: 'Personal', description: 'Free Plan • 1 member', color: 'bg-orange-500' },
+  ]);
 
   const sources = [
     { id: 'src-1', label: "nocoapp-db", group: 'Databases', icon: Database },
@@ -76,22 +79,82 @@ const Breadcrumb: React.FC = () => {
     <span className="text-muted-foreground/40 mx-1 text-lg font-light">/</span>
   );
 
+  // Org Dropdown Item Helpers
+  const renderOrgAvatar = (label: string, color: string) => (
+      <div className={`w-8 h-8 rounded-lg ${color} flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
+          {label.substring(0, 2).toUpperCase()}
+      </div>
+  );
+
+  const orgItems: DropdownItem[] = orgs.map(o => ({
+      id: o.id,
+      label: o.label,
+      group: o.group,
+      description: o.description,
+      avatar: renderOrgAvatar(o.label, o.color)
+  }));
+
+  const renderOrgHeader = () => (
+      <div className="px-3 py-3">
+          <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg ${selectedOrg.color} flex items-center justify-center text-white text-base font-bold shadow-sm`}>
+                  {selectedOrg.label.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate">{selectedOrg.label}</div>
+                  <div className="text-xs text-muted-foreground truncate">Free • 2 members</div>
+              </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-1.5 rounded-md border border-border/50">
+              <span className="font-mono">ID: {selectedOrg.id}</span>
+              <button className="ml-auto hover:text-foreground transition-colors" title="Copy ID">
+                  <Copy size={12} />
+              </button>
+          </div>
+      </div>
+  );
+
+  const handleCreateWorkspace = (name: string) => {
+      const newOrg = {
+          id: `org-${Date.now()}`,
+          label: name,
+          group: 'Personal',
+          description: 'Free Plan • 1 member',
+          color: 'bg-blue-500' // Default color
+      };
+      setOrgs(prev => [...prev, newOrg]);
+      setSelectedOrg({ id: newOrg.id, label: newOrg.label, color: newOrg.color });
+  };
+
   return (
     <div className="flex items-center text-sm">
         {/* 1. Organization Selector */}
         <Dropdown
             triggerLabel={selectedOrg.label}
             triggerIcon={Box}
-            items={orgs}
+            items={orgItems}
             selectedId={selectedOrg.id}
-            onSelect={(item) => setSelectedOrg({ id: item.id, label: item.label })}
-            searchPlaceholder="Find organization..."
+            onSelect={(item) => {
+                const org = orgs.find(o => o.id === item.id);
+                if (org) setSelectedOrg({ id: org.id, label: org.label, color: org.color });
+            }}
+            width={280}
+            header={renderOrgHeader()}
+            searchPlaceholder="Find workspace..."
             open={activeDropdown === 'org'}
             onOpenChange={(isOpen) => setActiveDropdown(isOpen ? 'org' : null)}
             footer={
-                <div className="relative flex select-none items-center rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-muted cursor-pointer w-full text-foreground gap-2 transition-colors">
-                    <Plus size={14} className="text-muted-foreground" />
-                    <span>New Organization</span>
+                <div 
+                    className="relative flex select-none items-center rounded-md px-2 py-2 text-xs outline-none hover:bg-muted cursor-pointer w-full text-foreground gap-2 transition-colors"
+                    onClick={() => {
+                        setActiveDropdown(null);
+                        setIsCreateWorkspaceOpen(true);
+                    }}
+                >
+                    <div className="w-6 h-6 rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center">
+                        <Plus size={14} className="text-muted-foreground" />
+                    </div>
+                    <span className="font-medium">Create New Workspace</span>
                 </div>
             }
         />
@@ -235,6 +298,12 @@ const Breadcrumb: React.FC = () => {
                <span className="text-muted-foreground">New Source</span>
             </>
         )}
+
+        <CreateWorkspaceDialog
+            isOpen={isCreateWorkspaceOpen}
+            onClose={() => setIsCreateWorkspaceOpen(false)}
+            onCreate={handleCreateWorkspace}
+        />
     </div>
   );
 };

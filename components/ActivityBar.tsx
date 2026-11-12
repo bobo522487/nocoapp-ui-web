@@ -15,7 +15,7 @@ const ActivityBar: React.FC<ActivityBarProps> = ({ activeView, setActiveView }) 
   ];
 
   return (
-    <div className="w-14 flex flex-col items-center py-4 bg-muted/40 border-r border-border text-muted-foreground z-20 select-none transition-colors">
+    <div className="w-14 flex flex-col items-center py-4 bg-background border-r border-border text-muted-foreground z-20 select-none transition-colors">
       {icons.map((item) => (
         <div
           key={item.id}

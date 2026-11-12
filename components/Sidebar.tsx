@@ -107,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       style={{ width }}
-      className="flex flex-col bg-card h-full shrink-0 transition-colors relative z-20 overflow-hidden"
+      className="flex flex-col bg-background h-full shrink-0 transition-colors relative z-20 overflow-hidden"
     >
       {renderContent()}
     </div>

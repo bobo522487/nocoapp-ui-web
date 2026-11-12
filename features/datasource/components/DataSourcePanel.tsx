@@ -22,8 +22,8 @@ const DataSourcePanel: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-muted/10">
+    <div className="flex flex-col h-full bg-background">
+      <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
           <span className="font-medium text-sm text-muted-foreground">Data Sources</span>
           <div className="flex gap-2">
              <Plus size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate('/datasources')}/>

@@ -61,7 +61,7 @@ const ComponentsPanel: React.FC<ComponentsPanelProps> = ({ onClose }) => {
   return (
     <div className="flex flex-col h-full bg-background animate-in slide-in-from-left-4 duration-200">
       {/* Header (Unified) */}
-      <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-muted/10">
+      <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
           <span className="font-medium text-sm text-muted-foreground">Components</span>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
              <X size={14} className="text-muted-foreground hover:text-foreground"/>

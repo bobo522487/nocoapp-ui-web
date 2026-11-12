@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { SchemaField } from '../../../../types';
-import { Checkbox } from "../../../../../components/ui/checkbox";
-import { Badge } from "../../../../../components/ui/badge";
+import { Checkbox } from "../../../../components/ui/checkbox";
+import { Badge } from "../../../../components/ui/badge";
 import { Calendar, Clock, Link2 } from 'lucide-react';
 
 interface CellRendererProps {

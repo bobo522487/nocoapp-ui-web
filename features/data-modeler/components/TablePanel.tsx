@@ -176,8 +176,8 @@ const TablePanel: React.FC = () => {
 
   return (
     <>
-        <div className="flex flex-col h-full">
-        <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-muted/10">
+        <div className="flex flex-col h-full bg-background">
+        <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
             <span className="font-medium text-sm text-muted-foreground">Database</span>
         </div>
         <div className="flex-1 overflow-y-auto py-2">

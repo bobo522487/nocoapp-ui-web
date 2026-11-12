@@ -99,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       default:
          return (
              <div className="flex flex-col h-full">
-                 <div className="h-9 px-4 border-b border-border flex items-center shrink-0 bg-muted/10">
+                 <div className="h-9 px-4 border-b border-border flex items-center shrink-0 bg-background">
                      <span className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Explorer</span>
                  </div>
                  <div className="flex-1 overflow-y-auto py-2">
@@ -122,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       style={{ width }}
-      className="flex flex-col bg-muted/5 h-full shrink-0 transition-colors relative z-20 overflow-hidden border-r border-border"
+      className="flex flex-col bg-background h-full shrink-0 transition-colors relative z-20 overflow-hidden"
     >
       {renderContent()}
     </div>

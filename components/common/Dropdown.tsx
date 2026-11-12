@@ -4,11 +4,13 @@ import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-interface DropdownItem {
+export interface DropdownItem {
   id: string;
   label: string;
   icon?: React.ElementType;
   group?: string;
+  description?: React.ReactNode;
+  avatar?: React.ReactNode;
 }
 
 interface DropdownProps {
@@ -18,9 +20,11 @@ interface DropdownProps {
   selectedId?: string;
   onSelect: (item: DropdownItem) => void;
   searchPlaceholder?: string;
-  width?: number;
+  width?: number | string;
   footer?: React.ReactNode;
+  header?: React.ReactNode;
   className?: string;
+  contentClassName?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   anchorRef?: React.RefObject<HTMLElement>;
@@ -38,7 +42,9 @@ const Dropdown: React.FC<DropdownProps> = ({
   searchPlaceholder = "Search...",
   width = 240,
   footer,
+  header,
   className = "",
+  contentClassName = "",
   open,
   onOpenChange,
   anchorRef,
@@ -74,16 +80,16 @@ const Dropdown: React.FC<DropdownProps> = ({
                 
                 // Align end logic
                 if (align === 'end') {
-                    left = rect.right - width;
+                    left = rect.right - (typeof width === 'number' ? width : 240);
                 }
 
-                // Simple collision detection for right edge
+                // Simple collision detection for right edge (approximate)
                 const viewportWidth = window.innerWidth;
-                if (align === 'start' && left + width > viewportWidth) {
-                    // Flip to end if it overflows right
-                    left = rect.right - width;
+                const menuWidth = typeof width === 'number' ? width : 240;
+                
+                if (align === 'start' && left + menuWidth > viewportWidth) {
+                    left = rect.right - menuWidth;
                 } else if (align === 'end' && left < 0) {
-                     // Flip to start if it overflows left
                     left = rect.left;
                 }
 
@@ -104,14 +110,15 @@ const Dropdown: React.FC<DropdownProps> = ({
     if (!isOpen && !anchorRef && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       let left = rect.left;
+      const menuWidth = typeof width === 'number' ? width : 240;
       
       if (align === 'end') {
-          left = rect.right - width;
+          left = rect.right - menuWidth;
       }
        // Simple collision detection
        const viewportWidth = window.innerWidth;
-       if (align === 'start' && left + width > viewportWidth) {
-           left = rect.right - width;
+       if (align === 'start' && left + menuWidth > viewportWidth) {
+           left = rect.right - menuWidth;
        }
 
       setPosition({
@@ -170,7 +177,10 @@ const Dropdown: React.FC<DropdownProps> = ({
   const DropdownContent = (
     <div 
       ref={dropdownRef}
-      className="fixed z-[100] bg-popover text-popover-foreground border border-border rounded-lg shadow-md overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col"
+      className={cn(
+        "fixed z-[100] bg-popover text-popover-foreground border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col",
+        contentClassName
+      )}
       style={{ 
         top: position.top, 
         left: position.left,
@@ -178,21 +188,30 @@ const Dropdown: React.FC<DropdownProps> = ({
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center px-3 border-b border-border/50">
-        <Search size={14} className="shrink-0 opacity-50 text-muted-foreground" />
-        <input 
-          className="flex h-9 w-full rounded-md bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground border-none focus:ring-0 text-foreground" 
-          placeholder={searchPlaceholder}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          autoFocus
-        />
-      </div>
+      {header && (
+        <div className="border-b border-border bg-muted/10">
+            {header}
+        </div>
+      )}
 
-      <div className="max-h-[300px] overflow-y-auto p-1">
+      {/* Only show search if there are enough items or explicitly desired, defaulting to show for now */}
+      {items.length > 5 && (
+        <div className="flex items-center px-3 border-b border-border/50">
+            <Search size={14} className="shrink-0 opacity-50 text-muted-foreground" />
+            <input 
+            className="flex h-9 w-full rounded-md bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground border-none focus:ring-0 text-foreground" 
+            placeholder={searchPlaceholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            autoFocus
+            />
+        </div>
+      )}
+
+      <div className="max-h-[300px] overflow-y-auto p-1.5 space-y-1">
         {Object.entries(groupedItems).map(([group, groupItems]: [string, DropdownItem[]]) => (
           <div key={group}>
-             {group !== 'General' && (
+             {group !== 'General' && groupItems.length > 0 && (
                 <div className="px-2 py-1.5 text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
                   {group}
                 </div>
@@ -205,15 +224,27 @@ const Dropdown: React.FC<DropdownProps> = ({
                    onSelect(item);
                    handleOpenChange(false);
                  }}
-                 className={`relative flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium outline-none cursor-pointer select-none transition-colors ${
+                 className={cn(
+                   "relative flex items-center gap-3 rounded-lg px-2 py-2 text-sm outline-none cursor-pointer select-none transition-colors group",
                    selectedId === item.id 
-                   ? 'bg-accent text-accent-foreground' 
-                   : 'text-foreground hover:bg-muted hover:text-foreground'
-                 }`}
+                   ? "bg-muted text-foreground" 
+                   : "text-foreground hover:bg-muted/70"
+                 )}
                >
-                 {item.icon && <item.icon size={14} className="text-muted-foreground" />}
-                 <span className="flex-1 truncate">{item.label}</span>
-                 {selectedId === item.id && <Check size={14} className="text-primary" />}
+                 {item.avatar ? (
+                     <div className="shrink-0">{item.avatar}</div>
+                 ) : item.icon ? (
+                     <item.icon size={16} className="text-muted-foreground group-hover:text-foreground" />
+                 ) : null}
+                 
+                 <div className="flex-1 flex flex-col min-w-0">
+                    <span className="font-medium truncate">{item.label}</span>
+                    {item.description && (
+                        <span className="text-xs text-muted-foreground truncate font-normal">{item.description}</span>
+                    )}
+                 </div>
+
+                 {selectedId === item.id && <Check size={16} className="text-primary shrink-0" />}
                </div>
              ))}
           </div>

@@ -17,8 +17,8 @@ import {
   ExpandedState,
 } from '@tanstack/react-table';
 import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
-import { Checkbox } from "../../../../../components/ui/checkbox";
-import { Button } from "../../../../../components/ui/button";
+import { Checkbox } from "../../../../components/ui/checkbox";
+import { Button } from "../../../../components/ui/button";
 import { SchemaField } from '../../../../types';
 import GridHeader from './GridHeader';
 import { GridToolbar } from './GridToolbar';

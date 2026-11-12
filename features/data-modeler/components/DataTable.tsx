@@ -7,7 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "../../../components/ui/table";
-import { Input } from "../../../components/ui/input";
+import { Checkbox } from "../../../components/ui/checkbox";
+import Dropdown from '../../../components/common/Dropdown';
 
 export interface ColumnDef<T> {
   id: string;
@@ -18,7 +19,7 @@ export interface ColumnDef<T> {
   flex?: boolean;
   editable?: boolean;
   type?: 'text' | 'number' | 'select';
-  options?: string[];
+  options?: any[]; // Supports strings or rich objects {id, label, icon}
   renderCell?: (row: T, value: any) => React.ReactNode;
   className?: string;
 }
@@ -48,7 +49,7 @@ const DataTable = <T extends { [key: string]: any }>({
 }: DataTableProps<T>) => {
   const [editingCell, setEditingCell] = useState<{ rowId: string | number; colId: string } | null>(null);
   const [editValue, setEditValue] = useState<any>('');
-  const inputRef = useRef<HTMLInputElement | HTMLSelectElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingCell && inputRef.current) {
@@ -83,21 +84,24 @@ const DataTable = <T extends { [key: string]: any }>({
     }
   };
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (!onSelectionChange) return;
-    if (e.target.checked) {
+    if (checked === true) {
       onSelectionChange(data.map(d => d[keyField]));
     } else {
       onSelectionChange([]);
     }
   };
 
-  const handleSelectRow = (id: string | number) => {
+  const handleSelectRow = (id: string | number, checked: boolean | 'indeterminate') => {
     if (!onSelectionChange) return;
-    const newSelected = selectedIds.includes(id)
-      ? selectedIds.filter(sid => sid !== id)
-      : [...selectedIds, id];
-    onSelectionChange(newSelected);
+    const isSelected = selectedIds.includes(id);
+    
+    if (checked === true && !isSelected) {
+        onSelectionChange([...selectedIds, id]);
+    } else if (checked === false && isSelected) {
+        onSelectionChange(selectedIds.filter(sid => sid !== id));
+    }
   };
 
   const isAllSelected = data.length > 0 && selectedIds.length === data.length;
@@ -109,15 +113,12 @@ const DataTable = <T extends { [key: string]: any }>({
         <TableHeader className="sticky top-0 bg-background z-10 backdrop-blur-sm">
           <TableRow className="hover:bg-transparent border-border">
             {enableSelection && (
-              <TableHead className="w-10 px-3 text-center">
-                 <input
-                   type="checkbox"
-                   className="appearance-none h-4 w-4 rounded border border-input bg-background checked:bg-primary checked:border-primary checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%20010%201.414l-5%205a1%201%200%2001-1.414%200l-2.5-2.5a1%201%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')] bg-center bg-no-repeat focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-                   checked={isAllSelected}
-                   ref={input => {
-                       if (input) input.indeterminate = isIndeterminate;
-                   }}
-                   onChange={handleSelectAll}
+              <TableHead className="w-10 px-3 text-center align-middle">
+                 <Checkbox
+                   checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                   onCheckedChange={handleSelectAll}
+                   aria-label="Select all"
+                   className="translate-y-[2px]"
                  />
               </TableHead>
             )}
@@ -148,16 +149,13 @@ const DataTable = <T extends { [key: string]: any }>({
                 data-state={isSelected ? "selected" : undefined}
               >
                 {enableSelection && (
-                    <TableCell className="w-10 px-3 py-1 text-center">
-                       <input
-                         type="checkbox"
-                         className="appearance-none h-4 w-4 rounded border border-input bg-background checked:bg-primary checked:border-primary checked:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%20010%201.414l-5%205a1%201%200%2001-1.414%200l-2.5-2.5a1%201%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')] bg-center bg-no-repeat focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                    <TableCell className="w-10 px-3 py-1 text-center align-middle">
+                       <Checkbox
                          checked={isSelected}
-                         onChange={(e) => {
-                             e.stopPropagation();
-                             handleSelectRow(rowId);
-                         }}
+                         onCheckedChange={(checked) => handleSelectRow(rowId, checked)}
                          onClick={(e) => e.stopPropagation()}
+                         aria-label="Select row"
+                         className="translate-y-[2px]"
                        />
                     </TableCell>
                 )}
@@ -172,7 +170,7 @@ const DataTable = <T extends { [key: string]: any }>({
                          e.stopPropagation(); 
                          handleStartEdit(row, col);
                       }}
-                      className={`p-0 relative h-9 align-middle ${col.editable ? 'cursor-pointer' : ''} ${col.className || ''}`}
+                      className={`p-0 relative h-9 align-middle text-sm text-foreground ${col.editable ? 'cursor-pointer' : ''} ${col.className || ''}`}
                       style={{
                         width: col.flex ? undefined : col.width,
                         minWidth: col.minWidth,
@@ -180,17 +178,25 @@ const DataTable = <T extends { [key: string]: any }>({
                     >
                       {isEditing ? (
                         col.type === 'select' ? (
-                            <select
-                                ref={inputRef as React.RefObject<HTMLSelectElement>}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={handleSaveEdit}
-                                onKeyDown={handleKeyDown}
-                                className="absolute inset-0 w-full h-full z-20 bg-background text-foreground border-2 border-primary outline-none text-xs px-2"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {col.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
+                            <div className="absolute inset-0 w-full h-full z-20">
+                                <Dropdown
+                                    triggerLabel={
+                                        col.options?.find((o: any) => o.id === editValue || o === editValue)?.label || editValue
+                                    }
+                                    triggerIcon={
+                                        col.options?.find((o: any) => o.id === editValue)?.icon
+                                    }
+                                    items={col.options?.map((o: any) => typeof o === 'string' ? { id: o, label: o } : o) || []}
+                                    onSelect={(item) => {
+                                        if (onCellEdit && editingCell) {
+                                            onCellEdit(editingCell.rowId, editingCell.colId, item.id);
+                                            setEditingCell(null);
+                                        }
+                                    }}
+                                    className="w-full h-full border-2 border-primary rounded-none px-2 bg-background flex items-center"
+                                    width={200}
+                                />
+                            </div>
                         ) : (
                             <input
                                 ref={inputRef as React.RefObject<HTMLInputElement>}

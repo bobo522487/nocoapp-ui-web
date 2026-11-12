@@ -1,11 +1,10 @@
 import React from 'react';
 import DataTable, { ColumnDef } from './DataTable';
-import { Button } from "./ui/button";
+import { Button } from "../../../components/ui/button";
 import { Plus, Trash2, Search, Table as TableIcon } from 'lucide-react';
-import { Input } from "./ui/input";
-import { ViewConfig } from '../types';
+import { Input } from "../../../components/ui/input";
+import { ViewConfig } from '../../../types';
 
-// Legacy DataGrid interface kept for Model View and other parts of the app
 export interface DataGridProps<T> {
     data: T[];
     columns: ColumnDef<T>[];

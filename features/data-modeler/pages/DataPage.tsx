@@ -15,8 +15,8 @@ import EditColumnDrawer from '../components/EditColumnDrawer';
 import CreateRowDrawer from '../components/CreateRowDrawer';
 import EditRowDrawer from '../components/EditRowDrawer';
 import { MOCK_DB } from '../../../store/mockData';
-import DataGrid from '../../../components/DataGrid'; // Use legacy for Model View if needed, or replace entirely.
-import { ColumnDef } from '../../../components/DataTable'; // Legacy types if needed
+import DataGrid from '../components/DataGrid';
+import { ColumnDef } from '../components/DataTable';
 import { arrayMove } from '@dnd-kit/sortable';
 
 // --- Configuration ---

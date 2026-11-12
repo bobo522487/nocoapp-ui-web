@@ -74,6 +74,7 @@ const DragHandleCell = () => {
 };
 
 interface SortableRowProps {
+    key?: React.Key;
     row: Row<any>;
     virtualRow: VirtualItem;
     children?: React.ReactNode;

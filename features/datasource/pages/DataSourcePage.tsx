@@ -4,6 +4,7 @@ import { Search, Database, Globe, FileSpreadsheet, CreditCard, HardDrive, Bot, H
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
 import { useNavigate } from 'react-router-dom';
+import { useRouteContext } from "../../../hooks/useRouteContext";
 
 interface DataSource {
   id: string;
@@ -68,6 +69,7 @@ const CATEGORIES: { title: string; items: DataSource[] }[] = [
 
 const DataSourcePage = () => {
   const navigate = useNavigate();
+  const { activeProjectId } = useRouteContext();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredCategories = CATEGORIES.map(cat => ({
@@ -79,10 +81,9 @@ const DataSourcePage = () => {
 
   const handleSourceClick = (sourceId: string) => {
       if (sourceId === 'postgres') {
-          navigate('/datasources/postgresql');
+          navigate(`/projects/${activeProjectId}/datasources/postgresql`);
       } else {
-          // For other sources, navigate back to data view for now
-          navigate('/data'); 
+          navigate(`/projects/${activeProjectId}`); 
       }
   };
 

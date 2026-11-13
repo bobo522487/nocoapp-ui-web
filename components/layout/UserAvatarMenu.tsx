@@ -20,7 +20,13 @@ import ProfileSettingsDialog from '../../features/profile/components/ProfileSett
 import { ThemeMode } from '../../types';
 import { Button } from '../ui/button';
 
-export const UserAvatarMenu: React.FC = () => {
+interface UserAvatarMenuProps {
+  variant?: 'sidebar' | 'rail';
+}
+
+export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
+  variant = 'sidebar',
+}) => {
   const navigate = useNavigate();
   const user = usePreferencesStore((s) => s.user);
   const themeMode = usePreferencesStore((s) => s.themeMode);
@@ -85,44 +91,17 @@ export const UserAvatarMenu: React.FC = () => {
     navigate('/login', { replace: true });
   };
 
-  return (
-    <>
-      <div className="flex-none border-t border-border px-2 py-1.5 bg-background">
-        <div className="flex items-center gap-1">
-          {/* User Trigger + Top-Start Popover */}
-          <div ref={menuContainerRef} className="relative flex-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => {
-                setIsAvatarOpen((v) => !v);
-                setIsNotifOpen(false);
-              }}
-              data-testid="nc-sidebar-userinfo"
-              className="w-full flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer min-w-0 transition-colors hover:bg-muted text-left"
-            >
-              <div
-                className="w-6 h-6 rounded-full flex-none flex items-center justify-center text-[12px] font-semibold text-white select-none"
-                style={{ backgroundColor: '#4B177B' }}
-              >
-                {avatarInitial}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="truncate text-[14px] leading-5 font-semibold text-foreground">
-                  {user.name}
-                </div>
-                <div className="truncate text-[12px] leading-4 font-medium text-muted-foreground">
-                  {user.email}
-                </div>
-              </div>
-            </button>
-
-            {isAvatarOpen && (
-              <div
-                data-side="top"
-                data-align="start"
-                role="dialog"
-                className="absolute bottom-full left-0 mb-2 w-[288px] p-1.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-xl z-[80]"
-              >
+  const userMenuPopover = isAvatarOpen && (
+    <div
+      data-side={variant === 'rail' ? 'right' : 'top'}
+      data-align="start"
+      role="dialog"
+      className={
+        variant === 'rail'
+          ? 'absolute bottom-0 left-full ml-2 w-[288px] p-1.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[85]'
+          : 'absolute bottom-full left-0 mb-2 w-[288px] p-1.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[80]'
+      }
+    >
                 <div className="flex flex-col" role="menu">
                   {/* Account Settings Header Row */}
                   <button
@@ -237,7 +216,124 @@ export const UserAvatarMenu: React.FC = () => {
                   </button>
                 </div>
               </div>
-            )}
+  );
+
+  if (variant === 'rail') {
+    return (
+      <>
+        <div ref={menuContainerRef} className="relative flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => setIsAvatarOpen((v) => !v)}
+            data-testid="nc-sidebar-userinfo"
+            title={`${user.name} (${user.email})`}
+            className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-muted transition-colors cursor-pointer"
+          >
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-white select-none"
+              style={{ backgroundColor: '#4B177B' }}
+            >
+              {avatarInitial}
+            </div>
+          </button>
+          {userMenuPopover}
+        </div>
+
+        <ProfileSettingsDialog
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+
+        {infoModal &&
+          createPortal(
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+              <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+                onClick={() => setInfoModal(null)}
+              />
+              <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-foreground">
+                    {infoModal === 'help' ? '快捷键与使用帮助' : '工作区使用文档'}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-full"
+                    onClick={() => setInfoModal(null)}
+                  >
+                    <X size={15} />
+                  </Button>
+                </div>
+                {infoModal === 'help' ? (
+                  <div className="space-y-2.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between py-1.5 border-b border-border/60">
+                      <span>打开全局快速搜索</span>
+                      <kbd className="px-2 py-0.5 rounded bg-muted text-foreground font-mono">
+                        Ctrl + K
+                      </kbd>
+                    </div>
+                    <div className="flex items-center justify-between py-1.5 border-b border-border/60">
+                      <span>点击「项目」卡片</span>
+                      <span className="text-foreground">进入项目概览与数据表</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1.5">
+                      <span>点击「应用」卡片</span>
+                      <span className="text-foreground">进入可视化页面构建器</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+                    <p>1. 在项目概览与「数据」面板中可管理数据表结构、视图与外键关系。</p>
+                    <p>2. 在「应用」面板中可拖拽表格、图表、统计卡与表单组件构建页面。</p>
+                    <p>3. 在「设置」面板中可配置项目基本信息、外部数据源及代码文件。</p>
+                  </div>
+                )}
+                <div className="mt-5 flex justify-end">
+                  <Button size="sm" onClick={() => setInfoModal(null)}>
+                    知道了
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex-none border-t border-border px-2 py-1.5 bg-background">
+        <div className="flex items-center gap-1">
+          {/* User Trigger + Top-Start Popover */}
+          <div ref={menuContainerRef} className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAvatarOpen((v) => !v);
+                setIsNotifOpen(false);
+              }}
+              data-testid="nc-sidebar-userinfo"
+              className="w-full flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer min-w-0 transition-colors hover:bg-muted text-left"
+            >
+              <div
+                className="w-6 h-6 rounded-full flex-none flex items-center justify-center text-[12px] font-semibold text-white select-none"
+                style={{ backgroundColor: '#4B177B' }}
+              >
+                {avatarInitial}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-[14px] leading-5 font-semibold text-foreground">
+                  {user.name}
+                </div>
+                <div className="truncate text-[12px] leading-4 font-medium text-muted-foreground">
+                  {user.email}
+                </div>
+              </div>
+            </button>
+
+            {userMenuPopover}
           </div>
 
           {/* Notification Bell Button */}

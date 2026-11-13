@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { Search, Plus, Server, MoreVertical, Settings, RefreshCcw, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useRouteContext } from '../../../hooks/useRouteContext';
 
 const DataSourcePanel: React.FC = () => {
   const navigate = useNavigate();
+  const { activeProjectId } = useRouteContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ const DataSourcePanel: React.FC = () => {
       <div className="h-10 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
           <span className="font-medium text-xs text-muted-foreground">数据源列表</span>
           <div className="flex gap-2">
-             <Plus size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate('/datasources')}/>
+             <Plus size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate(`/projects/${activeProjectId}/datasources`)}/>
           </div>
       </div>
       
@@ -35,7 +37,7 @@ const DataSourcePanel: React.FC = () => {
          {/* New Source Button */}
          <div className="px-3 mb-4">
             <button 
-                onClick={() => navigate('/datasources')}
+                onClick={() => navigate(`/projects/${activeProjectId}/datasources`)}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground border border-transparent text-xs font-medium rounded transition-all shadow-sm hover:bg-primary/90"
             >
                <Plus size={14} /> 新建数据源

@@ -18,6 +18,7 @@ interface PreferencesState {
   isDarkMode: boolean;
   theme: AppTheme;
   activeDevice: DeviceType;
+  isProjectSidebarCollapsed: boolean;
   user: UserProfile;
   login: (payload?: { email?: string; name?: string }) => void;
   logout: () => void;
@@ -25,6 +26,8 @@ interface PreferencesState {
   toggleTheme: () => void;
   setAppTheme: (theme: AppTheme) => void;
   setActiveDevice: (device: DeviceType) => void;
+  setProjectSidebarCollapsed: (collapsed: boolean) => void;
+  toggleProjectSidebar: () => void;
   updateUser: (updates: Partial<UserProfile>) => void;
 }
 
@@ -36,6 +39,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       isDarkMode: false,
       theme: 'vscode',
       activeDevice: 'desktop',
+      isProjectSidebarCollapsed: false,
       user: {
         name: '电波',
         email: 'bobo522487@gmail.com',
@@ -66,6 +70,12 @@ export const usePreferencesStore = create<PreferencesState>()(
       },
       setAppTheme: (theme) => set({ theme }),
       setActiveDevice: (activeDevice) => set({ activeDevice }),
+      setProjectSidebarCollapsed: (isProjectSidebarCollapsed) =>
+        set({ isProjectSidebarCollapsed }),
+      toggleProjectSidebar: () =>
+        set((state) => ({
+          isProjectSidebarCollapsed: !state.isProjectSidebarCollapsed,
+        })),
       updateUser: (updates) =>
         set((state) => ({ user: { ...state.user, ...updates } })),
     }),

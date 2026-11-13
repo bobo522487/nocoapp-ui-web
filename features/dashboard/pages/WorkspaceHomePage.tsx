@@ -19,6 +19,7 @@ const WorkspaceHomePage: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
   const apps = useWorkspaceStore((s) => s.apps);
+  const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
 
   const activeWorkspace =
     workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
@@ -133,7 +134,10 @@ const WorkspaceHomePage: React.FC = () => {
               return (
                 <div
                   key={proj.id}
-                  onClick={() => navigate(`/data/${proj.defaultTableId}`)}
+                  onClick={() => {
+                    setActiveProjectId(proj.id);
+                    navigate(`/projects/${proj.id}`);
+                  }}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card hover:border-muted-foreground/40 hover:shadow-xs transition-all cursor-pointer h-16 overflow-hidden"
                 >
                   <div

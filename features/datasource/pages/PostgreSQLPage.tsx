@@ -7,6 +7,7 @@ import { Input } from "../../../components/ui/input";
 import { Switch } from "../../../components/ui/switch";
 import { Label } from "../../../components/ui/label";
 import { cn } from "../../../lib/utils";
+import { useRouteContext } from "../../../hooks/useRouteContext";
 
 const PostgresIcon = () => (
   <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8">
@@ -27,6 +28,7 @@ const PostgresIcon = () => (
 
 const PostgreSQLPage = () => {
   const navigate = useNavigate();
+  const { activeProjectId } = useRouteContext();
   const { id } = useParams();
   const isEditMode = !!id;
 
@@ -64,7 +66,7 @@ const PostgreSQLPage = () => {
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card shrink-0">
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/datasources')}>
+                <Button variant="ghost" size="icon" onClick={() => navigate(`/projects/${activeProjectId}/datasources`)}>
                     <ArrowLeft size={18} />
                 </Button>
                 <div className="flex items-center gap-3">

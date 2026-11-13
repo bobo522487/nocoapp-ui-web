@@ -5,11 +5,18 @@ import { DbTable, DbView, SchemaField } from '../types';
 import { INITIAL_RECORDS, INITIAL_SCHEMAS } from './mockData';
 import { createAppStorage } from './storageAdapter';
 
+const DEFAULT_TABLE_PROJECT_MAP: Record<string, string> = {
+  users: 'proj-getting-started',
+  orders: 'proj-sales-crm',
+  products: 'proj-inventory',
+  inventory_logs: 'proj-supply-chain',
+};
+
 const INITIAL_TABLES: DbTable[] = [
-  { id: 'users', name: 'Users', code: 'users', kind: 'table', description: 'System users' },
-  { id: 'orders', name: 'Orders', code: 'orders', kind: 'table', description: 'Customer orders' },
-  { id: 'products', name: 'Products', code: 'products', kind: 'table', description: 'Product catalog' },
-  { id: 'inventory_logs', name: 'Inventory Logs', code: 'inventory_logs', kind: 'table', description: 'Stock changes' },
+  { id: 'users', projectId: 'proj-getting-started', name: 'Users', code: 'users', kind: 'table', description: 'System users' },
+  { id: 'orders', projectId: 'proj-sales-crm', name: 'Orders', code: 'orders', kind: 'table', description: 'Customer orders' },
+  { id: 'products', projectId: 'proj-inventory', name: 'Products', code: 'products', kind: 'table', description: 'Product catalog' },
+  { id: 'inventory_logs', projectId: 'proj-supply-chain', name: 'Inventory Logs', code: 'inventory_logs', kind: 'table', description: 'Stock changes' },
 ];
 
 const INITIAL_VIEWS: DbView[] = INITIAL_TABLES.map((table) => ({
@@ -332,8 +339,23 @@ export const useDataStore = create<DataState>()(
     }),
     {
       name: 'nocoapp:data',
-      version: 1,
+      version: 2,
       storage: createAppStorage(),
+      migrate: (persistedState: any) => {
+        if (!persistedState || !Array.isArray(persistedState.tables)) {
+          return persistedState;
+        }
+        return {
+          ...persistedState,
+          tables: persistedState.tables.map((t: DbTable) => ({
+            ...t,
+            projectId:
+              t.projectId ||
+              DEFAULT_TABLE_PROJECT_MAP[t.id] ||
+              'proj-getting-started',
+          })),
+        };
+      },
     }
   )
 );

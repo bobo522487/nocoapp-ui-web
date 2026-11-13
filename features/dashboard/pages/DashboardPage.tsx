@@ -44,6 +44,7 @@ const DashboardPage: React.FC = () => {
   const projects = useWorkspaceStore((s) => s.projects);
   const apps = useWorkspaceStore((s) => s.apps);
   const searchQuery = useWorkspaceStore((s) => s.searchQuery);
+  const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
   const createProject = useWorkspaceStore((s) => s.createProject);
   const renameProject = useWorkspaceStore((s) => s.renameProject);
   const duplicateProject = useWorkspaceStore((s) => s.duplicateProject);
@@ -120,11 +121,8 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleOpenProject = (proj: ProjectItem) => {
-    const targetTable =
-      tables.find((t) => t.id === proj.defaultTableId)?.id ||
-      tables[0]?.id ||
-      'users';
-    navigate(`/data/${targetTable}`);
+    setActiveProjectId(proj.id);
+    navigate(`/projects/${proj.id}`);
   };
 
   const handleOpenApp = (app: AppItem) => {

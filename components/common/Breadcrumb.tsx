@@ -59,11 +59,13 @@ const Breadcrumb: React.FC = () => {
 
   // In Workspace Shell mode (NocoDB style: 个人空间 / 项目)
   if (isWorkspaceShell) {
-    const sectionLabelMap: Record<ViewMode, string> = {
+    const sectionLabelMap: Partial<Record<ViewMode, string>> = {
       [ViewMode.HOME]: '首页',
       [ViewMode.PROJECTS]: '项目',
       [ViewMode.MEMBERS]: '成员和团队',
       [ViewMode.WORKSPACE_SETTINGS]: '设置',
+      [ViewMode.PROJECT_HOME]: '项目首页',
+      [ViewMode.PROJECT_SETTINGS]: '项目设置',
       [ViewMode.APPS]: '应用',
       [ViewMode.DATA]: '数据表',
       [ViewMode.DATASOURCE]: '数据源',

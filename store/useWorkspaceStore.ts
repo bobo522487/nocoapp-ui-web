@@ -209,6 +209,7 @@ const INITIAL_NOTIFICATIONS: WorkspaceNotification[] = [
 interface WorkspaceState {
   workspaces: Workspace[];
   activeWorkspaceId: string;
+  activeProjectId: string;
   projects: ProjectItem[];
   apps: AppItem[];
   members: WorkspaceMember[];
@@ -217,6 +218,7 @@ interface WorkspaceState {
 
   setSearchQuery: (query: string) => void;
   switchWorkspace: (workspaceId: string) => void;
+  setActiveProjectId: (projectId: string) => void;
   createWorkspace: (name: string) => Workspace;
   updateWorkspace: (workspaceId: string, updates: Partial<Workspace>) => void;
 
@@ -226,6 +228,7 @@ interface WorkspaceState {
     colorTheme: AssetColorTheme;
     defaultTableId?: string;
   }) => ProjectItem;
+  updateProject: (id: string, updates: Partial<ProjectItem>) => void;
   renameProject: (id: string, name: string) => void;
   duplicateProject: (id: string) => ProjectItem | null;
   deleteProject: (id: string) => void;
@@ -259,6 +262,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       workspaces: INITIAL_WORKSPACES,
       activeWorkspaceId: INITIAL_WORKSPACES[0].id,
+      activeProjectId: INITIAL_PROJECTS[0].id,
       projects: INITIAL_PROJECTS,
       apps: INITIAL_APPS,
       members: INITIAL_MEMBERS,
@@ -267,7 +271,30 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       setSearchQuery: (searchQuery) => set({ searchQuery }),
 
-      switchWorkspace: (activeWorkspaceId) => set({ activeWorkspaceId }),
+      switchWorkspace: (activeWorkspaceId) =>
+        set((state) => {
+          const wsProjects = state.projects.filter(
+            (p) => p.workspaceId === activeWorkspaceId
+          );
+          const currentMatches = wsProjects.some(
+            (p) => p.id === state.activeProjectId
+          );
+          return {
+            activeWorkspaceId,
+            activeProjectId: currentMatches
+              ? state.activeProjectId
+              : wsProjects[0]?.id || state.activeProjectId,
+          };
+        }),
+
+      setActiveProjectId: (activeProjectId) =>
+        set((state) => {
+          const proj = state.projects.find((p) => p.id === activeProjectId);
+          if (proj && proj.workspaceId !== state.activeWorkspaceId) {
+            return { activeProjectId, activeWorkspaceId: proj.workspaceId };
+          }
+          return { activeProjectId };
+        }),
 
       createWorkspace: (name) => {
         const colors = ['#3B5BDB', '#0CA678', '#F76707', '#7048E8', '#E64980'];
@@ -301,12 +328,22 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           description: description?.trim() || '新建数据与业务协同项目',
           colorTheme,
           ownerType: 'owned',
-          defaultTableId: defaultTableId || 'users',
+          defaultTableId: defaultTableId || '',
           updatedAt: '刚刚',
         };
-        set((state) => ({ projects: [...state.projects, newProj] }));
+        set((state) => ({
+          projects: [...state.projects, newProj],
+          activeProjectId: newProj.id,
+        }));
         return newProj;
       },
+
+      updateProject: (id, updates) =>
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === id ? { ...p, ...updates, updatedAt: '刚刚' } : p
+          ),
+        })),
 
       renameProject: (id, name) =>
         set((state) => ({
@@ -325,14 +362,27 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ownerType: 'owned',
           updatedAt: '刚刚',
         };
-        set((state) => ({ projects: [...state.projects, copy] }));
+        set((state) => ({
+          projects: [...state.projects, copy],
+          activeProjectId: copy.id,
+        }));
         return copy;
       },
 
       deleteProject: (id) =>
-        set((state) => ({
-          projects: state.projects.filter((p) => p.id !== id),
-        })),
+        set((state) => {
+          const remaining = state.projects.filter((p) => p.id !== id);
+          const nextProj =
+            remaining.find((p) => p.workspaceId === state.activeWorkspaceId) ||
+            remaining[0];
+          return {
+            projects: remaining,
+            activeProjectId:
+              state.activeProjectId === id
+                ? nextProj?.id || ''
+                : state.activeProjectId,
+          };
+        }),
 
       createApp: ({ name, description, colorTheme, defaultPageId }) => {
         const newApp: AppItem = {

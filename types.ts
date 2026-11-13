@@ -18,6 +18,8 @@ export enum ViewMode {
   PROJECTS = 'PROJECTS',
   MEMBERS = 'MEMBERS',
   WORKSPACE_SETTINGS = 'WORKSPACE_SETTINGS',
+  PROJECT_HOME = 'PROJECT_HOME',
+  PROJECT_SETTINGS = 'PROJECT_SETTINGS',
   APPS = 'APPS',
   DATA = 'DATA',
   DATASOURCE = 'DATASOURCE',
@@ -125,6 +127,7 @@ export interface Page {
 export interface DbTable {
   id: string;
   orgId?: string;
+  projectId?: string;
   sourceId?: string;
   name: string;
   code: string;

@@ -43,7 +43,10 @@ import {
 
 const PagesPanel: React.FC = () => {
   const navigate = useNavigate();
-  const { appId, activePageId } = useRouteContext();
+  const { activeProjectId, appId, activePageId } = useRouteContext();
+
+  const buildPageRoute = (pageId: string) =>
+    `/projects/${activeProjectId}/apps/${appId}/pages/${pageId}`;
 
   const activeDevice = usePreferencesStore((s) => s.activeDevice);
   const pages = useBuilderStore((s) => s.pages);
@@ -111,7 +114,7 @@ const PagesPanel: React.FC = () => {
       isHidden: false,
       isDisabled: false,
     });
-    navigate(`/apps/${appId}/pages/${newId}`);
+    navigate(buildPageRoute(newId));
   };
 
   const handleAddGroup = () => {
@@ -133,7 +136,7 @@ const PagesPanel: React.FC = () => {
     if (item.type === 'folder') {
       togglePageFolder(item.id);
     } else {
-      navigate(`/apps/${appId}/pages/${item.id}`);
+      navigate(buildPageRoute(item.id));
     }
   };
 
@@ -142,7 +145,7 @@ const PagesPanel: React.FC = () => {
     if (activePageId === id) {
       const nextPage = pages.find((p) => p.id !== id && p.type === 'page');
       if (nextPage) {
-        navigate(`/apps/${appId}/pages/${nextPage.id}`);
+        navigate(buildPageRoute(nextPage.id));
       }
     }
   };
@@ -166,7 +169,7 @@ const PagesPanel: React.FC = () => {
       togglePageFolder(parentId);
     }
 
-    navigate(`/apps/${appId}/pages/${newId}`);
+    navigate(buildPageRoute(newId));
   };
 
   const renderPageIcon = (item: any) => {

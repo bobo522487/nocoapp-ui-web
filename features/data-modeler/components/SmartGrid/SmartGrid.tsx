@@ -24,6 +24,7 @@ import GridHeader from './GridHeader';
 import { GridToolbar } from './GridToolbar';
 import { CellFactory } from './CellFactory';
 import { cn } from '../../../../lib/utils';
+import { resolveFieldIcon } from '../../utils/fieldIcons';
 import { Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, GripVertical, ChevronDown } from 'lucide-react';
 import {
   DndContext,
@@ -140,7 +141,7 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
             return (
                 <div className="flex items-center w-full h-full relative group justify-center">
                     <span className={cn(
-                        "text-[10px] text-muted-foreground/60 font-mono select-none text-left absolute left-2",
+                        "text-[11px] text-muted-foreground font-mono tabular-nums select-none text-left absolute left-2",
                         isSelectionActive ? "hidden" : "group-hover:hidden"
                     )}>
                         #
@@ -152,8 +153,8 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
                         <Checkbox
                             checked={isAllSelected || (isSomeSelected ? "indeterminate" : false)}
                             onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-                            aria-label="Select all"
-                            className="h-3.5 w-3.5 border-muted-foreground/50 data-[state=checked]:border-primary bg-background/50"
+                            aria-label="全选"
+                            className="h-3.5 w-3.5 border-[hsl(var(--border-strong))] data-[state=checked]:border-primary bg-background"
                         />
                     </div>
                 </div>
@@ -163,7 +164,7 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
             <div className="flex items-center w-full h-full relative pl-2 pr-1.5 group">
                 {/* Default: Number (Left Aligned) */}
                 <span className={cn(
-                    "text-[10px] text-muted-foreground font-mono transition-opacity select-none text-left flex-1",
+                    "text-[11px] text-muted-foreground font-mono tabular-nums transition-opacity select-none text-left flex-1",
                     row.getIsSelected() ? "hidden" : "group-hover:hidden"
                 )}>
                     {row.index + 1}
@@ -178,8 +179,8 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
                     <Checkbox
                         checked={row.getIsSelected()}
                         onCheckedChange={(value) => row.toggleSelected(!!value)}
-                        aria-label="Select row"
-                        className="h-3.5 w-3.5 border-muted-foreground/50 data-[state=checked]:border-primary bg-background/50"
+                        aria-label="选择行"
+                        className="h-3.5 w-3.5 border-[hsl(var(--border-strong))] data-[state=checked]:border-primary bg-background"
                     />
                 </div>
             </div>
@@ -189,21 +190,24 @@ const generateColumns = (schema: SchemaField[]): ColumnDef<any>[] => {
     };
 
     // Data Columns
-    const dataCols: ColumnDef<any>[] = schema.map((field) => ({
-        accessorKey: field.id,
-        header: () => (
-            <div className="flex items-center gap-2">
-                {field.icon && <field.icon size={13} className="text-muted-foreground shrink-0" />}
-                <span className="truncate">{field.name}</span>
-            </div>
-        ),
+    const dataCols: ColumnDef<any>[] = schema.map((field) => {
+        const FieldIcon = resolveFieldIcon(field);
+        return {
+            accessorKey: field.id,
+            header: () => (
+                <div className="flex items-center gap-2">
+                    <FieldIcon size={13} className="text-muted-foreground shrink-0" />
+                    <span className="truncate">{field.name}</span>
+                </div>
+            ),
         size: field.width || 150,
         minSize: 60,
         maxSize: 800,
         meta: {
             fieldDef: field
         }
-    }));
+        };
+    });
 
     return [selectCol, ...dataCols];
 };
@@ -507,14 +511,14 @@ export const SmartGrid = <T extends { id: string | number }>({
                                                 style={{ paddingLeft: `${row.depth * 20}px` }}
                                                 onClick={row.getToggleExpandedHandler()}
                                             >
-                                                <div className="p-0.5 rounded-sm hover:bg-muted-foreground/10 transition-colors">
+                                                <div className="p-0.5 rounded-sm hover:bg-[hsl(var(--surface-hover))] transition-colors">
                                                     {row.getIsExpanded() ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                                 </div>
-                                                <span className="text-muted-foreground text-xs uppercase tracking-wide">
+                                                <span className="text-muted-foreground text-xs">
                                                     {groupLabel}:
                                                 </span>
-                                                <span>{row.getValue(row.groupingColumnId) as string}</span>
-                                                <span className="text-muted-foreground text-xs bg-muted px-1.5 rounded-full ml-1">
+                                                <span className="text-[13px]">{row.getValue(row.groupingColumnId) as string}</span>
+                                                <span className="text-muted-foreground text-[11px] tabular-nums bg-[hsl(var(--surface-subtle))] border border-border px-1.5 rounded ml-1">
                                                     {row.subRows.length}
                                                 </span>
                                             </div>
@@ -621,46 +625,48 @@ export const SmartGrid = <T extends { id: string | number }>({
 
                 {/* Append Row (Ghost Row) */}
                 <div 
-                    className="flex w-full border-b border-border/50 transition-colors cursor-pointer group relative"
+                    className="flex w-full border-b border-border transition-colors cursor-pointer group relative"
                     style={{ height: `${rowHeight}px` }}
                     onClick={onAddRow}
                 >
                     {/* Sticky Button Cell - Matches Select Column behavior */}
                     <div 
                         className={cn(
-                            "sticky left-0 z-10 flex items-center justify-center border-r border-border/50 h-full transition-colors",
-                            "bg-background group-hover:bg-muted" // Solid background to cover scrolled content
+                            "sticky left-0 z-10 flex items-center justify-center border-r border-border h-full transition-colors",
+                            "bg-background group-hover:bg-[hsl(var(--surface-hover))]"
                         )}
                         style={{ width: '50px', flex: '0 0 50px' }}
                     >
-                        <Plus size={16} className="text-muted-foreground/70 group-hover:text-primary transition-colors" />
+                        <Plus size={15} className="text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                     
                     {/* Placeholder content for the rest of the row */}
-                    <div className="flex-1 flex items-center px-2 text-xs text-muted-foreground/50 group-hover:text-primary/80 italic group-hover:bg-muted/20 transition-colors">
-                        Click to add row
+                    <div className="flex-1 flex items-center px-2.5 text-[13px] font-medium text-muted-foreground group-hover:text-primary group-hover:bg-[hsl(var(--surface-subtle))] transition-colors">
+                        点击新增一行
                     </div>
                 </div>
             </div>
         </div>
         
         {/* Pagination Footer */}
-        <div className="h-10 border-t border-border bg-background flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0 select-none z-30">
+        <div className="h-10 border-t border-border bg-background flex items-center justify-between px-4 text-[13px] text-muted-foreground shrink-0 select-none z-30">
             <div className="flex items-center gap-4 pl-1">
-                <span className="text-foreground font-medium">
-                    {Object.keys(rowSelection).length > 0 ? `${Object.keys(rowSelection).length} selected` : `Total ${table.getFilteredRowModel().rows.length} records`}
+                <span className="text-foreground font-medium tabular-nums">
+                    {Object.keys(rowSelection).length > 0
+                        ? `已选 ${Object.keys(rowSelection).length} 条`
+                        : `共 ${table.getFilteredRowModel().rows.length} 条记录`}
                 </span>
             </div>
 
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <span>Rows per page</span>
+                    <span className="font-medium">每页行数</span>
                     <select
                         value={table.getState().pagination.pageSize}
                         onChange={e => {
                             table.setPageSize(Number(e.target.value))
                         }}
-                        className="h-6 rounded border border-input bg-transparent px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        className="h-6 rounded border border-input bg-background shadow-[var(--shadow-control)] px-2 text-[12px] font-medium text-foreground tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                         {[10, 20, 30, 40, 50, 100].map(pageSize => (
                             <option key={pageSize} value={pageSize}>
@@ -671,9 +677,9 @@ export const SmartGrid = <T extends { id: string | number }>({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <span className="mr-2">
-                        {table.getState().pagination.pageIndex + 1} of{' '}
-                        {table.getPageCount()}
+                    <span className="mr-2 tabular-nums font-medium">
+                        第 {table.getState().pagination.pageIndex + 1} /{' '}
+                        {Math.max(1, table.getPageCount())} 页
                     </span>
                     <Button
                         variant="ghost"
@@ -681,6 +687,7 @@ export const SmartGrid = <T extends { id: string | number }>({
                         className="h-6 w-6"
                         onClick={() => table.setPageIndex(0)}
                         disabled={!table.getCanPreviousPage()}
+                        title="首页"
                     >
                         <ChevronsLeft size={14} />
                     </Button>
@@ -690,6 +697,7 @@ export const SmartGrid = <T extends { id: string | number }>({
                         className="h-6 w-6"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
+                        title="上一页"
                     >
                         <ChevronLeft size={14} />
                     </Button>
@@ -699,6 +707,7 @@ export const SmartGrid = <T extends { id: string | number }>({
                         className="h-6 w-6"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
+                        title="下一页"
                     >
                         <ChevronRight size={14} />
                     </Button>
@@ -708,6 +717,7 @@ export const SmartGrid = <T extends { id: string | number }>({
                         className="h-6 w-6"
                         onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                         disabled={!table.getCanNextPage()}
+                        title="末页"
                     >
                         <ChevronsRight size={14} />
                     </Button>

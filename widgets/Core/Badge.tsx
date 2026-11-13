@@ -8,7 +8,7 @@ const BadgeComponent: React.FC<WidgetProps> = ({ label, variant }) => {
   return (
     <div className="w-full h-full flex items-center justify-center p-2 pointer-events-none">
       <Badge variant={variant || 'default'}>
-        {label || 'Status'}
+        {label || '状态'}
       </Badge>
     </div>
   );
@@ -17,26 +17,26 @@ const BadgeComponent: React.FC<WidgetProps> = ({ label, variant }) => {
 export const BadgeWidget: WidgetDefinition = {
   manifest: {
     type: 'badge',
-    name: 'Badge',
+    name: '徽章标签',
     icon: Tag,
-    category: 'Data',
+    category: '数据展示',
     defaultSize: { w: 2, h: 1 },
     properties: [
       {
         name: 'label',
-        label: 'Label',
+        label: '标签文本',
         type: 'string',
-        defaultValue: 'In Stock',
-        group: 'Basic',
+        defaultValue: '现货充足',
+        group: '基础',
         setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 2,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -46,25 +46,25 @@ export const BadgeWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
         name: 'variant',
-        label: 'Variant',
+        label: '样式风格',
         type: 'string',
         defaultValue: 'default',
-        group: 'Style',
+        group: '样式',
         setter: {
           component: 'select',
           props: {
             options: [
-              { label: 'Default', value: 'default' },
-              { label: 'Secondary', value: 'secondary' },
-              { label: 'Destructive', value: 'destructive' },
-              { label: 'Outline', value: 'outline' }
+              { label: '默认', value: 'default' },
+              { label: '次要', value: 'secondary' },
+              { label: '告警', value: 'destructive' },
+              { label: '描边', value: 'outline' }
             ]
           }
         }

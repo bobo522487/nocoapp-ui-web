@@ -6,6 +6,7 @@ import { Input } from "../../../components/ui/input";
 import { Switch } from "../../../components/ui/switch";
 import { SchemaField } from '../../../types';
 import { cn } from '../../../lib/utils';
+import { resolveFieldIcon } from '../utils/fieldIcons';
 
 export interface RecordDrawerProps {
   isOpen: boolean;
@@ -108,15 +109,15 @@ export const RecordDrawer: React.FC<RecordDrawerProps> = ({
       const inputValue = isNullMode ? '' : (value === null || value === undefined ? '' : value);
       const placeholderValue = isNullMode 
         ? '' 
-        : (field.type === 'jsonb' ? '{ "key": "value" }' : "Enter value");
+        : (field.type === 'jsonb' ? '{ "key": "value" }' : "请输入值");
 
       if (field.type === 'serial') {
           return (
               <div className="relative">
                   <Input 
                       disabled 
-                      value={isEditMode ? inputValue : "Auto-generated"} 
-                      className="bg-muted/30 text-muted-foreground italic border-border/50"
+                      value={isEditMode ? inputValue : "自动生成"} 
+                      className="bg-[hsl(var(--surface-subtle))] text-muted-foreground"
                   />
               </div>
           );
@@ -201,56 +202,58 @@ export const RecordDrawer: React.FC<RecordDrawerProps> = ({
       />
       
       <div 
-        className={`fixed inset-y-0 right-0 w-[480px] bg-background shadow-2xl transform transition-transform duration-300 z-[70] flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 w-[480px] max-w-full bg-background shadow-[var(--shadow-popover)] transform transition-transform duration-200 z-[70] flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-card">
-            <h3 className="text-xl font-semibold text-foreground tracking-tight">
-                {isEditMode ? 'Edit row' : 'Create row'}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+            <h3 className="text-base font-semibold text-foreground tracking-tight">
+                {isEditMode ? '编辑记录' : '新增记录'}
             </h3>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
-                <X size={18} />
+                <X size={16} />
             </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-background">
-            <div className="space-y-6">
+            <div className="space-y-5">
                 {schema.map(field => {
                     const isNullMode = nullStates[field.id];
-                    const IconComponent = field.icon;
+                    const IconComponent = resolveFieldIcon(field);
                     
                     return (
                         <div key={field.id} className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                <div className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
                                     <div className="w-5 h-5 flex items-center justify-center">
-                                        {IconComponent && <IconComponent size={16} className="text-muted-foreground/70" />}
+                                        {IconComponent && <IconComponent size={15} className="text-muted-foreground" />}
                                     </div>
                                     <span className="text-foreground">{field.name}</span>
                                 </div>
                                 
                                 {field.type !== 'serial' && (
-                                    <div className="flex bg-muted/20 rounded-lg p-0.5">
+                                    <div className="flex bg-[hsl(var(--surface-subtle))] border border-border rounded-md p-0.5">
                                         <button 
+                                            type="button"
                                             onClick={() => handleSetNull(field.id)}
                                             className={cn(
-                                                "text-[10px] px-3 py-1 rounded-md transition-all font-medium",
+                                                "text-[11px] px-2.5 py-0.5 rounded transition-all font-medium",
                                                 isNullMode 
-                                                    ? "bg-background text-foreground shadow-sm"
+                                                    ? "bg-background text-foreground shadow-[var(--shadow-control)]"
                                                     : "text-muted-foreground hover:text-foreground bg-transparent"
                                             )}
                                         >
-                                            Null
+                                            空值 (Null)
                                         </button>
                                         <button 
+                                            type="button"
                                             onClick={() => handleSetCustom(field.id)}
                                             className={cn(
-                                                "text-[10px] px-3 py-1 rounded-md transition-all font-medium",
+                                                "text-[11px] px-2.5 py-0.5 rounded transition-all font-medium",
                                                 !isNullMode 
-                                                    ? "bg-background text-blue-600 shadow-sm"
+                                                    ? "bg-background text-primary shadow-[var(--shadow-control)]"
                                                     : "text-muted-foreground hover:text-foreground bg-transparent"
                                             )}
                                         >
-                                            Custom
+                                            自定义
                                         </button>
                                     </div>
                                 )}
@@ -265,28 +268,29 @@ export const RecordDrawer: React.FC<RecordDrawerProps> = ({
         </div>
 
         <div className="p-4 border-t border-border bg-background mt-auto flex justify-between items-center shrink-0">
-             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                 <span className="bg-muted px-1.5 py-0.5 rounded border border-border">Enter</span>
-                 <span className="ml-1">to submit</span>
+             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                 <span className="bg-[hsl(var(--surface-subtle))] px-1.5 py-0.5 rounded border border-border font-mono text-[11px]">Enter</span>
+                 <span>提交</span>
              </div>
              
-             <div className="flex gap-3">
+             <div className="flex gap-2.5">
                  <Button 
-                    variant="ghost" 
+                    variant="outline" 
+                    size="sm"
                     onClick={onClose}
-                    className="h-9 px-4"
                  >
-                     Cancel
+                     取消
                  </Button>
                  <Button 
+                    size="sm"
                     onClick={handleSubmit}
-                    className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="px-4"
                  >
                      {isEditMode ? (
                          <>
-                             <Save size={14} className="mr-1.5" /> Save
+                             <Save size={14} className="mr-1.5" /> 保存更改
                          </>
-                     ) : 'Create'}
+                     ) : '创建记录'}
                  </Button>
              </div>
         </div>

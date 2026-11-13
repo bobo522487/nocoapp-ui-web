@@ -22,7 +22,7 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
     return (
       <input
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-sm font-normal"
+        className="w-full h-full px-2.5 bg-background text-foreground border-none outline-none text-[13px] font-normal"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -31,7 +31,7 @@ const TextCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
     );
   }
   return (
-    <div className="w-full h-full px-2 flex items-center text-sm font-normal">
+    <div className="w-full h-full px-2.5 flex items-center text-[13px] font-normal text-foreground">
         <span className="truncate">{value}</span>
     </div>
   );
@@ -43,7 +43,7 @@ const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
       <input
         type="number"
         autoFocus={autoFocus}
-        className="w-full h-full px-2 bg-background text-foreground border-none outline-none text-xs text-right font-mono font-normal"
+        className="w-full h-full px-2.5 bg-background text-foreground border-none outline-none text-[13px] text-right font-mono tabular-nums font-normal"
         value={value ?? ''}
         onChange={(e) => onValueChange(e.target.value)}
         onBlur={onBlur}
@@ -52,16 +52,13 @@ const NumberCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
     );
   }
   return (
-    <div className="w-full h-full px-2 flex items-center justify-end text-xs font-mono font-normal opacity-90">
+    <div className="w-full h-full px-2.5 flex items-center justify-end text-[13px] font-mono tabular-nums font-normal text-foreground">
         <span className="truncate">{value}</span>
     </div>
   );
 };
 
-const BooleanCell = ({ value, isEditing, onValueChange }: CellRendererProps) => {
-  // Boolean cells are typically toggle-able directly without entering "edit mode" in the traditional sense,
-  // or we can use edit mode to show a checkbox vs true/false text.
-  // Here we'll just render a checkbox that toggles immediately.
+const BooleanCell = ({ value, onValueChange }: CellRendererProps) => {
   const isChecked = Boolean(value);
   return (
     <div className="flex items-center justify-center w-full h-full pointer-events-auto">
@@ -69,14 +66,24 @@ const BooleanCell = ({ value, isEditing, onValueChange }: CellRendererProps) => 
         checked={isChecked} 
         onCheckedChange={(checked) => onValueChange(!!checked)}
         className="h-4 w-4"
-        onClick={(e) => e.stopPropagation()} // Prevent focus capture
+        onClick={(e) => e.stopPropagation()}
       />
     </div>
   );
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  Active: '启用中',
+  Inactive: '已停用',
+  Pending: '待处理',
+  Draft: '草稿',
+  Published: '已发布',
+  Archived: '已归档',
+  Deleted: '已删除',
+  Banned: '已封禁',
+};
+
 const SelectCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocus }: CellRendererProps) => {
-    // For simplicity using native select, ideally a custom popover
     if (isEditing) {
         return (
             <select
@@ -85,25 +92,26 @@ const SelectCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFo
                 onChange={(e) => { onValueChange(e.target.value); onBlur(); }}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
-                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-xs font-normal"
+                className="w-full h-full px-1.5 bg-background text-foreground border-none outline-none text-xs font-normal"
             >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Pending">Pending</option>
-                <option value="Draft">Draft</option>
+                <option value="Active">启用中 (Active)</option>
+                <option value="Inactive">已停用 (Inactive)</option>
+                <option value="Pending">待处理 (Pending)</option>
+                <option value="Draft">草稿 (Draft)</option>
             </select>
         );
     }
     
-    // Status Logic Mock
     let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
     if (value === 'Active' || value === 'Published') variant = "default";
     else if (value === 'Inactive' || value === 'Archived') variant = "secondary";
     else if (value === 'Deleted' || value === 'Banned') variant = "destructive";
 
     return (
-        <div className="w-full h-full px-2 flex items-center">
-            <Badge variant={variant} className="text-[10px] h-5 px-1.5 font-normal">{value}</Badge>
+        <div className="w-full h-full px-2.5 flex items-center">
+            <Badge variant={variant} className="text-[12px] h-5 px-2 font-medium rounded-md">
+              {STATUS_LABELS[String(value)] || value}
+            </Badge>
         </div>
     );
 };
@@ -114,7 +122,7 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
             <input
                 type="datetime-local"
                 autoFocus={autoFocus}
-                className="w-full h-full px-1 bg-background text-foreground border-none outline-none text-sm font-normal"
+                className="w-full h-full px-1.5 bg-background text-foreground border-none outline-none text-[13px] font-normal tabular-nums"
                 value={value ?? ''}
                 onChange={(e) => onValueChange(e.target.value)}
                 onBlur={onBlur}
@@ -123,8 +131,8 @@ const DateCell = ({ value, isEditing, onValueChange, onBlur, onKeyDown, autoFocu
         );
     }
     return (
-        <div className="w-full h-full px-2 flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
-            {value && <Calendar size={12} />}
+        <div className="w-full h-full px-2.5 flex items-center gap-1.5 text-[13px] font-normal text-muted-foreground tabular-nums">
+            {value && <Calendar size={12} className="shrink-0" />}
             <span className="truncate text-foreground">{value}</span>
         </div>
     );

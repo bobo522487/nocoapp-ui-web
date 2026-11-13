@@ -39,7 +39,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   items,
   selectedId,
   onSelect,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = "搜索...",
   width = 240,
   footer,
   header,
@@ -178,7 +178,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     <div 
       ref={dropdownRef}
       className={cn(
-        "fixed z-[100] bg-popover text-popover-foreground border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col",
+        "fixed z-[100] bg-popover text-popover-foreground border border-border rounded-xl shadow-[var(--shadow-popover)] overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col",
         contentClassName
       )}
       style={{ 
@@ -189,17 +189,17 @@ const Dropdown: React.FC<DropdownProps> = ({
       onMouseDown={(e) => e.stopPropagation()}
     >
       {header && (
-        <div className="border-b border-border bg-muted/10">
+        <div className="border-b border-border bg-[hsl(var(--surface-subtle))]">
             {header}
         </div>
       )}
 
       {/* Only show search if there are enough items or explicitly desired, defaulting to show for now */}
       {items.length > 5 && (
-        <div className="flex items-center px-3 border-b border-border/50">
-            <Search size={14} className="shrink-0 opacity-50 text-muted-foreground" />
+        <div className="flex items-center px-3 border-b border-[hsl(var(--border-subtle))]">
+            <Search size={14} className="shrink-0 opacity-60 text-muted-foreground" />
             <input 
-            className="flex h-9 w-full rounded-md bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground border-none focus:ring-0 text-foreground" 
+            className="flex h-9 w-full rounded-md bg-transparent py-2 px-2 text-[13px] outline-none placeholder:text-muted-foreground border-none focus:ring-0 text-foreground" 
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -212,11 +212,11 @@ const Dropdown: React.FC<DropdownProps> = ({
         {Object.entries(groupedItems).map(([group, groupItems]: [string, DropdownItem[]]) => (
           <div key={group}>
              {group !== 'General' && groupItems.length > 0 && (
-                <div className="px-2 py-1.5 text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground tracking-wide">
                   {group}
                 </div>
-             )}
-             {groupItems.map(item => (
+              )}
+              {groupItems.map(item => (
                <div 
                  key={item.id}
                  onClick={(e) => {
@@ -225,10 +225,10 @@ const Dropdown: React.FC<DropdownProps> = ({
                    handleOpenChange(false);
                  }}
                  className={cn(
-                   "relative flex items-center gap-3 rounded-lg px-2 py-2 text-sm outline-none cursor-pointer select-none transition-colors group",
+                   "relative flex items-center gap-3 rounded-lg px-2 py-2 text-[13px] outline-none cursor-pointer select-none transition-colors group",
                    selectedId === item.id 
-                   ? "bg-muted text-foreground" 
-                   : "text-foreground hover:bg-muted/70"
+                   ? "bg-muted text-foreground font-semibold" 
+                   : "text-foreground font-medium hover:bg-muted/70"
                  )}
                >
                  {item.avatar ? (
@@ -238,9 +238,9 @@ const Dropdown: React.FC<DropdownProps> = ({
                  ) : null}
                  
                  <div className="flex-1 flex flex-col min-w-0">
-                    <span className="font-medium truncate">{item.label}</span>
+                    <span className="truncate">{item.label}</span>
                     {item.description && (
-                        <span className="text-xs text-muted-foreground truncate font-normal">{item.description}</span>
+                        <span className="text-[12px] text-muted-foreground truncate font-normal">{item.description}</span>
                     )}
                  </div>
 
@@ -250,7 +250,7 @@ const Dropdown: React.FC<DropdownProps> = ({
           </div>
         ))}
         {filteredItems.length === 0 && (
-            <div className="px-2 py-4 text-center text-xs text-muted-foreground">No results found</div>
+            <div className="px-2 py-4 text-center text-[13px] text-muted-foreground">未找到匹配项</div>
         )}
       </div>
 
@@ -275,7 +275,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       >
          {Icon && <Icon size={iconSize} className="text-muted-foreground group-hover:text-foreground transition-colors" />}
          {triggerLabel && (
-             <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate max-w-[150px]">
+             <span className="text-[14px] font-medium text-foreground/85 group-hover:text-foreground transition-colors truncate max-w-[150px]">
                  {triggerLabel}
              </span>
          )}

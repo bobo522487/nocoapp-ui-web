@@ -38,7 +38,7 @@ const SelectComponent: React.FC<WidgetProps> = ({
               const val = valueField ? item[valueField] : (item.id || item.value || item.key || Object.values(item)[0]);
               
               return { 
-                  label: String(lbl !== undefined && lbl !== null ? lbl : 'Item'), 
+                  label: String(lbl !== undefined && lbl !== null ? lbl : '选项'), 
                   value: String(val !== undefined && val !== null ? val : 'item') 
               };
           });
@@ -55,8 +55,8 @@ const SelectComponent: React.FC<WidgetProps> = ({
       } else {
           // Default Fallback
           items = [
-              { label: 'Option 1', value: '1' }, 
-              { label: 'Option 2', value: '2' }
+              { label: '选项 1', value: '1' }, 
+              { label: '选项 2', value: '2' }
           ];
       }
 
@@ -102,11 +102,11 @@ const SelectComponent: React.FC<WidgetProps> = ({
                 onChange={handleChange}
                 disabled={disabled || loading}
                 className={cn(
-                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none text-foreground transition-all hover:border-primary/50",
+                    "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-[var(--shadow-control)] ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 appearance-none text-foreground transition-all hover:border-[hsl(var(--border-strong))]",
                     !internalValue && "text-muted-foreground"
                 )}
             >
-                <option value="" disabled selected>{placeholder || 'Select an option'}</option>
+                <option value="" disabled>{placeholder || '请选择...'}</option>
                 {finalOptions.map((opt: any, idx: number) => (
                     <option key={`${opt.value}-${idx}`} value={opt.value} className="text-foreground">{opt.label}</option>
                 ))}
@@ -139,52 +139,52 @@ const SelectComponent: React.FC<WidgetProps> = ({
 export const SelectWidget: WidgetDefinition = {
   manifest: {
     type: 'select',
-    name: 'Select',
+    name: '下拉选择',
     icon: List,
-    category: 'Forms',
+    category: '表单控件',
     defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
     properties: [
-      // --- Group: Basic ---
+      // --- Group: 基础 ---
       {
         name: 'name',
-        label: 'Field ID',
+        label: '字段标识',
         type: 'string',
         defaultValue: 'select1',
-        group: 'Basic',
+        group: '基础',
         setter: { component: 'text' }
       },
       {
         name: 'label',
-        label: 'Label',
+        label: '字段名称',
         type: 'string',
-        defaultValue: 'Select Label',
-        group: 'Basic',
+        defaultValue: '选择项',
+        group: '基础',
         setter: { component: 'text' }
       },
       {
         name: 'placeholder',
-        label: 'Placeholder',
+        label: '占位提示',
         type: 'string',
-        defaultValue: 'Select...',
-        group: 'Basic',
+        defaultValue: '请选择...',
+        group: '基础',
         setter: { component: 'text' }
       },
       { 
           name: 'tooltip', 
-          label: 'Tooltip', 
+          label: '提示信息', 
           type: 'string', 
           defaultValue: '', 
-          group: 'Basic',
+          group: '基础',
           setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 6,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -194,97 +194,97 @@ export const SelectWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
 
-      // --- Group: Data ---
+      // --- Group: 数据 ---
       {
         name: 'isDynamic',
-        label: 'Dynamic options',
+        label: '使用动态选项',
         type: 'boolean',
         defaultValue: false,
-        group: 'Data',
+        group: '数据',
         setter: { component: 'switch' }
       },
       {
         name: 'options',
-        label: 'Static Options',
+        label: '静态选项配置',
         type: 'string',
-        defaultValue: 'Option 1:1, Option 2:2',
-        description: 'Format: "Label:Value, Label2:Value2"',
-        group: 'Data',
+        defaultValue: '选项 1:1, 选项 2:2',
+        description: '格式："显示名:值, 显示名2:值2"',
+        group: '数据',
         setter: { component: 'textarea' }
       },
       {
         name: 'labelField',
-        label: 'Label Key',
+        label: '显示字段键名',
         type: 'string',
         defaultValue: 'name',
-        description: 'Field to use for option label',
-        group: 'Data',
+        description: '用于选项展示文本的字段名',
+        group: '数据',
         setter: { component: 'text' }
       },
       {
         name: 'valueField',
-        label: 'Value Key',
+        label: '取值字段键名',
         type: 'string',
         defaultValue: 'id',
-        description: 'Field to use for option value',
-        group: 'Data',
+        description: '用于选项提交值的字段名',
+        group: '数据',
         setter: { component: 'text' }
       },
       {
         name: 'sortOptions',
-        label: 'Sort options',
+        label: '选项排序',
         type: 'string',
         defaultValue: 'none',
-        group: 'Data',
+        group: '数据',
         setter: { 
             component: 'select',
             props: {
                 options: [
-                    { label: 'None', value: 'none' },
-                    { label: 'A-Z', value: 'asc' },
-                    { label: 'Z-A', value: 'desc' }
+                    { label: '默认顺序', value: 'none' },
+                    { label: '升序 (A-Z)', value: 'asc' },
+                    { label: '降序 (Z-A)', value: 'desc' }
                 ]
             }
         }
       },
 
-      // --- Group: Advanced ---
+      // --- Group: 高级 ---
       {
         name: 'required',
-        label: 'Required',
+        label: '必填项',
         type: 'boolean',
         defaultValue: false,
-        group: 'Advanced',
+        group: '高级',
         setter: { component: 'switch' }
       },
       {
         name: 'allowClear',
-        label: 'Allow Clear',
+        label: '允许清空',
         type: 'boolean',
         defaultValue: true,
-        group: 'Advanced',
+        group: '高级',
         setter: { component: 'switch' }
       },
       {
         name: 'loading',
-        label: 'Loading state',
+        label: '加载状态',
         type: 'boolean',
         defaultValue: false,
-        group: 'Advanced',
+        group: '高级',
         setter: { component: 'switch' }
       },
       {
         name: 'disabled',
-        label: 'Disable',
+        label: '禁用状态',
         type: 'boolean',
         defaultValue: false,
-        group: 'Advanced',
+        group: '高级',
         setter: { component: 'switch' }
       }
     ],
@@ -293,9 +293,9 @@ export const SelectWidget: WidgetDefinition = {
         dataType: 'array'
     },
     events: [
-        { name: 'change', label: 'On Change' },
-        { name: 'focus', label: 'On Focus' },
-        { name: 'blur', label: 'On Blur' }
+        { name: 'change', label: '值变化时' },
+        { name: 'focus', label: '获得焦点时' },
+        { name: 'blur', label: '失去焦点时' }
     ]
   },
   component: SelectComponent

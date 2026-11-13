@@ -1,50 +1,50 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import AuthLayout from '../layouts/AuthLayout';
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
 import { ArrowLeft } from 'lucide-react';
+import AuthLayout from '../layouts/AuthLayout';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
 
 const ForgotPasswordPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
-        setIsLoading(false);
-        setIsSubmitted(true);
-    }, 1500);
+      setIsLoading(false);
+      setIsSubmitted(true);
+    }, 500);
   };
 
   return (
-    <AuthLayout 
-        title="Reset password" 
-        subtitle="Enter your email address and we will send you a link to reset your password"
+    <AuthLayout
+      title="重置密码"
+      subtitle="输入你的注册邮箱，我们将发送密码重置链接"
     >
       {!isSubmitted ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Sending..." : "Send Reset Link"}
-            </Button>
-          </form>
-      ) : (
-          <div className="text-center space-y-4">
-              <div className="p-4 bg-primary/10 rounded-lg text-sm text-foreground border border-primary/20">
-                  Check your email for a link to reset your password. If it doesn't appear within a few minutes, check your spam folder.
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">邮箱地址</Label>
+            <Input id="email" type="email" placeholder="name@example.com" required />
           </div>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? '正在发送...' : '发送重置邮件'}
+          </Button>
+        </form>
+      ) : (
+        <div className="text-center space-y-4">
+          <div className="p-4 bg-primary/10 rounded-lg text-sm text-foreground border border-primary/20">
+            重置链接已发送至你的邮箱。如果几分钟内未收到，请检查垃圾邮件箱。
+          </div>
+        </div>
       )}
 
       <div className="mt-6 text-center text-sm">
         <Link to="/login" className="font-medium text-primary hover:underline inline-flex items-center">
-          <ArrowLeft size={14} className="mr-2" /> Back to sign in
+          <ArrowLeft size={14} className="mr-1.5" /> 返回登录
         </Link>
       </div>
     </AuthLayout>

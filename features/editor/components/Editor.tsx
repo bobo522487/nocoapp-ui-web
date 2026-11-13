@@ -1,16 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { Tab, FileSystemNode } from '../../../types';
-import { useAppStore } from '../../../store/useAppStore';
-
-interface EditorProps {
-  tabs?: Tab[];
-  activeTabId?: string | null;
-  activeFileContent?: string;
-  onCloseTab?: (id: string, e: React.MouseEvent) => void;
-  onSelectTab?: (id: string) => void;
-  onContentChange?: (content: string) => void;
-}
+import { FileSystemNode } from '../../../types';
+import { useEditorStore } from '../../../store/useEditorStore';
 
 const findNode = (nodes: FileSystemNode[], id: string): FileSystemNode | null => {
   for (const node of nodes) {
@@ -23,61 +14,48 @@ const findNode = (nodes: FileSystemNode[], id: string): FileSystemNode | null =>
   return null;
 };
 
-const Editor: React.FC<EditorProps> = (props) => {
-  const store = useAppStore();
-  
-  // Use props if provided (backward compatibility), otherwise use store
-  const tabs = props.tabs ?? store.tabs;
-  const activeTabId = props.activeTabId ?? store.editorActiveTabId;
-  const activeTab = tabs.find(t => t.id === activeTabId);
-  const activeFileNode = activeTab ? findNode(store.files, activeTab.fileId) : null;
-  const activeFileContent = props.activeFileContent ?? (activeFileNode?.content || '');
+const Editor: React.FC = () => {
+  const tabs = useEditorStore((s) => s.tabs);
+  const activeTabId = useEditorStore((s) => s.editorActiveTabId);
+  const files = useEditorStore((s) => s.files);
+  const closeTab = useEditorStore((s) => s.closeTab);
+  const setEditorActiveTabId = useEditorStore((s) => s.setEditorActiveTabId);
+  const updateFileContent = useEditorStore((s) => s.updateFileContent);
+
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeFileNode = activeTab ? findNode(files, activeTab.fileId) : null;
+  const activeFileContent = activeFileNode?.content || '';
 
   const handleCloseTab = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (props.onCloseTab) {
-      props.onCloseTab(id, e);
-    } else {
-      store.closeTab(id);
-    }
+    closeTab(id);
   };
 
-  const handleSelectTab = (id: string) => {
-    if (props.onSelectTab) {
-      props.onSelectTab(id);
-    } else {
-      store.setEditorActiveTabId(id);
-    }
-  };
-
-  const handleContentChange = (content: string) => {
-    if (props.onContentChange) {
-      props.onContentChange(content);
-    } else {
-      store.updateFileContent(content);
-    }
-  };
-  
   const lines = activeFileContent.split('\n').length;
   const lineNumbers = Array.from({ length: lines }, (_, i) => i + 1);
 
   return (
     <div className="flex-1 flex flex-col bg-ide-panel h-full overflow-hidden min-w-0">
-      {/* Tab Bar */}
       <div className="flex bg-ide-bg overflow-x-auto scrollbar-hide border-b border-ide-border h-9">
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            onClick={() => handleSelectTab(tab.id)}
+            onClick={() => setEditorActiveTabId(tab.id)}
             className={`
               group flex items-center min-w-[120px] max-w-[200px] px-3 text-xs border-r border-ide-border cursor-pointer select-none
-              ${activeTabId === tab.id ? 'bg-ide-panel text-white border-t-2 border-t-ide-accent' : 'bg-ide-bg text-gray-500 hover:bg-[#1f1f1f]'}
+              ${
+                activeTabId === tab.id
+                  ? 'bg-ide-panel text-white border-t-2 border-t-ide-accent'
+                  : 'bg-ide-bg text-gray-500 hover:bg-[#1f1f1f]'
+              }
             `}
           >
             <span className="truncate flex-1 mr-2">{tab.title}</span>
             <button
               onClick={(e) => handleCloseTab(tab.id, e)}
-              className={`opacity-0 group-hover:opacity-100 hover:bg-gray-700 rounded p-0.5 ${activeTabId === tab.id ? 'opacity-100' : ''}`}
+              className={`opacity-0 group-hover:opacity-100 hover:bg-gray-700 rounded p-0.5 ${
+                activeTabId === tab.id ? 'opacity-100' : ''
+              }`}
             >
               <X size={12} />
             </button>
@@ -85,7 +63,6 @@ const Editor: React.FC<EditorProps> = (props) => {
         ))}
       </div>
 
-      {/* Editor Area */}
       {activeTabId ? (
         <div className="flex-1 flex relative overflow-hidden">
           <div className="w-12 bg-ide-bg text-gray-600 text-right pr-3 pt-4 text-xs font-mono select-none border-r border-ide-border leading-6">
@@ -97,7 +74,7 @@ const Editor: React.FC<EditorProps> = (props) => {
           <div className="flex-1 relative">
             <textarea
               value={activeFileContent}
-              onChange={(e) => handleContentChange(e.target.value)}
+              onChange={(e) => updateFileContent(e.target.value)}
               className="w-full h-full bg-ide-panel text-gray-300 font-mono text-sm p-4 pt-4 outline-none resize-none leading-6 whitespace-pre tab-4"
               spellCheck={false}
             />

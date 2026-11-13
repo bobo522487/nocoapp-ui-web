@@ -15,7 +15,7 @@ interface DataSource {
 
 const CATEGORIES: { title: string; items: DataSource[] }[] = [
   {
-    title: "Commonly used",
+    title: "常用数据源",
     items: [
       { id: 'rest', name: 'REST API', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
       { id: 'postgres', name: 'PostgreSQL', icon: Database, color: 'text-blue-600', bgColor: 'bg-blue-600/10' },
@@ -25,7 +25,7 @@ const CATEGORIES: { title: string; items: DataSource[] }[] = [
     ]
   },
   {
-    title: "Databases",
+    title: "关系型与文档数据库",
     items: [
       { id: 'postgres', name: 'PostgreSQL', icon: Database, color: 'text-blue-600', bgColor: 'bg-blue-600/10' },
       { id: 'mysql', name: 'MySQL', icon: Database, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
@@ -37,7 +37,7 @@ const CATEGORIES: { title: string; items: DataSource[] }[] = [
     ]
   },
   {
-    title: "APIs & Services",
+    title: "API 与第三方服务",
     items: [
       { id: 'rest', name: 'REST API', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
       { id: 'graphql', name: 'GraphQL', icon: Hexagon, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
@@ -48,7 +48,7 @@ const CATEGORIES: { title: string; items: DataSource[] }[] = [
     ]
   },
   {
-    title: "AI & Vectors",
+    title: "AI 与向量数据库",
     items: [
       { id: 'openai', name: 'OpenAI', icon: Bot, color: 'text-teal-600', bgColor: 'bg-teal-600/10' },
       { id: 'gemini', name: 'Gemini', icon: Bot, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
@@ -57,7 +57,7 @@ const CATEGORIES: { title: string; items: DataSource[] }[] = [
     ]
   },
   {
-    title: "Cloud Storage",
+    title: "对象存储",
     items: [
       { id: 's3', name: 'AWS S3', icon: HardDrive, color: 'text-orange-600', bgColor: 'bg-orange-600/10' },
       { id: 'gcs', name: 'Google Cloud Storage', icon: HardDrive, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
@@ -91,8 +91,8 @@ const DataSourcePage = () => {
       <div className="container max-w-[1200px] mx-auto py-8 px-6">
         
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">Add New Datasource</h1>
-          <p className="text-muted-foreground">Connect to your database, API, or third-party service.</p>
+          <h1 className="text-xl font-bold tracking-tight text-foreground mb-1.5">添加数据源</h1>
+          <p className="text-sm text-muted-foreground">连接数据库、API 接口或第三方云服务。</p>
         </div>
 
         {/* Search */}
@@ -100,7 +100,7 @@ const DataSourcePage = () => {
              <div className="relative max-w-2xl">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input 
-                    placeholder="Search data sources (e.g. PostgreSQL, Stripe, OpenAI)..." 
+                    placeholder="搜索数据源（例如 PostgreSQL、MySQL、REST API）..." 
                     className="pl-10 h-11 bg-muted/20 border-muted-foreground/20 text-sm focus-visible:ring-primary"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -113,7 +113,7 @@ const DataSourcePage = () => {
         <div className="space-y-10">
             {filteredCategories.map((category) => (
                 <div key={category.title}>
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">{category.title}</h3>
+                    <h3 className="text-[14px] font-semibold text-foreground/85 mb-4">{category.title}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {category.items.map((source, idx) => (
                             <div 
@@ -124,12 +124,12 @@ const DataSourcePage = () => {
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 duration-200 ${source.bgColor || 'bg-muted'}`}>
                                     <source.icon size={28} className={source.color} strokeWidth={1.5} />
                                 </div>
-                                <span className="text-sm font-medium text-foreground text-center">{source.name}</span>
+                                <span className="text-[14px] font-semibold text-foreground text-center">{source.name}</span>
                                 
                                 {/* Hover Overlay / Button */}
                                 <div className="absolute inset-0 bg-card/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl backdrop-blur-[1px]">
                                     <Button variant="default" size="sm" className="shadow-sm">
-                                        Select
+                                        选择连接
                                     </Button>
                                 </div>
                             </div>
@@ -139,8 +139,8 @@ const DataSourcePage = () => {
             ))}
 
             {filteredCategories.length === 0 && (
-                <div className="text-center py-20 text-muted-foreground">
-                    No data sources found matching "{searchTerm}"
+                <div className="text-center py-20 text-[14px] text-muted-foreground">
+                    未找到与 “{searchTerm}” 匹配的数据源
                 </div>
             )}
         </div>

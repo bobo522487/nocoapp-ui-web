@@ -169,7 +169,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
         <div 
             className={cn(
                 "group relative flex items-center h-8 px-2 rounded-md transition-colors border border-transparent",
-                isSelected && !isClone ? "bg-accent text-accent-foreground font-medium" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
+                isSelected && !isClone ? "bg-accent text-accent-foreground font-semibold" : "hover:bg-muted/50 text-foreground/85 font-medium hover:text-foreground",
                 isClone && "bg-background border-border shadow-xl opacity-90"
             )}
             onClick={(e) => {
@@ -200,7 +200,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
             </div>
 
             {/* Label / Edit Mode */}
-            <div className="flex-1 truncate text-sm select-none" onDoubleClick={() => !disableInteraction && onRename && setIsEditing(true)}>
+            <div className="flex-1 truncate text-[13px] select-none" onDoubleClick={() => !disableInteraction && onRename && setIsEditing(true)}>
                 {isEditing ? (
                     <input 
                         ref={inputRef}
@@ -208,7 +208,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                         onChange={(e) => setEditName(e.target.value)}
                         onBlur={handleSave}
                         onKeyDown={handleKeyDown}
-                        className="w-full bg-background border border-input rounded-sm px-1 text-sm h-6 focus:outline-none focus:ring-1 focus:ring-ring"
+                        className="w-full bg-background border border-input rounded-sm px-1 text-[13px] h-6 focus:outline-none focus:ring-1 focus:ring-ring"
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()} // Prevent drag on input
                     />
@@ -229,8 +229,8 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onAdd(item.id as string); }}
                                     onPointerDown={(e) => e.stopPropagation()} // Prevent drag
-                                    className="p-1 rounded-sm hover:bg-muted-foreground/10 text-muted-foreground hover:text-foreground"
-                                    title="Add"
+                                    className="p-1 rounded-sm hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors"
+                                    title="新建"
                                 >
                                     <Plus size={14} />
                                 </button>
@@ -243,9 +243,10 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                         onClick={handleMenuOpen}
                                         onPointerDown={(e) => e.stopPropagation()} // Prevent drag
                                         className={cn(
-                                            "p-1 rounded-sm hover:bg-muted-foreground/10 text-muted-foreground hover:text-foreground transition-colors",
-                                            showMenu && "bg-muted-foreground/10 text-foreground"
+                                            "p-1 rounded-sm hover:bg-[hsl(var(--surface-hover))] text-muted-foreground hover:text-foreground transition-colors",
+                                            showMenu && "bg-[hsl(var(--surface-hover))] text-foreground"
                                         )}
+                                        title="更多操作"
                                     >
                                         <MoreVertical size={14} />
                                     </button>
@@ -253,39 +254,39 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                     {showMenu && createPortal(
                                         <div 
                                             ref={menuRef}
-                                            className="fixed z-[9999] w-36 bg-popover text-popover-foreground border border-border rounded-md shadow-md py-1 animate-in fade-in zoom-in-95 duration-100 flex flex-col"
+                                            className="fixed z-[9999] w-36 bg-popover text-popover-foreground border border-border rounded-lg shadow-[var(--shadow-popover)] p-1 animate-in fade-in zoom-in-95 duration-100 flex flex-col"
                                             style={{ top: menuPos.top, left: menuPos.left }}
                                             onMouseDown={(e) => e.stopPropagation()} // Prevent drag/click outside during interaction
                                         >
                                             {onRename && (
                                                 <button 
-                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50 text-left w-full transition-colors"
+                                                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] text-left w-full transition-colors"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setShowMenu(false);
                                                         setIsEditing(true);
                                                     }}
                                                 >
-                                                    <Pencil size={12} className="opacity-70" />
-                                                    Rename
+                                                    <Pencil size={12} className="text-muted-foreground" />
+                                                    重命名
                                                 </button>
                                             )}
                                             {onDuplicate && (
                                                 <button 
-                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50 text-left w-full transition-colors"
+                                                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] text-left w-full transition-colors"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setShowMenu(false);
                                                         onDuplicate(item.id as string);
                                                     }}
                                                 >
-                                                    <Copy size={12} className="opacity-70" />
-                                                    Duplicate
+                                                    <Copy size={12} className="text-muted-foreground" />
+                                                    复制
                                                 </button>
                                             )}
                                             {onRemove && (
                                                 <button 
-                                                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-destructive text-left w-full transition-colors"
+                                                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium hover:bg-destructive/10 text-destructive text-left w-full transition-colors"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setShowMenu(false);
@@ -293,7 +294,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                                     }}
                                                 >
                                                     <Trash2 size={12} />
-                                                    Delete
+                                                    删除
                                                 </button>
                                             )}
                                         </div>,

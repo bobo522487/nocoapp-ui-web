@@ -7,7 +7,7 @@ const TextComponent: React.FC<WidgetProps> = ({ content, fontSize, align, color 
   return (
     <div className={`p-4 w-full h-full flex flex-col justify-center pointer-events-none text-${align || 'left'}`}>
         <p style={{ fontSize: `${fontSize || 14}px`, color: color }} className="text-foreground whitespace-pre-wrap">
-            {content || 'Text Content'}
+            {content || '文本内容'}
         </p>
     </div>
   );
@@ -16,26 +16,26 @@ const TextComponent: React.FC<WidgetProps> = ({ content, fontSize, align, color 
 export const TextWidget: WidgetDefinition = {
   manifest: {
     type: 'text',
-    name: 'Text',
+    name: '文本',
     icon: Type,
-    category: 'Commonly used',
+    category: '常用组件',
     defaultSize: { w: 4, h: 2 },
     properties: [
       { 
           name: 'content', 
-          label: 'Content', 
+          label: '文本内容', 
           type: 'string', 
-          defaultValue: 'Text Content', 
-          group: 'Basic',
+          defaultValue: '文本内容', 
+          group: '基础',
           setter: { component: 'textarea' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 4,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -45,41 +45,41 @@ export const TextWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       { 
           name: 'fontSize', 
-          label: 'Font Size', 
+          label: '字号大小', 
           type: 'number', 
           defaultValue: 14, 
-          group: 'Style',
+          group: '样式',
           setter: { component: 'number' }
       },
       { 
           name: 'align', 
-          label: 'Alignment', 
+          label: '对齐方式', 
           type: 'string', 
           defaultValue: 'left', 
-          group: 'Style',
+          group: '样式',
           setter: { 
               component: 'select',
               props: {
                   options: [
-                      { label: 'Left', value: 'left' },
-                      { label: 'Center', value: 'center' },
-                      { label: 'Right', value: 'right' }
+                      { label: '左对齐', value: 'left' },
+                      { label: '居中', value: 'center' },
+                      { label: '右对齐', value: 'right' }
                   ]
               }
           }
       },
       {
           name: 'color',
-          label: 'Text Color',
+          label: '文字颜色',
           type: 'string',
-          group: 'Style',
+          group: '样式',
           setter: { component: 'color' }
       }
     ]

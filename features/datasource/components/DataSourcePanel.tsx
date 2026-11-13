@@ -23,8 +23,8 @@ const DataSourcePanel: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="h-12 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
-          <span className="font-medium text-sm text-muted-foreground">Data Sources</span>
+      <div className="h-10 px-4 border-b border-border flex justify-between items-center shrink-0 bg-background">
+          <span className="font-medium text-xs text-muted-foreground">数据源列表</span>
           <div className="flex gap-2">
              <Plus size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => navigate('/datasources')}/>
           </div>
@@ -38,14 +38,14 @@ const DataSourcePanel: React.FC = () => {
                 onClick={() => navigate('/datasources')}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground border border-transparent text-xs font-medium rounded transition-all shadow-sm hover:bg-primary/90"
             >
-               <Plus size={14} /> New Data Source
+               <Plus size={14} /> 新建数据源
             </button>
          </div>
 
          <div className="mb-4">
-            <div className="px-4 py-1 text-xs font-bold text-muted-foreground uppercase mb-2 flex justify-between items-center">
-               <span>Connected</span>
-               <span className="text-[10px] bg-muted px-1.5 rounded-full text-muted-foreground">{filteredSources.length}</span>
+            <div className="px-4 py-1 text-xs font-semibold text-muted-foreground mb-2 flex justify-between items-center">
+               <span>已连接</span>
+               <span className="text-[10px] bg-muted px-1.5 rounded text-muted-foreground tabular-nums">{filteredSources.length}</span>
             </div>
 
             {/* Search Box */}
@@ -54,7 +54,7 @@ const DataSourcePanel: React.FC = () => {
                   <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary" />
                   <input 
                       type="text" 
-                      placeholder="Search sources..." 
+                      placeholder="搜索数据源..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-8 pr-2 py-1.5 bg-muted/30 border border-transparent focus:border-input rounded text-xs text-foreground placeholder:text-muted-foreground outline-none transition-all"

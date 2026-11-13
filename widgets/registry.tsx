@@ -33,7 +33,7 @@ class RegistryImpl implements WidgetRegistry {
   getCategories() {
     const categories = new Set(this.getAll().map(w => w.manifest.category));
     return Array.from(categories).sort((a, b) => {
-       const order = ['Commonly used', 'Text input', 'Forms', 'Data', 'Media', 'Layout'];
+       const order = ['常用组件', '文本输入', '表单控件', '数据展示', '媒体展示', '布局'];
        const idxA = order.indexOf(a);
        const idxB = order.indexOf(b);
        

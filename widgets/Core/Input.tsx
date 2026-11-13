@@ -95,39 +95,39 @@ const InputComponent: React.FC<WidgetProps> = ({
 
 // Reusable properties for input variants
 const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, defaultType: string): PropDefinition[] => [
-      // --- Group: Basic ---
+      // --- Group: 基础 ---
       { 
           name: 'name', 
-          label: 'Field ID', 
+          label: '字段标识', 
           type: 'string', 
           defaultValue: 'input1', 
-          group: 'Basic',
-          description: 'Unique identifier for the form field',
+          group: '基础',
+          description: '表单字段唯一标识',
           setter: { component: 'text' }
       },
       { 
           name: 'label', 
-          label: 'Field Name', 
+          label: '字段名称', 
           type: 'string', 
           defaultValue: defaultLabel, 
-          group: 'Basic',
+          group: '基础',
           setter: { component: 'text' }
       },
       { 
           name: 'tooltip', 
-          label: 'Tooltip', 
+          label: '提示信息', 
           type: 'string', 
           defaultValue: '', 
-          group: 'Basic',
+          group: '基础',
           setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root', // Updates the GridItemData directly
           defaultValue: 6,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -137,160 +137,160 @@ const getInputProperties = (defaultLabel: string, defaultPlaceholder: string, de
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
           name: 'inputType',
-          label: 'Type',
+          label: '输入类型',
           type: 'string',
           defaultValue: defaultType,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'select',
               props: {
                   options: [
-                      { label: 'Text', value: 'text' },
-                      { label: 'Email', value: 'email' },
-                      { label: 'Password', value: 'password' },
-                      { label: 'Number', value: 'number' },
-                      { label: 'Time', value: 'time' },
-                      { label: 'Date', value: 'date' },
-                      { label: 'Month', value: 'month' },
-                      { label: 'Date & Time', value: 'datetime-local' },
+                      { label: '文本', value: 'text' },
+                      { label: '邮箱', value: 'email' },
+                      { label: '密码', value: 'password' },
+                      { label: '数字', value: 'number' },
+                      { label: '时间', value: 'time' },
+                      { label: '日期', value: 'date' },
+                      { label: '月份', value: 'month' },
+                      { label: '日期时间', value: 'datetime-local' },
                   ]
               }
           }
       },
       { 
           name: 'placeholder', 
-          label: 'Placeholder', 
+          label: '占位提示', 
           type: 'string', 
           defaultValue: defaultPlaceholder, 
-          group: 'Basic',
+          group: '基础',
           setter: { component: 'text' }
       },
       {
         name: 'required',
-        label: 'Required',
+        label: '必填项',
         type: 'boolean',
         defaultValue: false,
-        group: 'Basic',
+        group: '基础',
         setter: { component: 'switch' }
       },
 
-      // --- Group: Advanced ---
+      // --- Group: 高级 ---
       {
           name: 'disabled',
-          label: 'Disabled',
+          label: '禁用状态',
           type: 'boolean',
           defaultValue: false,
-          group: 'Advanced',
+          group: '高级',
           setter: { component: 'switch' }
       },
       {
           name: 'readOnly',
-          label: 'Read Only',
+          label: '只读模式',
           type: 'boolean',
           defaultValue: false,
-          group: 'Advanced',
+          group: '高级',
           setter: { component: 'switch' }
       },
       {
           name: 'maxLength',
-          label: 'Max Length',
+          label: '最大长度',
           type: 'number',
-          group: 'Advanced',
+          group: '高级',
           setter: { component: 'number' }
       },
       {
           name: 'allowClear',
-          label: 'Allow Clear',
+          label: '允许清空',
           type: 'boolean',
           defaultValue: false,
-          group: 'Advanced',
+          group: '高级',
           setter: { component: 'switch' }
       },
 
-      // --- Group: Label (Styles) ---
+      // --- Group: 标签 (Styles) ---
       {
           name: 'showLabel',
-          label: 'Show Label',
+          label: '显示标签',
           type: 'boolean',
           defaultValue: true,
-          group: 'Label',
+          group: '标签',
           setter: { component: 'switch' }
       },
       {
           name: 'labelPosition',
-          label: 'Position',
+          label: '标签位置',
           type: 'string',
           defaultValue: 'top',
-          group: 'Label',
+          group: '标签',
           setter: {
               component: 'buttonGroup',
               props: {
                   options: [
-                      { label: 'Top', value: 'top', icon: AlignVerticalJustifyStart },
-                      { label: 'Left', value: 'left', icon: AlignLeft },
-                      { label: 'Right', value: 'right', icon: AlignRight },
+                      { label: '顶部', value: 'top', icon: AlignVerticalJustifyStart },
+                      { label: '左侧', value: 'left', icon: AlignLeft },
+                      { label: '右侧', value: 'right', icon: AlignRight },
                   ]
               }
           }
       },
       {
           name: 'labelTextColor',
-          label: 'Text Color',
+          label: '文字颜色',
           type: 'string',
           defaultValue: '',
-          group: 'Label',
+          group: '标签',
           setter: { component: 'color' }
       },
 
-      // --- Group: Field (Styles) ---
+      // --- Group: 输入框 (Styles) ---
       {
           name: 'fieldTextColor',
-          label: 'Text Color',
+          label: '文字颜色',
           type: 'string',
           defaultValue: '',
-          group: 'Field',
+          group: '输入框',
           setter: { component: 'color' }
       },
       {
           name: 'fieldBackgroundColor',
-          label: 'Background',
+          label: '背景色',
           type: 'string',
           defaultValue: '',
-          group: 'Field',
+          group: '输入框',
           setter: { component: 'color' }
       },
       {
           name: 'fieldBorderColor',
-          label: 'Border Color',
+          label: '边框颜色',
           type: 'string',
           defaultValue: '',
-          group: 'Field',
+          group: '输入框',
           setter: { component: 'color' }
       },
 ];
 
 const commonEvents = [
-    { name: 'change', label: 'On Change' },
-    { name: 'focus', label: 'On Focus' },
-    { name: 'blur', label: 'On Blur' }
+    { name: 'change', label: '值变化时' },
+    { name: 'focus', label: '获得焦点时' },
+    { name: 'blur', label: '失去焦点时' }
 ];
 
 export const InputWidget: WidgetDefinition = {
   manifest: {
     type: 'input',
-    name: 'Text Input',
+    name: '单行输入',
     icon: TextCursor,
-    category: 'Text input',
+    category: '文本输入',
     defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
-    properties: getInputProperties('Input Label', 'Enter text...', 'text'),
+    properties: getInputProperties('字段标签', '请输入内容...', 'text'),
     events: commonEvents
   },
   component: InputComponent
@@ -299,12 +299,12 @@ export const InputWidget: WidgetDefinition = {
 export const EmailWidget: WidgetDefinition = {
   manifest: {
     type: 'email_input',
-    name: 'Email Input',
+    name: '邮箱输入',
     icon: Mail,
-    category: 'Text input',
+    category: '文本输入',
     defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
-    properties: getInputProperties('Email', 'example@domain.com', 'email'),
+    properties: getInputProperties('电子邮箱', 'example@domain.com', 'email'),
     events: commonEvents
   },
   component: InputComponent
@@ -313,12 +313,12 @@ export const EmailWidget: WidgetDefinition = {
 export const PasswordWidget: WidgetDefinition = {
   manifest: {
     type: 'password_input',
-    name: 'Password Input',
+    name: '密码输入',
     icon: Lock,
-    category: 'Text input',
+    category: '文本输入',
     defaultSize: { w: 6, h: 2 },
     traits: { isFormItem: true },
-    properties: getInputProperties('Password', '********', 'password'),
+    properties: getInputProperties('登录密码', '请输入密码', 'password'),
     events: commonEvents
   },
   component: InputComponent

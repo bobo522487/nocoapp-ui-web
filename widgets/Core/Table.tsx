@@ -23,7 +23,7 @@ const TableComponent: React.FC<WidgetProps> = ({ title, showHeader, data, _query
     <Card className="h-full w-full flex flex-col shadow-none border-0 bg-transparent pointer-events-none">
         {showHeader !== false && (
             <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
-                <CardTitle className="text-base truncate mr-2">{title || 'Table'}</CardTitle>
+                <CardTitle className="text-base truncate mr-2">{title || '数据表格'}</CardTitle>
                 <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0"><ArrowUpRight size={14}/></Button>
             </CardHeader>
         )}
@@ -31,10 +31,10 @@ const TableComponent: React.FC<WidgetProps> = ({ title, showHeader, data, _query
              <div className="min-w-full inline-block align-middle">
                  {hasData ? (
                      <table className="min-w-full divide-y divide-border">
-                         <thead className="bg-muted/30">
+                         <thead className="bg-[hsl(var(--surface-subtle))]">
                              <tr>
                                  {displayColumns.map((col: string) => (
-                                     <th key={col} scope="col" className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                                     <th key={col} scope="col" className="px-4 py-2 text-left text-xs font-medium text-muted-foreground tracking-wider whitespace-nowrap">
                                          {col}
                                      </th>
                                  ))}
@@ -59,11 +59,11 @@ const TableComponent: React.FC<WidgetProps> = ({ title, showHeader, data, _query
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">ID</div>
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-muted-foreground">Sample Data</span>
-                                        <span className="text-xs text-muted-foreground opacity-70">Connect data source</span>
+                                        <span className="text-sm font-medium text-muted-foreground">示例数据</span>
+                                        <span className="text-xs text-muted-foreground opacity-70">请关联数据源</span>
                                     </div>
                                 </div>
-                                <div className="text-sm font-medium text-muted-foreground">--</div>
+                                <div className="text-sm font-medium text-muted-foreground tabular-nums">--</div>
                             </div>
                         ))}
                      </div>
@@ -77,26 +77,26 @@ const TableComponent: React.FC<WidgetProps> = ({ title, showHeader, data, _query
 export const TableWidget: WidgetDefinition = {
   manifest: {
     type: 'table',
-    name: 'Table',
+    name: '数据表格',
     icon: TableIcon,
-    category: 'Data',
+    category: '数据展示',
     defaultSize: { w: 6, h: 6 },
     properties: [
       { 
           name: 'title', 
-          label: 'Title', 
+          label: '表格标题', 
           type: 'string', 
-          defaultValue: 'Recent Transactions', 
-          group: 'Basic',
+          defaultValue: '最近交易记录', 
+          group: '基础',
           setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 6,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -106,17 +106,17 @@ export const TableWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
           name: 'showHeader',
-          label: 'Show Header',
+          label: '显示标题栏',
           type: 'boolean',
           defaultValue: true,
-          group: 'Style',
+          group: '样式',
           setter: { component: 'switch' }
       }
     ],
@@ -125,8 +125,8 @@ export const TableWidget: WidgetDefinition = {
         dataType: 'array'
     },
     events: [
-        { name: 'rowClick', label: 'Row Click' },
-        { name: 'pageChange', label: 'Page Change' }
+        { name: 'rowClick', label: '点击行时' },
+        { name: 'pageChange', label: '翻页时' }
     ]
   },
   component: TableComponent

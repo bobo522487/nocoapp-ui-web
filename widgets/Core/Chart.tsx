@@ -42,7 +42,7 @@ const ChartComponent: React.FC<WidgetProps> = ({ title, barColor, data, _query }
   return (
     <Card className="h-full w-full flex flex-col shadow-none border-0 bg-transparent pointer-events-none">
         <CardHeader className="p-4">
-            <CardTitle className="text-base">{title || 'Chart'}</CardTitle>
+            <CardTitle className="text-base">{title || '统计图表'}</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0 flex-1">
              <div className="w-full h-full flex items-end justify-between gap-2 px-2 pb-2">
@@ -53,7 +53,7 @@ const ChartComponent: React.FC<WidgetProps> = ({ title, barColor, data, _query }
                         style={{ height: `${h}%`, backgroundColor: barColor || 'hsl(var(--primary))', }}
                     >
                         {/* Simple Tooltip */}
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-sm border border-border pointer-events-none z-10">
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-[var(--shadow-popover)] border border-border pointer-events-none z-10 tabular-nums">
                             {rows[i] ? rows[i][valueKey] : h.toFixed(0)}
                         </div>
                     </div>
@@ -72,26 +72,26 @@ const ChartComponent: React.FC<WidgetProps> = ({ title, barColor, data, _query }
 export const ChartWidget: WidgetDefinition = {
   manifest: {
     type: 'chart',
-    name: 'Chart',
+    name: '柱状图表',
     icon: BarChart3,
-    category: 'Data',
+    category: '数据展示',
     defaultSize: { w: 6, h: 5 },
     properties: [
       { 
           name: 'title', 
-          label: 'Title', 
+          label: '图表标题', 
           type: 'string', 
-          defaultValue: 'Revenue Overview', 
-          group: 'Basic',
+          defaultValue: '营收概览', 
+          group: '基础',
           setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 6,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -101,17 +101,17 @@ export const ChartWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
           name: 'barColor',
-          label: 'Bar Color',
+          label: '柱状颜色',
           type: 'string',
           defaultValue: '',
-          group: 'Style',
+          group: '样式',
           setter: { component: 'color' }
       }
     ],
@@ -120,7 +120,7 @@ export const ChartWidget: WidgetDefinition = {
         dataType: 'array'
     },
     events: [
-        { name: 'pointClick', label: 'Point Click' }
+        { name: 'pointClick', label: '点击数据柱时' }
     ]
   },
   component: ChartComponent

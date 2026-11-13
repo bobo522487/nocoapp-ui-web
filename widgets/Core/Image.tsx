@@ -9,14 +9,14 @@ const ImageComponent: React.FC<WidgetProps> = ({ src, alt, objectFit, borderRadi
       {src ? (
         <img 
             src={src} 
-            alt={alt || 'Image'}
+            alt={alt || '图片'}
             className="w-full h-full pointer-events-none block"
             style={{ objectFit: objectFit || 'cover' }}
         />
       ) : (
         <div className="flex flex-col items-center text-muted-foreground p-4 text-center">
             <ImageIcon size={24} className="mb-2 opacity-50" />
-            <span className="text-[10px]">Set Image Source</span>
+            <span className="text-[10px]">请设置图片地址</span>
         </div>
       )}
     </div>
@@ -26,34 +26,34 @@ const ImageComponent: React.FC<WidgetProps> = ({ src, alt, objectFit, borderRadi
 export const ImageWidget: WidgetDefinition = {
   manifest: {
     type: 'image',
-    name: 'Image',
+    name: '图片',
     icon: ImageIcon,
-    category: 'Media',
+    category: '媒体展示',
     defaultSize: { w: 4, h: 4 },
     properties: [
       {
         name: 'src',
-        label: 'Image URL',
+        label: '图片地址',
         type: 'string',
         defaultValue: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600',
-        group: 'Basic',
+        group: '基础',
         setter: { component: 'text' }
       },
       {
         name: 'alt',
-        label: 'Alt Text',
+        label: '替代文本',
         type: 'string',
-        defaultValue: 'Product Image',
-        group: 'Basic',
+        defaultValue: '产品图片',
+        group: '基础',
         setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 4,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -63,34 +63,34 @@ export const ImageWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
         name: 'objectFit',
-        label: 'Fit',
+        label: '填充模式',
         type: 'string',
         defaultValue: 'cover',
-        group: 'Style',
+        group: '样式',
         setter: {
           component: 'select',
           props: {
             options: [
-              { label: 'Cover', value: 'cover' },
-              { label: 'Contain', value: 'contain' },
-              { label: 'Fill', value: 'fill' }
+              { label: '裁剪填充 (Cover)', value: 'cover' },
+              { label: '完整适应 (Contain)', value: 'contain' },
+              { label: '拉伸填满 (Fill)', value: 'fill' }
             ]
           }
         }
       },
       {
         name: 'borderRadius',
-        label: 'Radius',
+        label: '圆角大小 (px)',
         type: 'number',
         defaultValue: 8,
-        group: 'Style',
+        group: '样式',
         setter: { component: 'number' }
       }
     ]

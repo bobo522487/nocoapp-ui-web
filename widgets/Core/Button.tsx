@@ -13,7 +13,7 @@ const ButtonComponent: React.FC<WidgetProps> = ({ label, variant, size, disabled
             size={size || 'default'}
             disabled={disabled}
         >
-            {label || 'Button'}
+            {label || '按钮'}
         </ShadButton>
     </div>
   );
@@ -22,9 +22,9 @@ const ButtonComponent: React.FC<WidgetProps> = ({ label, variant, size, disabled
 export const ButtonWidget: WidgetDefinition = {
   manifest: {
     type: 'button',
-    name: 'Button',
+    name: '按钮',
     icon: MousePointerClick,
-    category: 'Commonly used',
+    category: '常用组件',
     defaultSize: { w: 3, h: 2 },
     traits: {
         isResizable: true,
@@ -33,19 +33,19 @@ export const ButtonWidget: WidgetDefinition = {
     properties: [
       { 
           name: 'label', 
-          label: 'Label', 
+          label: '按钮文本', 
           type: 'string', 
-          defaultValue: 'Button',
-          group: 'Basic',
+          defaultValue: '按钮',
+          group: '基础',
           setter: { component: 'text' }
       },
       {
           name: 'w',
-          label: 'Width',
+          label: '宽度占比',
           type: 'number',
           target: 'root',
           defaultValue: 3,
-          group: 'Basic',
+          group: '基础',
           setter: {
               component: 'buttonGroup',
               props: {
@@ -55,61 +55,61 @@ export const ButtonWidget: WidgetDefinition = {
                       { label: '1/2', value: 6 },
                       { label: '2/3', value: 8 },
                       { label: '3/4', value: 9 },
-                      { label: 'Full', value: 12 },
+                      { label: '整行', value: 12 },
                   ]
               }
           }
       },
       {
           name: 'disabled',
-          label: 'Disabled',
+          label: '禁用状态',
           type: 'boolean',
           defaultValue: false,
-          group: 'Basic',
+          group: '基础',
           setter: { component: 'switch' }
       },
       { 
           name: 'variant', 
-          label: 'Variant', 
+          label: '按钮样式', 
           type: 'string', 
           defaultValue: 'default',
-          group: 'Style',
+          group: '样式',
           setter: { 
               component: 'select', 
               props: { 
                   options: [
-                      { label: 'Default', value: 'default' },
-                      { label: 'Secondary', value: 'secondary' },
-                      { label: 'Destructive', value: 'destructive' },
-                      { label: 'Outline', value: 'outline' },
-                      { label: 'Ghost', value: 'ghost' },
-                      { label: 'Link', value: 'link' }
+                      { label: '主按钮', value: 'default' },
+                      { label: '次按钮', value: 'secondary' },
+                      { label: '危险按钮', value: 'destructive' },
+                      { label: '描边按钮', value: 'outline' },
+                      { label: '幽灵按钮', value: 'ghost' },
+                      { label: '链接按钮', value: 'link' }
                   ] 
               } 
           }
       },
       {
           name: 'size',
-          label: 'Size',
+          label: '尺寸大小',
           type: 'string',
           defaultValue: 'default',
-          group: 'Style',
+          group: '样式',
           setter: {
               component: 'select',
               props: {
                   options: [
-                      { label: 'Default', value: 'default' },
-                      { label: 'Small', value: 'sm' },
-                      { label: 'Large', value: 'lg' },
-                      { label: 'Icon', value: 'icon' }
+                      { label: '默认', value: 'default' },
+                      { label: '紧凑', value: 'sm' },
+                      { label: '宽松', value: 'lg' },
+                      { label: '图标', value: 'icon' }
                   ]
               }
           }
       }
     ],
     events: [
-      { name: 'click', label: 'On Click' },
-      { name: 'hover', label: 'On Hover' }
+      { name: 'click', label: '点击时' },
+      { name: 'hover', label: '悬停时' }
     ]
   },
   component: ButtonComponent

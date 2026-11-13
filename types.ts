@@ -1,7 +1,6 @@
-
 export enum FileType {
   FILE = 'FILE',
-  FOLDER = 'FOLDER'
+  FOLDER = 'FOLDER',
 }
 
 export interface FileSystemNode {
@@ -9,17 +8,76 @@ export interface FileSystemNode {
   name: string;
   type: FileType;
   content?: string;
-  isOpen?: boolean; // For folders
+  isOpen?: boolean;
   children?: FileSystemNode[];
   language?: string;
 }
 
 export enum ViewMode {
   HOME = 'HOME',
+  PROJECTS = 'PROJECTS',
+  MEMBERS = 'MEMBERS',
+  WORKSPACE_SETTINGS = 'WORKSPACE_SETTINGS',
   APPS = 'APPS',
   DATA = 'DATA',
   DATASOURCE = 'DATASOURCE',
-  SETTINGS = 'SETTINGS'
+  SETTINGS = 'SETTINGS',
+}
+
+export type AppTheme = 'vercel' | 'supabase' | 'slack' | 'vscode';
+export type ThemeMode = 'system' | 'light' | 'dark';
+export type DeviceType = 'desktop' | 'tablet' | 'mobile';
+export type Breakpoint = 'lg' | 'md' | 'sm' | 'xs' | 'xxs';
+
+export interface Workspace {
+  id: string;
+  name: string;
+  kind: 'personal' | 'team';
+  color: string;
+  plan: string;
+  createdAt: string;
+}
+
+export type AssetColorTheme = 'sky' | 'pink' | 'orange' | 'indigo' | 'emerald' | 'violet';
+
+export interface ProjectItem {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string;
+  colorTheme: AssetColorTheme;
+  ownerType: 'owned' | 'shared';
+  defaultTableId: string;
+  updatedAt: string;
+}
+
+export interface AppItem {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string;
+  colorTheme: AssetColorTheme;
+  ownerType: 'owned' | 'shared';
+  defaultPageId: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  workspaceId: string;
+  name: string;
+  email: string;
+  role: '所有者' | '管理员' | '编辑者' | '查看者';
+  joinedAt: string;
+  avatarColor: string;
+}
+
+export interface WorkspaceNotification {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
 }
 
 export interface Tab {
@@ -27,12 +85,6 @@ export interface Tab {
   fileId: string;
   title: string;
   isDirty?: boolean;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
 }
 
 export interface QueryConfig {
@@ -55,7 +107,7 @@ export interface Page {
   type: 'page' | 'folder';
   parentId?: string;
   isOpen?: boolean;
-  icon: string; // Icon name string
+  icon: string;
   isHome: boolean;
   isHidden: boolean;
   isDisabled: boolean;
@@ -111,7 +163,10 @@ export interface DbView {
   config: ViewConfig;
 }
 
-export interface GridItemData {
+/**
+ * Pure geometric layout coordinates per breakpoint (no duplicated widget content).
+ */
+export interface LayoutItem {
   i: string;
   x: number;
   y: number;
@@ -119,24 +174,74 @@ export interface GridItemData {
   h: number;
   minW?: number;
   minH?: number;
+}
+
+/**
+ * Single source of truth for a widget's semantic definition & properties on a page.
+ */
+export interface WidgetInstance {
+  id: string;
   type: string;
   title?: string;
-  content?: any;
+  content: Record<string, any>;
+}
+
+export type PageLayouts = Partial<Record<Breakpoint, LayoutItem[]>>;
+
+/**
+ * Derived view model joining WidgetInstance + LayoutItem for Canvas / PropertyPanel / Widgets.
+ */
+export interface GridItemData extends LayoutItem {
+  type: string;
+  title?: string;
+  content: Record<string, any>;
+}
+
+export type SchemaFieldType =
+  | 'serial'
+  | 'varchar'
+  | 'int'
+  | 'bigint'
+  | 'float'
+  | 'boolean'
+  | 'date with time'
+  | 'jsonb';
+
+export type FieldIconKey =
+  | 'key'
+  | 'text'
+  | 'mail'
+  | 'check'
+  | 'calendar'
+  | 'dollar'
+  | 'package'
+  | 'cart'
+  | 'arrowUpDown'
+  | 'hash'
+  | 'toggle'
+  | 'braces';
+
+export interface ForeignKeyConfig {
+  targetTableId: string;
+  targetColumnId: string;
+  onUpdate: string;
+  onDelete: string;
 }
 
 export interface SchemaField {
   id: string;
   name: string;
-  type: 'serial' | 'varchar' | 'int' | 'bigint' | 'float' | 'boolean' | 'date with time' | 'jsonb';
+  type: SchemaFieldType;
   defaultValue: string;
   isPrimary: boolean;
   isForeignKey?: boolean;
+  foreignKeyConfig?: ForeignKeyConfig;
   isUnique: boolean;
   isNullable: boolean;
   description?: string;
   flex?: boolean;
   width?: number;
-  icon?: any;
+  iconName?: FieldIconKey;
   timeZone?: string;
 }
 

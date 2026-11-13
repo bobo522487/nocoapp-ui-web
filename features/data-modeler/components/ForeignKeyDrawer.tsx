@@ -93,14 +93,14 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
       
       {/* Drawer */}
       <div 
-        className={`fixed inset-y-0 right-0 w-[560px] bg-background shadow-2xl transform transition-transform duration-300 flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 w-[560px] max-w-full bg-background shadow-[var(--shadow-popover)] transform transition-transform duration-200 flex flex-col border-l border-border ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         style={{ zIndex: baseZIndex + 10 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-            <h3 className="text-xl font-semibold text-foreground tracking-tight">Edit foreign key relation</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+            <h3 className="text-base font-semibold text-foreground tracking-tight">配置外键关联</h3>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
-                <X size={18} />
+                <X size={16} />
             </Button>
         </div>
 
@@ -110,28 +110,28 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
             {/* TYPE Section */}
             <div className="mb-8">
                  <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-                    <Link2 size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">TYPE</span>
+                    <Link2 size={15} />
+                    <span className="text-xs font-semibold tracking-wide">关联类型</span>
                  </div>
-                 <div className="border border-input rounded-md px-3 py-2 bg-muted/20 text-sm font-medium text-foreground inline-block min-w-[100px] text-center">
-                    Single
+                 <div className="border border-input rounded-md px-3 py-1.5 bg-[hsl(var(--surface-subtle))] text-[13px] font-medium text-foreground inline-block min-w-[100px] text-center">
+                    一对一 / 多对一 (Single)
                  </div>
             </div>
 
             {/* SOURCE Section */}
             <div className="mb-8">
                 <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-                    <ArrowRightLeft size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">SOURCE</span>
+                    <ArrowRightLeft size={15} />
+                    <span className="text-xs font-semibold tracking-wide">源表 (SOURCE)</span>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">The current table on which foreign key constraint is being added</p>
+                <p className="text-xs text-muted-foreground mb-4">当前需要添加外键约束的数据表与字段</p>
                 
                 <div className="space-y-4 pl-1">
                     {/* Source Table */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">Table</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">数据表</span>
                         <div className="flex-1">
-                            <div className="w-full border border-input bg-muted/50 text-muted-foreground rounded-md px-3 py-2 text-sm flex justify-between items-center cursor-not-allowed">
+                            <div className="w-full border border-input bg-[hsl(var(--surface-subtle))] text-muted-foreground rounded-md px-3 py-2 text-[13px] flex justify-between items-center cursor-not-allowed">
                                 <span>{sourceTableName}</span>
                                 <ChevronDown size={14} className="opacity-50" />
                             </div>
@@ -140,10 +140,10 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
 
                     {/* Source Column */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">Column</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">源字段</span>
                         <div className="flex-1">
-                            <div className="w-full border border-input bg-muted/50 text-muted-foreground rounded-md px-3 py-2 text-sm flex justify-between items-center cursor-not-allowed">
-                                <span>{sourceColumnName || 'New Column'}</span>
+                            <div className="w-full border border-input bg-[hsl(var(--surface-subtle))] text-muted-foreground rounded-md px-3 py-2 text-[13px] flex justify-between items-center cursor-not-allowed">
+                                <span>{sourceColumnName || '新字段'}</span>
                                 <ChevronDown size={14} className="opacity-50" />
                             </div>
                         </div>
@@ -154,22 +154,22 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
             {/* TARGET Section */}
             <div className="mb-8">
                 <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-                    <ArrowRight size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">TARGET</span>
+                    <ArrowRight size={15} />
+                    <span className="text-xs font-semibold tracking-wide">目标表 (TARGET)</span>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">The table that contains foreign key column’s reference</p>
+                <p className="text-xs text-muted-foreground mb-4">被外键引用的主数据表与关联字段</p>
 
                 <div className="space-y-4 pl-1">
                     {/* Target Table */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">Table</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">目标表</span>
                         <div className="flex-1 relative">
                              <Dropdown
-                                triggerLabel={tables.find(t => t.id === config.targetTableId)?.name || 'Select table'}
+                                triggerLabel={tables.find(t => t.id === config.targetTableId)?.name || '选择目标表'}
                                 items={tables.map(t => ({ id: t.id, label: t.name }))}
                                 onSelect={(item) => setConfig(prev => ({ ...prev, targetTableId: item.id, targetColumnId: '' }))}
                                 selectedId={config.targetTableId}
-                                className="w-full justify-between border border-input bg-background rounded-md px-3 py-2 text-sm font-normal hover:bg-accent/50"
+                                className="w-full justify-between border border-input bg-background shadow-[var(--shadow-control)] rounded-md px-3 py-2 text-[13px] font-normal hover:border-[hsl(var(--border-strong))]"
                                 width={380}
                              />
                         </div>
@@ -177,16 +177,16 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
 
                     {/* Target Column */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">Column</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">目标字段</span>
                         <div className="flex-1 relative">
                             <Dropdown
-                                triggerLabel={targetColumns.find(c => c.id === config.targetColumnId)?.name || 'Select column'}
+                                triggerLabel={targetColumns.find(c => c.id === config.targetColumnId)?.name || '选择目标字段'}
                                 items={targetColumns.map(c => ({ id: c.id, label: c.name }))}
                                 onSelect={(item) => setConfig(prev => ({ ...prev, targetColumnId: item.id }))}
                                 selectedId={config.targetColumnId}
-                                className="w-full justify-between border border-input bg-background rounded-md px-3 py-2 text-sm font-normal hover:bg-accent/50"
+                                className="w-full justify-between border border-input bg-background shadow-[var(--shadow-control)] rounded-md px-3 py-2 text-[13px] font-normal hover:border-[hsl(var(--border-strong))]"
                                 width={380}
-                                searchPlaceholder="Search columns..."
+                                searchPlaceholder="搜索字段..."
                              />
                         </div>
                     </div>
@@ -196,22 +196,22 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
             {/* ACTIONS Section */}
             <div className="mb-8">
                 <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-                    <Settings2 size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">ACTIONS</span>
+                    <Settings2 size={15} />
+                    <span className="text-xs font-semibold tracking-wide">级联规则 (ACTIONS)</span>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">What happens to Source table when Target table is modified</p>
+                <p className="text-xs text-muted-foreground mb-4">当目标表记录发生更新或删除时，源表记录的联动策略</p>
 
                 <div className="space-y-4 pl-1">
                     {/* On Update */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">On update</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">更新时</span>
                         <div className="flex-1 relative">
                              <Dropdown
                                 triggerLabel={config.onUpdate}
                                 items={ACTION_OPTIONS}
                                 onSelect={(item) => setConfig(prev => ({ ...prev, onUpdate: item.id }))}
                                 selectedId={config.onUpdate}
-                                className="w-full justify-between border border-input bg-background rounded-md px-3 py-2 text-sm font-normal hover:bg-accent/50"
+                                className="w-full justify-between border border-input bg-background shadow-[var(--shadow-control)] rounded-md px-3 py-2 text-[13px] font-normal hover:border-[hsl(var(--border-strong))]"
                                 width={380}
                              />
                         </div>
@@ -219,14 +219,14 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
 
                     {/* On Remove */}
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-muted-foreground w-24">On remove</span>
+                        <span className="text-[13px] font-medium text-foreground/85 w-24">删除时</span>
                         <div className="flex-1 relative">
                             <Dropdown
                                 triggerLabel={config.onDelete}
                                 items={ACTION_OPTIONS}
                                 onSelect={(item) => setConfig(prev => ({ ...prev, onDelete: item.id }))}
                                 selectedId={config.onDelete}
-                                className="w-full justify-between border border-input bg-background rounded-md px-3 py-2 text-sm font-normal hover:bg-accent/50"
+                                className="w-full justify-between border border-input bg-background shadow-[var(--shadow-control)] rounded-md px-3 py-2 text-[13px] font-normal hover:border-[hsl(var(--border-strong))]"
                                 width={380}
                              />
                         </div>
@@ -238,24 +238,26 @@ const ForeignKeyDrawer: React.FC<ForeignKeyDrawerProps> = ({
 
         {/* Footer */}
         <div className="p-4 border-t border-border bg-background flex justify-between items-center shrink-0">
-             <a href="#" className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
-                 <Info size={14} />
-                 Read documentation
-             </a>
+             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                 <Info size={13} />
+                 外键约束将自动校验引用完整性
+             </span>
              
-             <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2.5">
                  <Button 
                     variant="ghost" 
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-9 px-3 text-sm font-medium gap-2"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
                     onClick={onDelete}
                  >
-                     <Trash2 size={14} /> Delete
+                     <Trash2 size={14} /> 移除关联
                  </Button>
                  <Button 
+                    size="sm"
                     onClick={() => onSave(config)}
-                    className="h-9 px-4 text-sm font-medium gap-2"
+                    className="gap-1.5"
                  >
-                     <Save size={14} /> Save changes
+                     <Save size={14} /> 保存配置
                  </Button>
              </div>
         </div>

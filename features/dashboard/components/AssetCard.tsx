@@ -194,14 +194,34 @@ export const AssetCard: React.FC<AssetCardProps> = ({
           </div>
           <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground tabular-nums min-w-0">
             <span className="whitespace-nowrap shrink-0">
-              {kind === 'project' ? '项目' : '应用'}
+              {kind === 'project' ? '云谱' : '应用'}
             </span>
+            {kind === 'project' && (item as ProjectItem).primaryName && (
+              <>
+                <span aria-hidden="true" className="text-muted-foreground/45">
+                  ·
+                </span>
+                <span className="truncate max-w-[96px]">
+                  {(item as ProjectItem).primaryName}
+                </span>
+              </>
+            )}
             {metaDetail && (
               <>
                 <span aria-hidden="true" className="text-muted-foreground/45">
                   ·
                 </span>
                 <span className="whitespace-nowrap shrink-0">{metaDetail}</span>
+              </>
+            )}
+            {kind === 'project' && (item as ProjectItem).projectState && (
+              <>
+                <span aria-hidden="true" className="text-muted-foreground/45">
+                  ·
+                </span>
+                <span className="whitespace-nowrap shrink-0">
+                  {(item as ProjectItem).projectState === '1' ? '已完成' : '进行中'}
+                </span>
               </>
             )}
             {showOwnerHint && item.ownerType === 'shared' && (

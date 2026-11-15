@@ -20,10 +20,11 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   if (status === 'authenticated') {
-    return <Navigate to={onboarding ? '/onboarding' : '/'} replace />;
+    // 已登录访问登录页 → 落地首页（FR-001）。
+    return <Navigate to={onboarding ? '/onboarding' : '/home'} replace />;
   }
 
-  const from = (location.state as { from?: string } | null)?.from || '/';
+  const from = (location.state as { from?: string } | null)?.from || '/home';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +32,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await signIn(email.trim(), password);
-      navigate(result.onboarding ? '/onboarding' : from, { replace: true });
+      navigate(result.onboarding ? '/onboarding' : from || '/home', { replace: true });
     } catch {
       // The store exposes the API error message below the form.
     } finally {

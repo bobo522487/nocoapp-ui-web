@@ -45,6 +45,11 @@ function setMockMode(next: boolean): void {
   listeners.forEach((listener) => listener());
 }
 
+/** 会话失效（401）时广播，由应用层清会话并跳转登录（SC-009）。 */
+function notifyUnauthorized(): void {
+  window.dispatchEvent(new CustomEvent('yunpu:unauthorized'));
+}
+
 function isEnvelope(value: unknown): value is ApiEnvelope<unknown> {
   return (
     typeof value === 'object' &&
@@ -81,6 +86,9 @@ export async function apiRequest<T>(
       headers,
       body,
       credentials: 'include',
+      // 连接挂起（后端半死、代理无响应）时也要 reject，
+      // 否则永远走不到 Mock 降级，页面会永久卡在加载态。
+      signal: AbortSignal.timeout(10_000),
     });
 
     try {
@@ -101,6 +109,7 @@ export async function apiRequest<T>(
     throw new ApiError('API 不可达', 'UNREACHABLE', 0);
   } catch (error) {
     if (error instanceof ApiError && error.code !== 'UNREACHABLE') {
+      if (error.status === 401) notifyUnauthorized();
       throw error;
     }
     if (mockHandler) {

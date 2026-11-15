@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../layouts/AuthLayout';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '../../../components/ui/label';
 import { errorMessage } from '../../../lib/api';
 import { acceptInviteRequest, createOrganizationRequest } from '../api';
 import { useAuthStore } from '../useAuthStore';
+import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 
 const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,22 +19,37 @@ const OnboardingPage: React.FC = () => {
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // 邀请链接 /#/invite/:token 跳转至此并预填令牌。
+  useEffect(() => {
+    const invite = searchParams.get('invite');
+    if (invite) setToken(invite);
+  }, [searchParams]);
 
   if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
   }
 
-  if (status === 'authenticated' && defaultOrganization) {
-    return <Navigate to="/" replace />;
+  if (status === 'authenticated' && defaultOrganization && !searchParams.get('invite')) {
+    // 带邀请链接进入时即使已有组织也允许兑换（spec 003 US3 场景 7）。
+    return <Navigate to="/home" replace />;
   }
 
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<{ organization?: { id: string } }>) => {
     setError(null);
     setIsLoading(true);
     try {
-      await action();
+      const result = await action();
       await refreshSession();
-      navigate('/', { replace: true });
+      // 接受邀请 / 创建组织后把当前组织上下文切到该组织：
+      // 否则 hydrate 会沿用本地持久化的旧组织，落点不随默认组织切换（spec 002 US4 场景 2）。
+      if (result?.organization?.id) {
+        await useWorkspaceStore
+          .getState()
+          .setCurrentOrganization(result.organization.id);
+      }
+      navigate('/home', { replace: true });
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {

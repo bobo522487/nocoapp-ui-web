@@ -1,20 +1,22 @@
 import { ApiError, registerMockHandler, type RequestOptions } from '../../lib/api';
+import { handleConsoleMock } from '../dashboard/mockConsole';
 
-type MockUser = {
+export type MockUser = {
   id: string;
   email: string;
   password: string;
   name: string;
 };
 
-type MockOrganization = {
+export type MockOrganization = {
   id: string;
   name: string;
   role: string;
   isOwner: boolean;
+  status?: 'active' | 'suspended' | 'archived';
 };
 
-type MockDb = {
+export type MockDb = {
   users: MockUser[];
   organizations: Record<string, MockOrganization[]>;
   sessionUserId: string | null;
@@ -22,7 +24,7 @@ type MockDb = {
 
 const STORAGE_KEY = 'nocoapp:mock-auth';
 
-function loadDb(): MockDb {
+export function loadDb(): MockDb {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as MockDb;
@@ -32,7 +34,7 @@ function loadDb(): MockDb {
   return { users: [], organizations: {}, sessionUserId: null };
 }
 
-function saveDb(db: MockDb): void {
+export function saveDb(db: MockDb): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch {
@@ -95,8 +97,8 @@ function signUp(db: MockDb, options: RequestOptions) {
   db.users.push(user);
 
   const organization: MockOrganization = inviteToken
-    ? { id: uid('org'), name: '邀请的组织', role: 'member', isOwner: false }
-    : { id: uid('org'), name: `${user.name} 的工作区`, role: 'owner', isOwner: true };
+    ? { id: uid('org'), name: '邀请的组织', role: 'member', isOwner: false, status: 'active' }
+    : { id: uid('org'), name: `${user.name} 的工作区`, role: 'owner', isOwner: true, status: 'active' };
   db.organizations[user.id] = [organization];
   db.sessionUserId = user.id;
   saveDb(db);
@@ -143,6 +145,7 @@ function createOrganization(db: MockDb, options: RequestOptions) {
     name,
     role: 'owner',
     isOwner: true,
+    status: 'active',
   };
   db.organizations[user.id] = [...(db.organizations[user.id] ?? []), organization];
   saveDb(db);
@@ -164,6 +167,7 @@ function acceptInvite(db: MockDb, options: RequestOptions) {
     name: `邀请组织 ${token.slice(0, 6)}`,
     role: 'member',
     isOwner: false,
+    status: 'active',
   };
   db.organizations[user.id] = [organization, ...existing];
   saveDb(db);
@@ -193,6 +197,10 @@ function handleMockRequest(path: string, options: RequestOptions): unknown {
   if (path === '/api/v1/invites/accept' && method === 'POST') {
     return acceptInvite(db, options);
   }
+
+  // 控制台端点（组织详情/成员/邀请/项目/账号）由 mockConsole 委托处理。
+  const consoleResult = handleConsoleMock(path, options);
+  if (consoleResult !== undefined) return consoleResult;
 
   throw new ApiError('Mock 尚未实现该接口', 'MOCK_NOT_IMPLEMENTED', 501);
 }

@@ -1,99 +1,87 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, FolderPlus, GitFork, Plus } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ArrowRight, FolderPlus, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
+import { errorMessage } from '../../../lib/api';
 import {
-  DEFAULT_LINEAGE_TREE,
-  countChartsInTree,
-  useLineageStore,
-} from '../../../store/useLineageStore';
-import { ProjectItem } from '../../../types';
-import { Button } from '../../../components/ui/button';
-import { AssetCard } from '../components/AssetCard';
-import {
-  AssetEditorModal,
-  AssetEditorSubmitValues,
-} from '../components/AssetEditorModal';
+  fetchOrganization,
+  fetchProjects,
+  type OrgDetail,
+  type ProjectRecord,
+} from '../api';
+import PageSkeleton from '../components/PageSkeleton';
+import PageError from '../components/PageError';
+
+type HomeState = {
+  loading: boolean;
+  error: string | null;
+  detail: OrgDetail | null;
+  projects: ProjectRecord[];
+};
+
+const EMPTY: HomeState = { loading: true, error: null, detail: null, projects: [] };
 
 const WorkspaceHomePage: React.FC = () => {
   const navigate = useNavigate();
   const user = usePreferencesStore((s) => s.user);
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const activeProjectId = useWorkspaceStore((s) => s.activeProjectId);
-  const projects = useWorkspaceStore((s) => s.projects);
-  const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
-  const createProject = useWorkspaceStore((s) => s.createProject);
-  const updateProject = useWorkspaceStore((s) => s.updateProject);
-  const duplicateProject = useWorkspaceStore((s) => s.duplicateProject);
-  const deleteProject = useWorkspaceStore((s) => s.deleteProject);
+  const syncProject = useWorkspaceStore((s) => s.syncProject);
+  const [state, setState] = useState<HomeState>(EMPTY);
 
-  const treesByProject = useLineageStore((s) => s.treesByProject);
-
-  const [editTarget, setEditTarget] = useState<
-    | { mode: 'create' }
-    | { mode: 'edit'; item: ProjectItem }
-    | null
-  >(null);
-
-  const activeWorkspace =
-    workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
-  const wsProjects = useMemo(
-    () => projects.filter((p) => p.workspaceId === activeWorkspaceId),
-    [projects, activeWorkspaceId]
-  );
-
-  const primaryProject =
-    wsProjects.find((p) => p.id === activeProjectId) ||
-    wsProjects[0] ||
-    projects[0];
-
-  const chartCountByProject = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const p of wsProjects) {
-      map[p.id] = countChartsInTree(
-        treesByProject[p.id] || DEFAULT_LINEAGE_TREE
-      );
-    }
-    return map;
-  }, [wsProjects, treesByProject]);
-
-  const handleOpenProject = (proj: ProjectItem) => {
-    setActiveProjectId(proj.id);
-    navigate(`/projects/${proj.id}`);
-  };
-
-  const handleModalSubmit = (values: AssetEditorSubmitValues) => {
-    if (!editTarget) return;
-    if (editTarget.mode === 'create') {
-      const created = createProject({
-        name: values.name,
-        description: values.description,
-        colorTheme: values.colorTheme,
-        primarySurname: values.primarySurname,
-        region: values.region,
-        primaryName: values.primaryName,
-        projectState: values.projectState,
-        projectLevel: values.projectLevel,
-      });
-      setEditTarget(null);
-      handleOpenProject(created);
+  const load = useCallback(async () => {
+    if (!activeWorkspaceId) {
+      setState({ loading: false, error: null, detail: null, projects: [] });
       return;
     }
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const [detailResult, projectsResult] = await Promise.all([
+        fetchOrganization(activeWorkspaceId),
+        fetchProjects(activeWorkspaceId, { limit: 5, sort: 'recent' }),
+      ]);
+      setState({
+        loading: false,
+        error: null,
+        detail: detailResult.organization,
+        projects: projectsResult.items,
+      });
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage(error),
+      }));
+    }
+  }, [activeWorkspaceId]);
 
-    updateProject(editTarget.item.id, {
-      name: values.name,
-      description: values.description,
-      colorTheme: values.colorTheme,
-      primarySurname: values.primarySurname,
-      region: values.region,
-      primaryName: values.primaryName,
-      projectState: values.projectState,
-      projectLevel: values.projectLevel,
-    });
-    setEditTarget(null);
-  };
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (state.loading) {
+    return (
+      <div className="flex-1 h-full overflow-y-auto bg-background">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-7">
+          <PageSkeleton variant="cards" />
+        </div>
+      </div>
+    );
+  }
+
+  if (state.error) {
+    return (
+      <div className="flex-1 h-full overflow-y-auto bg-background">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-7">
+          <PageError message={state.error} onRetry={() => void load()} />
+        </div>
+      </div>
+    );
+  }
+
+  const detail = state.detail;
+  const recentProjects = state.projects.slice(0, 5);
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-background">
@@ -103,168 +91,133 @@ const WorkspaceHomePage: React.FC = () => {
             你好，{user.name}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            欢迎来到「{activeWorkspace?.name}」，快速访问你的云谱项目、世系图谱与家族编修工作台。
+            欢迎来到「{detail?.name ?? '当前组织'}」，管理你的谱项目与协作成员。
           </p>
         </div>
 
-        {/* Quick Actions */}
+        {/* 组织概览 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <div className="text-[12px] font-medium text-muted-foreground">项目</div>
+            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+              {detail?.projectCount ?? 0}
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <div className="text-[12px] font-medium text-muted-foreground">成员</div>
+            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+              {detail?.memberCount ?? 0}
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <div className="text-[12px] font-medium text-muted-foreground">
+              待处理邀请
+            </div>
+            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+              {detail?.pendingInviteCount ?? 0}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-control)] hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
+            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group"
           >
             <div className="w-10 h-10 rounded-lg bg-accent text-accent-foreground flex items-center justify-center shrink-0">
               <FolderPlus size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                管理云谱项目
-              </div>
+              <div className="text-[14px] font-semibold text-foreground">新建项目</div>
               <div className="text-[12px] font-medium text-muted-foreground mt-0.5 tabular-nums">
-                共 {wsProjects.length} 个云谱项目
+                创建一份新的谱
               </div>
             </div>
             <ArrowRight
               size={15}
-              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0"
+              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform"
             />
           </button>
 
           <button
             type="button"
-            onClick={() => {
-              if (primaryProject) {
-                setActiveProjectId(primaryProject.id);
-                navigate(`/projects/${primaryProject.id}/lineage`);
-              } else {
-                setEditTarget({ mode: 'create' });
-              }
-            }}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-control)] hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
+            onClick={() => navigate('/members')}
+            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group"
           >
             <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <GitFork size={18} />
+              <UserPlus size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                进入世系图谱画布
-              </div>
-              <div className="text-[12px] font-medium text-muted-foreground mt-0.5 truncate">
-                {primaryProject
-                  ? `${primaryProject.name} · 欧式世系与行传`
-                  : '新建云谱后开启世系编修'}
+              <div className="text-[14px] font-semibold text-foreground">邀请成员</div>
+              <div className="text-[12px] font-medium text-muted-foreground mt-0.5 tabular-nums">
+                当前 {detail?.memberCount ?? 0} 名成员
+                {detail && detail.pendingInviteCount > 0
+                  ? ` · ${detail.pendingInviteCount} 个待处理邀请`
+                  : ''}
               </div>
             </div>
             <ArrowRight
               size={15}
-              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0"
-            />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (primaryProject) {
-                setActiveProjectId(primaryProject.id);
-                navigate(`/projects/${primaryProject.id}/books`);
-              } else {
-                navigate('/members');
-              }
-            }}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-control)] hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <BookOpen size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                查看谱书与封面
-              </div>
-              <div className="text-[12px] font-medium text-muted-foreground mt-0.5 truncate">
-                题签封面 · 分卷版式预览
-              </div>
-            </div>
-            <ArrowRight
-              size={15}
-              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0"
+              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform"
             />
           </button>
         </div>
 
-        {/* Recent Cloud Genealogy Projects */}
+        {/* Recent Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-foreground">
-              最近访问的云谱
-            </h2>
+            <h2 className="text-[14px] font-semibold text-foreground">最近项目</h2>
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="text-[13px] font-medium text-primary hover:underline whitespace-nowrap cursor-pointer"
+              className="text-[13px] font-medium text-primary hover:underline"
             >
-              查看全部云谱
+              查看全部
             </button>
           </div>
 
-          {wsProjects.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border py-10 px-6 text-center space-y-3">
-              <p className="text-[13px] font-medium text-muted-foreground">
-                当前工作区还没有云谱项目，创建一个新云谱开始编修世系。
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditTarget({ mode: 'create' })}
-                className="h-8 gap-1.5 text-[13px]"
+          {recentProjects.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground">尚无项目</p>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
               >
-                <Plus size={14} /> 新建云谱项目
-              </Button>
+                <FolderPlus size={14} />
+                新建项目
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {wsProjects.map((proj) => (
-                <AssetCard
-                  key={proj.id}
-                  kind="project"
-                  item={proj}
-                  metaDetail={`${chartCountByProject[proj.id] ?? 0} 份世系图`}
-                  showOwnerHint
-                  onOpen={() => handleOpenProject(proj)}
-                  onEdit={() => setEditTarget({ mode: 'edit', item: proj })}
-                  onChangeColor={(colorTheme) =>
-                    updateProject(proj.id, { colorTheme })
-                  }
-                  onDuplicate={() => duplicateProject(proj.id)}
-                  onDelete={() => deleteProject(proj.id)}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {recentProjects.map((project) => (
+                <div
+                  key={project.id}
+                  onClick={() => {
+                    syncProject(project);
+                    navigate(`/projects/${project.id}`);
+                  }}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card hover:border-muted-foreground/40 hover:shadow-xs transition-all cursor-pointer h-16 overflow-hidden"
+                >
+                  <div className="self-stretch w-16 flex items-center justify-center shrink-0 bg-sky-50 dark:bg-sky-500/10">
+                    <ProjectColoredIcon colorTheme="sky" className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 min-w-0 pr-3">
+                    <div className="text-[14px] font-semibold text-foreground truncate">
+                      {project.name}
+                    </div>
+                    <div className="text-[12px] font-medium text-muted-foreground tabular-nums">
+                      项目 · {new Date(project.updatedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
       </div>
-
-      <AssetEditorModal
-        open={Boolean(editTarget)}
-        mode={editTarget?.mode || 'edit'}
-        kind="project"
-        initialValue={
-          editTarget?.mode === 'edit'
-            ? {
-                name: editTarget.item.name,
-                description: editTarget.item.description,
-                colorTheme: editTarget.item.colorTheme,
-                primarySurname: editTarget.item.primarySurname,
-                region: editTarget.item.region,
-                primaryName: editTarget.item.primaryName,
-                projectState: editTarget.item.projectState,
-                projectLevel: editTarget.item.projectLevel,
-              }
-            : undefined
-        }
-        onClose={() => setEditTarget(null)}
-        onSubmit={handleModalSubmit}
-      />
     </div>
   );
 };

@@ -239,6 +239,7 @@ interface WorkspaceState {
     colorTheme: AssetColorTheme;
     defaultPageId?: string;
   }) => AppItem;
+  updateApp: (id: string, updates: Partial<AppItem>) => void;
   renameApp: (id: string, name: string) => void;
   duplicateApp: (id: string) => AppItem | null;
   deleteApp: (id: string) => void;
@@ -398,6 +399,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((state) => ({ apps: [...state.apps, newApp] }));
         return newApp;
       },
+
+      updateApp: (id, updates) =>
+        set((state) => ({
+          apps: state.apps.map((a) =>
+            a.id === id ? { ...a, ...updates, updatedAt: '刚刚' } : a
+          ),
+        })),
 
       renameApp: (id, name) =>
         set((state) => ({

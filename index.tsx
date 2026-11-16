@@ -9,12 +9,15 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-// Mock 后端只在 dev + VITE_ENABLE_MOCK=1 时加载注册；生产构建整条链被剔除。
-void maybeEnableMock();
+// 在挂载应用前确保本地 mock 后端完成注册（独立运行模式），避免首屏鉴权请求早于注册触发。
+async function init() {
+  await maybeEnableMock();
+  const root = ReactDOM.createRoot(rootElement!);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+void init();

@@ -21,6 +21,9 @@ import {
   ASSET_COLOR_PALETTES,
   useWorkspaceStore,
 } from '../../../store/useWorkspaceStore';
+import { useArticleStore } from '../../../store/useArticleStore';
+import { countArticlesInTree } from '../../articles/articleData';
+import { useBookStore } from '../../../store/useBookStore';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +33,10 @@ const ProjectHomePage: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
   const updateProject = useWorkspaceStore((s) => s.updateProject);
+  const articleTreesByProject = useArticleStore((s) => s.treesByProject);
+
+  const booksByProject = useBookStore((s) => s.booksByProject);
+  const projectBooks = booksByProject[activeProjectId];
 
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -46,10 +53,15 @@ const ProjectHomePage: React.FC = () => {
     activeProject?.projectState === '1' ? '已完成' : '进行中';
   const projectLevel = activeProject?.projectLevel || 1;
 
+  const projectArticleTree = articleTreesByProject[activeProjectId];
+  const articleCount = projectArticleTree
+    ? countArticlesInTree(projectArticleTree)
+    : null;
+
   const workbenchModules = [
     {
       id: 'lineage',
-      title: '谱系',
+      title: '世系',
       desc: '维护家族世代脉络、支派分房与成员关系图谱。',
       status: '已启用',
       path: `/projects/${activeProjectId}/lineage`,
@@ -59,7 +71,7 @@ const ProjectHomePage: React.FC = () => {
       id: 'articles',
       title: '谱文',
       desc: '编修谱序、凡例、姓氏源流、家训与先贤传记。',
-      status: '占位模块',
+      status: articleCount !== null ? `已收录 ${articleCount} 篇` : '已启用',
       path: `/projects/${activeProjectId}/articles`,
       icon: ScrollText,
     },
@@ -67,7 +79,8 @@ const ProjectHomePage: React.FC = () => {
       id: 'books',
       title: '谱书',
       desc: '组织分卷目录、题签封面与线装成书版式预览。',
-      status: '占位模块',
+      status:
+        projectBooks !== undefined ? `已建 ${projectBooks.length} 册` : '已启用',
       path: `/projects/${activeProjectId}/books`,
       icon: BookOpen,
     },
@@ -80,6 +93,7 @@ const ProjectHomePage: React.FC = () => {
       description: values.description,
       colorTheme: values.colorTheme,
       primarySurname: values.primarySurname,
+      ancestor: values.ancestor,
       region: values.region,
       primaryName: values.primaryName,
       projectState: values.projectState,
@@ -111,7 +125,7 @@ const ProjectHomePage: React.FC = () => {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <h1 className="text-[20px] font-semibold text-foreground truncate tracking-tight">
-                    {activeProject?.name || '云谱项目工作台'}
+                    {activeProject?.name || '家族工作台'}
                   </h1>
                   {activeProject?.primaryName && (
                     <span className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">
@@ -124,7 +138,7 @@ const ProjectHomePage: React.FC = () => {
                 </div>
                 <p className="text-[13px] text-muted-foreground mt-0.5 truncate">
                   {activeProject?.description ||
-                    '围绕谱系梳理、谱文编修与谱书排版开展家族谱牒协作。'}
+                    '围绕世系梳理、谱文编修与谱书排版开展家族谱牒协作。'}
                 </p>
               </div>
             </div>
@@ -146,12 +160,12 @@ const ProjectHomePage: React.FC = () => {
                 }
                 className="h-8 gap-1.5 text-[13px] font-medium whitespace-nowrap shrink-0"
               >
-                <Settings size={14} /> 项目设置
+                <Settings size={14} /> 家族设置
               </Button>
             </div>
           </div>
 
-          {/* 3-Column Cloud Genealogy Core Modules: 谱系 / 谱文 / 谱书 */}
+          {/* 3-Column Cloud Genealogy Core Modules: 世系 / 谱文 / 谱书 */}
           <section className="space-y-3">
             <h2 className="text-[15px] font-semibold text-foreground">
               云谱编修工作区
@@ -205,21 +219,27 @@ const ProjectHomePage: React.FC = () => {
               云谱档案摘要
             </h2>
             <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
-              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
+              <div className="grid grid-cols-1 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
                 <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">主姓氏</div>
+                  <div className="text-[12px] text-muted-foreground">家族姓氏</div>
                   <div className="text-[14px] font-semibold text-foreground">
                     {activeProject?.primarySurname || '未填写'}
                   </div>
                 </div>
                 <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">主题名</div>
+                  <div className="text-[12px] text-muted-foreground">始迁祖</div>
+                  <div className="text-[14px] font-semibold text-foreground">
+                    {activeProject?.ancestor || '未填写'}
+                  </div>
+                </div>
+                <div className="p-4 space-y-1">
+                  <div className="text-[12px] text-muted-foreground">堂号</div>
                   <div className="text-[14px] font-semibold text-foreground">
                     {activeProject?.primaryName || '未填写'}
                   </div>
                 </div>
                 <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">所属地区</div>
+                  <div className="text-[12px] text-muted-foreground">所在地区</div>
                   <div className="text-[14px] font-semibold text-foreground">
                     {activeProject?.region
                       ? activeProject.region.split('/').join(' / ')
@@ -277,6 +297,7 @@ const ProjectHomePage: React.FC = () => {
                 description: activeProject.description,
                 colorTheme: activeProject.colorTheme,
                 primarySurname: activeProject.primarySurname,
+                ancestor: activeProject.ancestor,
                 region: activeProject.region,
                 primaryName: activeProject.primaryName,
                 projectState: activeProject.projectState,

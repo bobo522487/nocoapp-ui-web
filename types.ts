@@ -34,6 +34,7 @@ export interface ProjectItem {
   defaultTableId: string;
   updatedAt: string;
   primarySurname?: string;
+  ancestor?: string;
   region?: string;
   primaryName?: string;
   projectState?: '0' | '1';

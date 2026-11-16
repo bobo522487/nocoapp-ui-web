@@ -3,9 +3,11 @@ import { ArrowRight, FolderPlus, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { useLineageStore } from '../../../store/useLineageStore';
 import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { errorMessage } from '../../../lib/api';
 import {
+  createProjectRequest,
   fetchOrganization,
   fetchProjects,
   type OrgDetail,
@@ -13,6 +15,10 @@ import {
 } from '../api';
 import PageSkeleton from '../components/PageSkeleton';
 import PageError from '../components/PageError';
+import {
+  AssetEditorModal,
+  type AssetEditorSubmitValues,
+} from '../components/AssetEditorModal';
 
 type HomeState = {
   loading: boolean;
@@ -28,7 +34,11 @@ const WorkspaceHomePage: React.FC = () => {
   const user = usePreferencesStore((s) => s.user);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
+  const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
   const [state, setState] = useState<HomeState>(EMPTY);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!activeWorkspaceId) {
@@ -41,6 +51,9 @@ const WorkspaceHomePage: React.FC = () => {
         fetchOrganization(activeWorkspaceId),
         fetchProjects(activeWorkspaceId, { limit: 5, sort: 'recent' }),
       ]);
+      useWorkspaceStore
+        .getState()
+        .syncWorkspaceProjects(activeWorkspaceId, projectsResult.items);
       setState({
         loading: false,
         error: null,
@@ -59,6 +72,40 @@ const WorkspaceHomePage: React.FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleCreateProject = async (values: AssetEditorSubmitValues) => {
+    if (!activeWorkspaceId) return;
+    setCreateError(null);
+    setCreating(true);
+    try {
+      const created = await createProjectRequest(activeWorkspaceId, {
+        name: values.name.trim(),
+        status: 'in_progress',
+        surname: values.primarySurname?.trim(),
+        ancestor: values.ancestor?.trim(),
+        hallName: values.primaryName?.trim(),
+        originText: values.region?.trim() || undefined,
+        description: values.description.trim() || undefined,
+        colorTheme: values.colorTheme,
+        projectLevel: values.projectLevel ?? 1,
+      });
+      if (values.ancestor?.trim()) {
+        useLineageStore.getState().initializeProjectLineage(created.project.id, {
+          familyName: values.name,
+          ancestor: values.ancestor,
+          surname: values.primarySurname,
+        });
+      }
+      syncProject(created.project);
+      setActiveProjectId(created.project.id);
+      setCreateOpen(false);
+      navigate(`/projects/${created.project.id}`);
+    } catch (error) {
+      setCreateError(errorMessage(error));
+    } finally {
+      setCreating(false);
+    }
+  };
 
   if (state.loading) {
     return (
@@ -91,14 +138,14 @@ const WorkspaceHomePage: React.FC = () => {
             你好，{user.name}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            欢迎来到「{detail?.name ?? '当前组织'}」，管理你的谱项目与协作成员。
+            欢迎来到「{detail?.name ?? '当前组织'}」，管理你的家族与协作成员。
           </p>
         </div>
 
         {/* 组织概览 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="p-4 rounded-xl border border-border bg-card">
-            <div className="text-[12px] font-medium text-muted-foreground">项目</div>
+            <div className="text-[12px] font-medium text-muted-foreground">家族</div>
             <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
               {detail?.projectCount ?? 0}
             </div>
@@ -123,16 +170,19 @@ const WorkspaceHomePage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <button
             type="button"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group"
+            onClick={() => {
+              setCreateError(null);
+              setCreateOpen(true);
+            }}
+            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-accent text-accent-foreground flex items-center justify-center shrink-0">
               <FolderPlus size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground">新建项目</div>
+              <div className="text-[14px] font-semibold text-foreground">新建家族</div>
               <div className="text-[12px] font-medium text-muted-foreground mt-0.5 tabular-nums">
-                创建一份新的谱
+                创建一份新的家谱
               </div>
             </div>
             <ArrowRight
@@ -168,7 +218,7 @@ const WorkspaceHomePage: React.FC = () => {
         {/* Recent Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-foreground">最近项目</h2>
+            <h2 className="text-[14px] font-semibold text-foreground">最近家族</h2>
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -180,14 +230,17 @@ const WorkspaceHomePage: React.FC = () => {
 
           {recentProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
-              <p className="text-sm text-muted-foreground">尚无项目</p>
+              <p className="text-sm text-muted-foreground">尚无家族</p>
               <button
                 type="button"
-                onClick={() => navigate('/')}
-                className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
+                onClick={() => {
+                  setCreateError(null);
+                  setCreateOpen(true);
+                }}
+                className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline cursor-pointer"
               >
                 <FolderPlus size={14} />
-                新建项目
+                新建家族
               </button>
             </div>
           ) : (
@@ -209,7 +262,7 @@ const WorkspaceHomePage: React.FC = () => {
                       {project.name}
                     </div>
                     <div className="text-[12px] font-medium text-muted-foreground tabular-nums">
-                      项目 · {new Date(project.updatedAt).toLocaleDateString()}
+                      家族 · {new Date(project.updatedAt).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -218,6 +271,20 @@ const WorkspaceHomePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      <AssetEditorModal
+        open={createOpen}
+        mode="create"
+        kind="project"
+        submitting={creating}
+        error={createError}
+        onClose={() => {
+          if (creating) return;
+          setCreateOpen(false);
+          setCreateError(null);
+        }}
+        onSubmit={(values) => void handleCreateProject(values)}
+      />
     </div>
   );
 };

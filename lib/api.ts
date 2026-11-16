@@ -23,6 +23,7 @@ export type RequestOptions = {
 export type MockHandler = (path: string, options: RequestOptions) => unknown;
 
 let mockMode = false;
+let directMock = false;
 let mockHandler: MockHandler | null = null;
 const listeners = new Set<() => void>();
 
@@ -35,8 +36,12 @@ export function subscribeMockMode(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export function registerMockHandler(handler: MockHandler): void {
+export function registerMockHandler(
+  handler: MockHandler,
+  options?: { direct?: boolean },
+): void {
   mockHandler = handler;
+  directMock = Boolean(options?.direct);
 }
 
 function setMockMode(next: boolean): void {
@@ -70,6 +75,22 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  if (directMock && mockHandler) {
+    setMockMode(true);
+    try {
+      return mockHandler(path, options) as T;
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status === 401 &&
+        !path.startsWith('/api/v1/auth/sign-in')
+      ) {
+        notifyUnauthorized();
+      }
+      throw error;
+    }
+  }
+
   const headers: Record<string, string> = { ...options.headers };
   let body: BodyInit | undefined;
 
@@ -109,12 +130,25 @@ export async function apiRequest<T>(
     throw new ApiError('API 不可达', 'UNREACHABLE', 0);
   } catch (error) {
     if (error instanceof ApiError && error.code !== 'UNREACHABLE') {
-      if (error.status === 401) notifyUnauthorized();
+      if (error.status === 401 && !path.startsWith('/api/v1/auth/sign-in')) {
+        notifyUnauthorized();
+      }
       throw error;
     }
     if (mockHandler) {
       setMockMode(true);
-      return mockHandler(path, options) as T;
+      try {
+        return mockHandler(path, options) as T;
+      } catch (mockError) {
+        if (
+          mockError instanceof ApiError &&
+          mockError.status === 401 &&
+          !path.startsWith('/api/v1/auth/sign-in')
+        ) {
+          notifyUnauthorized();
+        }
+        throw mockError;
+      }
     }
     throw new ApiError('API 不可达', 'UNREACHABLE', 0);
   }

@@ -63,7 +63,7 @@ const ProjectMiniRail: React.FC = () => {
 
   return (
     <nav
-      aria-label="云谱项目工作台导航"
+      aria-label="家族工作台导航"
       data-testid="nc-mini-sidebar-v2"
       className="w-12 h-full shrink-0 border-r border-border bg-[hsl(var(--surface-subtle))] flex flex-col items-center justify-between py-1.5 select-none z-40 relative"
     >
@@ -86,12 +86,12 @@ const ProjectMiniRail: React.FC = () => {
 
         <div className="w-6 h-px bg-border my-1" />
 
-        {/* 首页概览 */}
+        {/* 概览 */}
         <button
           type="button"
           onClick={() => navigate(`/projects/${activeProjectId}`)}
-          title="首页概览"
-          aria-label="首页概览"
+          title="概览"
+          aria-label="概览"
           data-panel="home"
           data-testid="nc-rail-home-btn"
           aria-current={isHomeActive ? 'page' : undefined}
@@ -104,12 +104,12 @@ const ProjectMiniRail: React.FC = () => {
           <Home size={17} strokeWidth={1.75} />
         </button>
 
-        {/* 谱系 */}
+        {/* 世系 */}
         <button
           type="button"
           onClick={() => navigate(`/projects/${activeProjectId}/lineage`)}
-          title="谱系"
-          aria-label="谱系"
+          title="世系"
+          aria-label="世系"
           data-panel="lineage"
           aria-current={isLineageActive ? 'page' : undefined}
           className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
@@ -157,7 +157,7 @@ const ProjectMiniRail: React.FC = () => {
 
         <div className="w-6 h-px bg-border my-1" />
 
-        {/* 项目设置 */}
+        {/* 家族设置 */}
         <button
           type="button"
           onClick={() => navigate(`/projects/${activeProjectId}/settings`)}

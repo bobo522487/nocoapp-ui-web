@@ -101,6 +101,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     defaultTableId: 'clan_members',
     updatedAt: '2 小时前',
     primarySurname: '陈',
+    ancestor: '陈旺',
     primaryName: '义门陈氏宗谱',
     region: '江西省/九江市/德安县',
     projectState: '0',
@@ -116,6 +117,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     defaultTableId: 'clan_members',
     updatedAt: '1 天前',
     primarySurname: '刘',
+    ancestor: '刘邦',
     primaryName: '丰沛刘氏天潢',
     region: '江苏省/徐州市/丰县',
     projectState: '1',
@@ -131,6 +133,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     defaultTableId: 'branch_records',
     updatedAt: '5 小时前',
     primarySurname: '彭',
+    ancestor: '彭祖',
     primaryName: '彭城彭氏合谱',
     region: '贵州省/遵义市/桐梓县',
     projectState: '0',
@@ -224,6 +227,7 @@ interface WorkspaceState {
     colorTheme: AssetColorTheme;
     defaultTableId?: string;
     primarySurname?: string;
+    ancestor?: string;
     region?: string;
     primaryName?: string;
     projectState?: '0' | '1';
@@ -235,8 +239,33 @@ interface WorkspaceState {
     organizationId: string;
     name: string;
     description?: string | null;
+    surname?: string | null;
+    ancestor?: string | null;
+    hallName?: string | null;
+    originText?: string | null;
+    status?: 'planning' | 'in_progress' | 'completed';
+    colorTheme?: AssetColorTheme;
+    projectLevel?: number;
     updatedAt: string;
   }) => void;
+  /** 用后端返回的项目列表同步指定工作区下的项目缓存，保证面包屑切换列表与服务端一致。 */
+  syncWorkspaceProjects: (
+    organizationId: string,
+    items: Array<{
+      id: string;
+      organizationId: string;
+      name: string;
+      description?: string | null;
+      surname?: string | null;
+      ancestor?: string | null;
+      hallName?: string | null;
+      originText?: string | null;
+      status?: 'planning' | 'in_progress' | 'completed';
+      colorTheme?: AssetColorTheme;
+      projectLevel?: number;
+      updatedAt: string;
+    }>
+  ) => void;
   /** 项目被删除后从 store 移除，避免项目壳展示已删除项目。 */
   dropProject: (projectId: string) => void;
   updateProject: (id: string, updates: Partial<ProjectItem>) => void;
@@ -398,6 +427,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         colorTheme,
         defaultTableId,
         primarySurname,
+        ancestor,
         region,
         primaryName,
         projectState,
@@ -413,6 +443,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           defaultTableId: defaultTableId || '',
           updatedAt: '刚刚',
           primarySurname: primarySurname?.trim() || undefined,
+          ancestor: ancestor?.trim() || undefined,
           region: region?.trim() || undefined,
           primaryName: primaryName?.trim() || undefined,
           projectState: projectState || '0',
@@ -433,15 +464,60 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             workspaceId: project.organizationId,
             name: project.name,
             description: project.description ?? existing?.description,
-            colorTheme: existing?.colorTheme ?? 'sky',
+            colorTheme: project.colorTheme ?? existing?.colorTheme ?? 'sky',
             ownerType: existing?.ownerType ?? 'owned',
             defaultTableId: existing?.defaultTableId ?? '',
+            primarySurname: project.surname ?? existing?.primarySurname,
+            ancestor: project.ancestor ?? existing?.ancestor,
+            primaryName: project.hallName ?? existing?.primaryName,
+            region: project.originText ?? existing?.region,
+            projectState:
+              project.status !== undefined
+                ? project.status === 'completed'
+                  ? '1'
+                  : '0'
+                : existing?.projectState,
+            projectLevel: project.projectLevel ?? existing?.projectLevel,
             updatedAt: new Date(project.updatedAt).toLocaleDateString(),
           };
           return {
             projects: existing
               ? state.projects.map((p) => (p.id === project.id ? item : p))
               : [...state.projects, item],
+          };
+        }),
+
+      syncWorkspaceProjects: (organizationId, items) =>
+        set((state) => {
+          const otherProjects = state.projects.filter(
+            (p) => p.workspaceId !== organizationId
+          );
+          const synced: ProjectItem[] = items.map((project) => {
+            const existing = state.projects.find((p) => p.id === project.id);
+            return {
+              id: project.id,
+              workspaceId: project.organizationId,
+              name: project.name,
+              description: project.description ?? existing?.description,
+              colorTheme: project.colorTheme ?? existing?.colorTheme ?? 'sky',
+              ownerType: existing?.ownerType ?? 'owned',
+              defaultTableId: existing?.defaultTableId ?? '',
+              primarySurname: project.surname ?? existing?.primarySurname,
+              ancestor: project.ancestor ?? existing?.ancestor,
+              primaryName: project.hallName ?? existing?.primaryName,
+              region: project.originText ?? existing?.region,
+              projectState:
+                project.status !== undefined
+                  ? project.status === 'completed'
+                    ? '1'
+                    : '0'
+                  : existing?.projectState,
+              projectLevel: project.projectLevel ?? existing?.projectLevel,
+              updatedAt: new Date(project.updatedAt).toLocaleDateString(),
+            };
+          });
+          return {
+            projects: [...otherProjects, ...synced],
           };
         }),
 

@@ -76,7 +76,7 @@ export interface PersonPrivateInfo {
 
 export interface PersonRecord {
   id: string;
-  branchId: string; // 所属谱系图ID
+  branchId: string; // 所属世系图ID
 
   // 1. 核心身份与名讳
   avatarUrl?: string; // 人物照片 DataURL 或路径

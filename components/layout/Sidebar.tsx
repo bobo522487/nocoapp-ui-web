@@ -130,14 +130,14 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       },
       {
         id: ViewMode.PROJECTS,
-        label: '云谱项目',
+        label: '家族',
         path: '/',
         icon: <ProjectLayersOutlineIcon className="w-4 h-4" />,
         count: orgCounts.projects,
       },
       {
         id: ViewMode.MEMBERS,
-        label: '成员和团队',
+        label: '成员',
         path: '/members',
         icon: <Users size={16} strokeWidth={1.5} />,
         count: orgCounts.members,

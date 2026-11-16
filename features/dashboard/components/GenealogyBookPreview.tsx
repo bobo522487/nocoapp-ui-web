@@ -172,7 +172,7 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
             ))}
           </div>
           <div className="text-[11px] font-medium text-white/85 truncate">
-            {projectName.trim() || '未命名云谱项目'}
+            {projectName.trim() || '未命名家族'}
           </div>
           <div className="text-[10px] text-white/60 truncate">
             {displayRegion}

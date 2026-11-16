@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Search as SearchIcon } from 'lucide-react';
+import { FileText, ScrollText, Search as SearchIcon } from 'lucide-react';
 import { ProjectColoredIcon } from '../common/NocoIcons';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { useArticleStore } from '../../store/useArticleStore';
+import type { TreeItem } from '../common/Tree/types';
 import { useRouteContext } from '../../hooks/useRouteContext';
 
 interface CommandPaletteContextValue {
@@ -91,10 +93,37 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     p.name.toLowerCase().includes(q)
   );
 
+  const articleTreesByProject = useArticleStore((s) => s.treesByProject);
+  const selectArticleNode = useArticleStore((s) => s.selectNode);
+
+  const flattenedArticles = React.useMemo(() => {
+    const items = articleTreesByProject[activeProjectId] || [];
+    const results: { id: string; title: string; volume?: string }[] = [];
+    const walk = (nodes: TreeItem[], volume?: string) => {
+      for (const n of nodes) {
+        if (n.type === 'article') {
+          results.push({
+            id: String(n.id),
+            title: n.data?.name || String(n.id),
+            volume,
+          });
+        } else if (n.children?.length) {
+          walk(n.children, n.data?.name || volume);
+        }
+      }
+    };
+    walk(items);
+    return results.filter(
+      (a) =>
+        a.title.toLowerCase().includes(q) ||
+        (a.volume && a.volume.toLowerCase().includes(q))
+    );
+  }, [articleTreesByProject, activeProjectId, q]);
+
   const workbenchModules = [
     {
       id: 'lineage',
-      name: '谱系',
+      name: '世系',
       desc: '世系图谱与房支结构',
       path: `/projects/${activeProjectId}/lineage`,
     },
@@ -128,7 +157,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="搜索云谱项目、谱系、谱文或谱书..."
+            placeholder="搜索家族、世系、谱文或谱书..."
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
             autoFocus
           />
@@ -145,7 +174,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           {matchedProjects.length > 0 && (
             <div>
               <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
-                云谱项目
+                家族
               </div>
               <div className="space-y-0.5">
                 {matchedProjects.map((proj) => (
@@ -166,7 +195,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                     <span className="text-[13px] font-medium text-foreground flex-1 truncate">
                       {proj.name}
                     </span>
-                    <span className="text-[12px] text-muted-foreground">项目</span>
+                    <span className="text-[12px] text-muted-foreground">家族</span>
                   </button>
                 ))}
               </div>
@@ -176,7 +205,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           {workbenchModules.length > 0 && (
             <div>
               <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
-                项目工作台模块
+                家族工作台模块
               </div>
               <div className="space-y-0.5">
                 {workbenchModules.map((mod) => (
@@ -202,11 +231,48 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             </div>
           )}
 
-          {matchedProjects.length === 0 && workbenchModules.length === 0 && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              未找到与 “{query}” 匹配的内容
+          {flattenedArticles.length > 0 && (
+            <div>
+              <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
+                谱文篇章
+              </div>
+              <div className="space-y-0.5">
+                {flattenedArticles.slice(0, 8).map((art) => (
+                  <button
+                    key={art.id}
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      selectArticleNode(activeProjectId, art.id);
+                      navigate(`/projects/${activeProjectId}/articles`);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-muted text-left transition-colors"
+                  >
+                    <ScrollText
+                      size={14}
+                      className="text-primary/80 shrink-0"
+                    />
+                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">
+                      {art.title}
+                    </span>
+                    {art.volume && (
+                      <span className="text-[12px] text-muted-foreground truncate max-w-[140px]">
+                        {art.volume}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
+
+          {matchedProjects.length === 0 &&
+            workbenchModules.length === 0 &&
+            flattenedArticles.length === 0 && (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                未找到与 “{query}” 匹配的内容
+              </div>
+            )}
         </div>
       </div>
     </div>,

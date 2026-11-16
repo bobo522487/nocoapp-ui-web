@@ -56,6 +56,9 @@ interface TreeProps {
   renderActions?: (item: FlattenedItem) => React.ReactNode;
   activeId?: string | null;
   onSelect?: (item: FlattenedItem) => void;
+  onEdit?: (id: string) => void;
+  editLabel?: string;
+  canEdit?: (item: FlattenedItem) => boolean;
   onRename?: (id: string, name: string) => void;
   onRemove?: (id: string) => void;
   onAdd?: (id: string) => void;
@@ -75,6 +78,9 @@ export function Tree({
   renderActions,
   activeId: selectedId,
   onSelect,
+  onEdit,
+  editLabel,
+  canEdit,
   onRename,
   onRemove,
   onAdd,
@@ -244,6 +250,7 @@ export function Tree({
           {flattenedItems.map((item) => {
             // Only show add button if allowed to have children, or if no constraint is provided
             const showAdd = onAdd && (!canHaveChildren || canHaveChildren(item));
+            const showEdit = onEdit && (!canEdit || canEdit(item));
 
             return (
               <SortableTreeItem
@@ -255,6 +262,8 @@ export function Tree({
                 indicator={indicator}
                 collapsed={Boolean(item.collapsed && item.children.length)}
                 onCollapse={handleCollapse}
+                onEdit={showEdit ? onEdit : undefined}
+                editLabel={editLabel}
                 onRemove={removable || onRemove ? handleRemoveItem : undefined}
                 onRename={onRename ? handleRenameItem : undefined}
                 onAdd={showAdd ? onAdd : undefined}

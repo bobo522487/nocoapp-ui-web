@@ -457,7 +457,7 @@ const CanvasInner: React.FC<GenealogyCanvasProps> = ({
             size="icon"
             onClick={() => window.print()}
             className="h-8 w-8 bg-card/90 backdrop-blur border border-border shadow-xs text-muted-foreground hover:text-foreground"
-            title="打印谱系图"
+            title="打印世系图"
           >
             <Printer size={13} />
           </Button>

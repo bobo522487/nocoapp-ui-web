@@ -3,7 +3,9 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  FileText,
   FolderOpen,
+  FolderPlus,
   GitFork,
   Plus,
   ScrollText,
@@ -33,6 +35,16 @@ import { LineageGridView } from '../../lineage/components/LineageGridView';
 import { LineageTableView } from '../../lineage/components/LineageTableView';
 import { PersonDetailPanel } from '../../lineage/components/PersonDetailPanel';
 import { AddPersonDialog } from '../../lineage/components/AddPersonDialog';
+import { LineageEditorModal } from '../components/LineageEditorModal';
+import { useArticleStore } from '../../../store/useArticleStore';
+import {
+  extractPlainTextFromHtml,
+  findFirstArticleId,
+  makeArticleStorageKey,
+} from '../../articles/articleData';
+import { WordArticleEditor } from '../../articles/components/WordArticleEditor';
+import { ArticleMetaModal } from '../../articles/components/ArticleMetaModal';
+import { BookWorkspace } from '../../books/components/BookWorkspace';
 
 export type GenealogySectionType = 'lineage' | 'articles' | 'books';
 
@@ -52,7 +64,7 @@ const SECTION_CONFIG: Record<
   }
 > = {
   lineage: {
-    title: '谱系',
+    title: '世系',
     subtitle: '梳理家族世代传承、支派脉络与成员亲属关系树。',
     icon: GitFork,
     emptyTitle: '世系图谱工作区',
@@ -68,9 +80,9 @@ const SECTION_CONFIG: Record<
     title: '谱文',
     subtitle: '编修序言、凡例、姓氏源流、家训族规与人物传记。',
     icon: ScrollText,
-    emptyTitle: '谱文模块准备中',
+    emptyTitle: '谱文编修工作台',
     emptyDesc:
-      '后续可在此撰写与归档家族文献篇章，支持按卷目结构整理历代谱序、碑记与家传。',
+      '可在左侧谱文目录中拖拽排序、按卷目归档并切换任意谱文进行排版编辑。',
     outlineItems: [
       { name: '谱序与凡例', desc: '记录修谱缘起、体例说明与编委会名录' },
       { name: '源流与家训', desc: '汇编姓氏得姓源流、祖训家规与祠规' },
@@ -83,9 +95,9 @@ const SECTION_CONFIG: Record<
     icon: BookOpen,
     emptyTitle: '谱书模块准备中',
     emptyDesc:
-      '后续可将已完成的谱系与谱文自动汇集编排，生成传统欧式、苏式或现代双栏版式谱书。',
+      '后续可将已完成的世系与谱文自动汇集编排，生成传统欧式、苏式或现代双栏版式谱书。',
     outlineItems: [
-      { name: '封面与题签', desc: '沿用当前云谱项目主题名、姓氏印章与配色' },
+      { name: '封面与题签', desc: '沿用当前家族主题名、姓氏印章与配色' },
       { name: '分卷目录', desc: '编排卷首、世系表、谱文及附录页码顺序' },
       { name: '版式与印制', desc: '预览电子版谱书并导出高清印刷成册文件' },
     ],
@@ -129,6 +141,21 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
   const [addDialogParent, setAddDialogParent] = useState<PersonRecord | null>(
     null
   );
+  const [isCreateLineageOpen, setIsCreateLineageOpen] = useState(false);
+  const [isCreateArticleOpen, setIsCreateArticleOpen] = useState(false);
+
+  const articleTreesByProject = useArticleStore((s) => s.treesByProject);
+  const selectedArticleNodeIdByProject = useArticleStore(
+    (s) => s.selectedNodeIdByProject
+  );
+  const articlesByKey = useArticleStore((s) => s.articlesByKey);
+  const ensureArticleInitialized = useArticleStore(
+    (s) => s.ensureProjectInitialized
+  );
+  const selectArticleNode = useArticleStore((s) => s.selectNode);
+  const addArticleFolder = useArticleStore((s) => s.addFolder);
+  const addArticle = useArticleStore((s) => s.addArticle);
+  const updateArticleContent = useArticleStore((s) => s.updateArticleContent);
 
   const {
     width: inspectorWidth,
@@ -150,6 +177,78 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     projects.find((p) => p.id === activeProjectId) ||
     projects.find((p) => p.workspaceId === activeWorkspaceId) ||
     projects[0];
+
+  useEffect(() => {
+    if (section !== 'articles' || !activeProjectId) return;
+    ensureArticleInitialized(activeProjectId, {
+      familyName: activeProject?.name,
+      surname: activeProject?.primarySurname,
+      hallName: activeProject?.primaryName,
+      ancestor: activeProject?.ancestor,
+      region: activeProject?.region,
+    });
+  }, [
+    section,
+    activeProjectId,
+    activeProject?.name,
+    activeProject?.primarySurname,
+    activeProject?.primaryName,
+    activeProject?.ancestor,
+    activeProject?.region,
+    ensureArticleInitialized,
+  ]);
+
+  const articleTree = useMemo(
+    () => articleTreesByProject[activeProjectId] || [],
+    [articleTreesByProject, activeProjectId]
+  );
+
+  const defaultArticleId = useMemo(
+    () =>
+      findFirstArticleId(articleTree) ||
+      (articleTree[0]?.id ? String(articleTree[0].id) : ''),
+    [articleTree]
+  );
+
+  const selectedArticleNodeId =
+    selectedArticleNodeIdByProject[activeProjectId] ?? defaultArticleId;
+
+  const selectedArticleNode = useMemo(
+    () =>
+      (selectedArticleNodeId
+        ? findItemDeep(articleTree, selectedArticleNodeId)
+        : null) ||
+      (defaultArticleId ? findItemDeep(articleTree, defaultArticleId) : null) ||
+      articleTree[0] ||
+      null,
+    [articleTree, selectedArticleNodeId, defaultArticleId]
+  );
+
+  const activeArticleDoc = useMemo(() => {
+    if (!selectedArticleNode || selectedArticleNode.type !== 'article') {
+      return null;
+    }
+    const id = String(selectedArticleNode.id);
+    const key = makeArticleStorageKey(activeProjectId, id);
+    return (
+      articlesByKey[key] || {
+        id,
+        title: selectedArticleNode.data?.name || '未命名谱文',
+        subtitle: '',
+        author: activeProject?.primaryName
+          ? `${activeProject.primaryName}编委会`
+          : '家族编委会',
+        contentHtml: '<p></p>',
+        wordCount: 0,
+        updatedAt: '刚刚',
+      }
+    );
+  }, [
+    selectedArticleNode,
+    activeProjectId,
+    articlesByKey,
+    activeProject?.primaryName,
+  ]);
 
   const lineageTree = useMemo(
     () => treesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE,
@@ -179,6 +278,9 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
   const chartStorageKey = makeChartStorageKey(activeProjectId, chartId);
 
   const effectiveSurname = useMemo(() => {
+    if (selectedLineageNode?.data?.surname !== undefined) {
+      return selectedLineageNode.data.surname;
+    }
     if (chartId.startsWith('lineage-royal-')) return '刘';
     if (
       chartId.startsWith('lineage-other-') ||
@@ -187,7 +289,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       return '';
     }
     return activeProject?.primarySurname || '';
-  }, [chartId, activeProject?.primarySurname]);
+  }, [selectedLineageNode?.data?.surname, chartId, activeProject?.primarySurname]);
 
   const chartPersons = useMemo(() => {
     if (!chartId || selectedLineageNode?.type === 'folder') return [];
@@ -458,6 +560,27 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     );
   }
 
+  // Word-style Rich Text Editor Workspace when viewing a specific article
+  if (section === 'articles' && activeArticleDoc) {
+    return (
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-background">
+        <WordArticleEditor
+          article={activeArticleDoc}
+          familyName={activeProject?.name}
+          hallName={activeProject?.primaryName}
+          onUpdateArticle={(updates) =>
+            updateArticleContent(activeProjectId, activeArticleDoc.id, updates)
+          }
+        />
+      </div>
+    );
+  }
+
+  // Three-step Genealogy Book Workspace
+  if (section === 'books') {
+    return <BookWorkspace />;
+  }
+
   return (
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-7 space-y-6">
@@ -499,7 +622,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               onClick={() => navigate(`/projects/${activeProjectId}/settings`)}
               className="h-8 gap-1.5 text-[13px] whitespace-nowrap"
             >
-              <Settings size={14} /> 项目设置
+              <Settings size={14} /> 家族设置
             </Button>
           </div>
         </div>
@@ -518,10 +641,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() =>
-                  selectedLineageNode &&
-                  addChart(activeProjectId, String(selectedLineageNode.id))
-                }
+                onClick={() => setIsCreateLineageOpen(true)}
                 className="h-8 gap-1.5 text-[13px]"
               >
                 <Plus size={14} /> 新增世系图
@@ -566,7 +686,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 items-start">
             <div className="rounded-xl border border-border bg-[hsl(var(--surface-subtle))] p-6 flex flex-col items-center justify-center">
               <GenealogyBookPreview
-                projectName={activeProject?.name || '云谱项目'}
+                projectName={activeProject?.name || '家族'}
                 primaryName={activeProject?.primaryName || ''}
                 primarySurname={activeProject?.primarySurname || ''}
                 region={activeProject?.region || ''}
@@ -608,6 +728,134 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               </div>
             </div>
           </div>
+        ) : section === 'articles' ? (
+          selectedArticleNode?.type === 'folder' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[14px] font-semibold text-foreground min-w-0">
+                  <FolderOpen size={16} className="text-amber-500 shrink-0" />
+                  <span className="truncate">
+                    {selectedArticleNode.data?.name || '谱文卷目'}
+                  </span>
+                  <span className="text-[12px] font-medium text-muted-foreground tabular-nums shrink-0">
+                    ({selectedArticleNode.children?.length || 0} 篇)
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsCreateArticleOpen(true)}
+                  className="h-8 gap-1.5 text-[13px] whitespace-nowrap shrink-0"
+                >
+                  <Plus size={14} /> 新建谱文
+                </Button>
+              </div>
+
+              {selectedArticleNode.children?.length ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {selectedArticleNode.children.map((child) => {
+                    const childId = String(child.id);
+                    const doc =
+                      articlesByKey[
+                        makeArticleStorageKey(activeProjectId, childId)
+                      ];
+                    const snippet = extractPlainTextFromHtml(
+                      doc?.contentHtml || ''
+                    ).slice(0, 88);
+                    return (
+                      <button
+                        key={childId}
+                        type="button"
+                        onClick={() =>
+                          selectArticleNode(activeProjectId, childId)
+                        }
+                        className="flex flex-col justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all text-left cursor-pointer group"
+                      >
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText
+                                size={15}
+                                className="text-primary shrink-0"
+                              />
+                              <span className="text-[14px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                                {doc?.title || child.data?.name || childId}
+                              </span>
+                            </div>
+                            <ArrowRight
+                              size={14}
+                              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0"
+                            />
+                          </div>
+                          {snippet && (
+                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">
+                              {snippet}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[12px] text-muted-foreground tabular-nums pt-2 border-t border-border/60">
+                          <span>{doc?.author || '家族编委会'}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{doc?.wordCount ?? 0} 字</span>
+                          {doc?.updatedAt && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="truncate">{doc.updatedAt}</span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border bg-card/50 py-12 px-6 text-center space-y-3">
+                  <p className="text-[13px] text-muted-foreground">
+                    该卷目下暂无谱文，点击右上角「新建谱文」或从左侧目录拖拽篇章移入。
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsCreateArticleOpen(true)}
+                    className="h-8 gap-1.5 text-[13px]"
+                  >
+                    <Plus size={14} /> 新建谱文
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-card/60 py-12 px-6 text-center space-y-4">
+              <div className="w-11 h-11 rounded-xl bg-[hsl(var(--surface-subtle))] border border-border mx-auto flex items-center justify-center text-primary">
+                <ScrollText size={20} />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-[16px] font-semibold text-foreground">
+                  开始编修家族谱文
+                </h2>
+                <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  可在左侧谱文目录中新建卷目与谱文篇章，使用右侧简易 Word 编辑器撰写谱序、凡例、家训与传记。
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addArticleFolder(activeProjectId)}
+                  className="h-8 gap-1.5 text-[13px]"
+                >
+                  <FolderPlus size={14} /> 新建卷目
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateArticleOpen(true)}
+                  className="h-8 gap-1.5 text-[13px]"
+                >
+                  <Plus size={14} /> 新建谱文
+                </Button>
+              </div>
+            </div>
+          )
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-card/60 p-8 space-y-6">
             <div className="max-w-xl mx-auto text-center space-y-2">
@@ -640,6 +888,48 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           </div>
         )}
       </div>
+
+      <LineageEditorModal
+        open={isCreateLineageOpen}
+        mode="create"
+        initialValue={{
+          name: '',
+          surname: activeProject?.primarySurname || '',
+          hallName: activeProject?.primaryName || '',
+          progenitor: '',
+          region: '',
+        }}
+        onClose={() => setIsCreateLineageOpen(false)}
+        onSubmit={(values) => {
+          if (selectedLineageNode) {
+            addChart(activeProjectId, String(selectedLineageNode.id), values);
+          }
+          setIsCreateLineageOpen(false);
+        }}
+      />
+
+      <ArticleMetaModal
+        open={isCreateArticleOpen}
+        mode="create"
+        initialValue={{
+          title: '',
+          subtitle: selectedArticleNode?.type === 'folder'
+            ? selectedArticleNode.data?.name
+            : '',
+          author: activeProject?.primaryName
+            ? `${activeProject.primaryName}编委会`
+            : '家族编委会',
+        }}
+        onClose={() => setIsCreateArticleOpen(false)}
+        onSubmit={(values) => {
+          const targetParentId =
+            selectedArticleNode?.type === 'folder'
+              ? String(selectedArticleNode.id)
+              : undefined;
+          addArticle(activeProjectId, targetParentId, values);
+          setIsCreateArticleOpen(false);
+        }}
+      />
     </div>
   );
 };

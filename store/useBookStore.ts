@@ -1,0 +1,990 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { TreeItem } from '../components/common/Tree/types';
+import { createAppStorage } from './storageAdapter';
+import {
+  compileBookEdition,
+  formatTimestampNow,
+  resolveChartPersons,
+  sanitizeVolumeNo,
+} from '../features/books/bookCompiler';
+import type {
+  BookEdition,
+  BookLayoutConfig,
+  BookMetaInput,
+  BookRecord,
+  BookStep,
+  CatalogChapterNode,
+  CatalogLeafNode,
+  CatalogLineageNode,
+  CatalogNode,
+  CatalogSectionCode,
+  CatalogSectionState,
+} from '../features/books/types';
+import type { ArticleDocument } from '../features/articles/types';
+import type { PersonRecord } from '../features/lineage/types';
+
+export const DEFAULT_BOOK_LAYOUT: BookLayoutConfig = {
+  bindingStyle: 'thread',
+  lineageStyle: 'euler',
+  paperSize: 'thread_185x290',
+  borderStyle: 'double',
+  fontFamily: 'song',
+  density: 'standard',
+  fishtailStyle: 'black',
+  showHallName: true,
+  showHeaderName: true,
+  pageNumberStyle: 'chinese',
+};
+
+export function createEmptySections(): Record<
+  CatalogSectionCode,
+  CatalogSectionState
+> {
+  return {
+    preface: {
+      code: 'preface',
+      label: '卷首',
+      hint: '(显示在目录之前的内容)',
+      collapsed: false,
+      items: [],
+    },
+    body: {
+      code: 'body',
+      label: '正文',
+      hint: '(建议放源流、字辈、碑文等)',
+      collapsed: false,
+      items: [],
+    },
+    lineage: {
+      code: 'lineage',
+      label: '世系',
+      hint: '(族丁检索表、吊线图、世系表)',
+      collapsed: false,
+      items: [],
+    },
+    appendix: {
+      code: 'appendix',
+      label: '附录',
+      hint: '',
+      collapsed: false,
+      items: [],
+    },
+  };
+}
+
+export interface BookSeedContext {
+  familyName?: string;
+  surname?: string;
+  hallName?: string;
+  editor?: string;
+  articlesByKey: Record<string, ArticleDocument>;
+  articleTree: TreeItem[];
+  lineageTree: TreeItem[];
+  personsByChart: Record<string, PersonRecord[]>;
+}
+
+function findFirstChartNode(items: TreeItem[]): TreeItem | null {
+  for (const item of items) {
+    if (item.type === 'chart') return item;
+    if (item.children?.length) {
+      const hit = findFirstChartNode(item.children);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+function collectArticlesFromTree(items: TreeItem[]): Array<{ id: string; title: string }> {
+  const out: Array<{ id: string; title: string }> = [];
+  for (const item of items) {
+    if (item.type === 'article') {
+      out.push({ id: String(item.id), title: item.data?.name || '谱文' });
+    }
+    if (item.children?.length) {
+      out.push(...collectArticlesFromTree(item.children));
+    }
+  }
+  return out;
+}
+
+function removeNodeFromList(
+  nodes: CatalogNode[],
+  nodeId: string
+): { nextNodes: CatalogNode[]; removed: CatalogNode | null } {
+  let removed: CatalogNode | null = null;
+  const nextNodes: CatalogNode[] = [];
+
+  for (const node of nodes) {
+    if (node.id === nodeId) {
+      removed = node;
+      continue;
+    }
+    if (node.nodeType === 'chapter') {
+      const childIdx = node.children.findIndex((c) => c.id === nodeId);
+      if (childIdx >= 0) {
+        removed = node.children[childIdx];
+        const nextChildren = [...node.children];
+        nextChildren.splice(childIdx, 1);
+        nextNodes.push({ ...node, children: nextChildren });
+        continue;
+      }
+    }
+    nextNodes.push(node);
+  }
+
+  return { nextNodes, removed };
+}
+
+function reorderInList<T extends { id: string }>(
+  list: T[],
+  id: string,
+  direction: 'up' | 'down'
+): T[] {
+  const idx = list.findIndex((item) => item.id === id);
+  if (idx < 0) return list;
+  const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= list.length) return list;
+  const copy = [...list];
+  const [moved] = copy.splice(idx, 1);
+  copy.splice(targetIdx, 0, moved);
+  return copy;
+}
+
+interface BookState {
+  booksByProject: Record<string, BookRecord[]>;
+  selectedBookIdByProject: Record<string, string>;
+  activeStepByBook: Record<string, BookStep>;
+
+  ensureProjectInitialized: (projectId: string, ctx: BookSeedContext) => void;
+  selectBook: (projectId: string, bookId: string) => void;
+  setActiveStep: (bookId: string, step: BookStep) => void;
+
+  createBook: (projectId: string, meta: BookMetaInput) => string;
+  updateBookMeta: (projectId: string, bookId: string, meta: BookMetaInput) => void;
+  duplicateBook: (projectId: string, bookId: string) => void;
+  deleteBook: (projectId: string, bookId: string) => void;
+  moveBook: (projectId: string, bookId: string, direction: -1 | 1) => void;
+
+  toggleSectionCollapsed: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode
+  ) => void;
+  toggleChapterCollapsed: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode,
+    chapterId: string
+  ) => void;
+  addChapter: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode,
+    title: string
+  ) => string;
+  renameChapter: (
+    projectId: string,
+    bookId: string,
+    chapterId: string,
+    title: string
+  ) => void;
+  addArticleRefs: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode,
+    chapterId: string | undefined,
+    articles: Array<{ sourceArticleId: string; sourceTitle: string }>
+  ) => void;
+  updateArticleRef: (
+    projectId: string,
+    bookId: string,
+    nodeId: string,
+    updates: {
+      displayTitle: string;
+      sourceArticleId: string;
+      sourceTitle: string;
+    }
+  ) => void;
+  addLineageRef: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode,
+    chapterId: string | undefined,
+    payload: Omit<CatalogLineageNode, 'id' | 'nodeType'>
+  ) => void;
+  updateLineageRefSettings: (
+    projectId: string,
+    bookId: string,
+    nodeId: string,
+    updates: Pick<
+      CatalogLineageNode,
+      'indexConfig' | 'diaoxianConfig' | 'shixiConfig'
+    >
+  ) => void;
+  removeCatalogNode: (
+    projectId: string,
+    bookId: string,
+    nodeId: string
+  ) => { blocked: boolean; reason?: string };
+  moveCatalogNodeOrder: (
+    projectId: string,
+    bookId: string,
+    sectionCode: CatalogSectionCode,
+    parentChapterId: string | undefined,
+    nodeId: string,
+    direction: 'up' | 'down'
+  ) => void;
+  transferCatalogNode: (
+    projectId: string,
+    bookId: string,
+    sourceNodeId: string,
+    targetSectionCode: CatalogSectionCode,
+    targetChapterId?: string
+  ) => void;
+  touchBookSaved: (projectId: string, bookId: string) => void;
+
+  updateLayoutConfig: (
+    projectId: string,
+    bookId: string,
+    updates: Partial<BookLayoutConfig>
+  ) => void;
+  generateEdition: (
+    projectId: string,
+    bookId: string,
+    ctx: {
+      articlesByKey: Record<string, ArticleDocument>;
+      lineageTree: TreeItem[];
+      personsByChart: Record<string, PersonRecord[]>;
+      projectSurname?: string;
+    }
+  ) => BookEdition | null;
+  deleteEdition: (projectId: string, bookId: string, editionId: string) => void;
+  finalizeEditionPrint: (
+    projectId: string,
+    bookId: string,
+    editionId: string
+  ) => void;
+}
+
+function updateBookInProject(
+  state: BookState,
+  projectId: string,
+  bookId: string,
+  updater: (book: BookRecord) => BookRecord
+): Record<string, BookRecord[]> {
+  const list = state.booksByProject[projectId] || [];
+  return {
+    ...state.booksByProject,
+    [projectId]: list.map((b) => (b.id === bookId ? updater(b) : b)),
+  };
+}
+
+export const useBookStore = create<BookState>()(
+  persist(
+    (set, get) => ({
+      booksByProject: {},
+      selectedBookIdByProject: {},
+      activeStepByBook: {},
+
+      ensureProjectInitialized: (projectId, ctx) => {
+        if (!projectId) return;
+        const existing = get().booksByProject[projectId];
+        if (existing !== undefined) return;
+
+        const cleanFamily = ctx.familyName?.trim() || '本族';
+        const surname = ctx.surname?.trim() || '';
+        const bookName = cleanFamily.includes('谱')
+          ? cleanFamily
+          : `${cleanFamily}族谱`;
+        const headerName = surname ? `${surname}氏宗谱` : bookName;
+        const hallName = ctx.hallName?.trim() || (surname ? `${surname}氏宗堂` : '敦睦堂');
+        const today = new Date().toISOString().slice(0, 10);
+
+        const sections = createEmptySections();
+        const availableArticles = collectArticlesFromTree(ctx.articleTree);
+        if (availableArticles.length > 0) {
+          sections.preface.items.push({
+            id: `cat-ch-preface-${Date.now()}`,
+            nodeType: 'chapter',
+            title: '谱序凡例',
+            collapsed: false,
+            children: [
+              {
+                id: `cat-art-1-${Date.now()}`,
+                nodeType: 'article',
+                sourceArticleId: availableArticles[0].id,
+                sourceTitle: availableArticles[0].title,
+                displayTitle: availableArticles[0].title,
+              },
+            ],
+          });
+          if (availableArticles[1]) {
+            sections.body.items.push({
+              id: `cat-art-2-${Date.now()}`,
+              nodeType: 'article',
+              sourceArticleId: availableArticles[1].id,
+              sourceTitle: availableArticles[1].title,
+              displayTitle: availableArticles[1].title,
+            });
+          }
+        }
+
+        const firstChart = findFirstChartNode(ctx.lineageTree);
+        if (firstChart) {
+          const { chartName, persons } = resolveChartPersons(
+            projectId,
+            String(firstChart.id),
+            ctx.lineageTree,
+            ctx.personsByChart,
+            surname
+          );
+          const rootPerson =
+            persons.find((p) => p.generation === 1 && !p.fatherId) || persons[0];
+          if (rootPerson) {
+            sections.lineage.items.push({
+              id: `cat-lin-${Date.now()}`,
+              nodeType: 'lineage',
+              totalTitle: bookName,
+              eyebrowTitle: `${chartName}世系`,
+              chartId: String(firstChart.id),
+              chartName,
+              startMemberId: rootPerson.id,
+              startMemberName: rootPerson.name,
+              descendantScope: 'all',
+              indexConfig: {
+                enabled: true,
+                inToc: true,
+                tocTitle: '族丁检索表',
+              },
+              diaoxianConfig: {
+                enabled: true,
+                inToc: true,
+                tocTitle: '吊线图',
+              },
+              shixiConfig: {
+                enabled: true,
+                inToc: true,
+                tocTitle: '世系表',
+              },
+            });
+          }
+        }
+
+        const bookId = `book-${Date.now()}`;
+        const draftBook: BookRecord = {
+          id: bookId,
+          bookName,
+          headerName,
+          hallName,
+          volumeNo: '卷一',
+          editor: ctx.editor || `${hallName}编委会`,
+          compilationDate: today,
+          sections,
+          layoutConfig: { ...DEFAULT_BOOK_LAYOUT },
+          editions: [],
+          updatedAt: formatTimestampNow(),
+        };
+
+        const initialEdition = compileBookEdition({
+          projectId,
+          book: draftBook,
+          articlesByKey: ctx.articlesByKey,
+          lineageTree: ctx.lineageTree,
+          personsByChart: ctx.personsByChart,
+          projectSurname: surname,
+        });
+        draftBook.editions = [initialEdition];
+
+        set((state) => {
+          if (state.booksByProject[projectId] !== undefined) return state;
+          return {
+            booksByProject: {
+              ...state.booksByProject,
+              [projectId]: [draftBook],
+            },
+            selectedBookIdByProject: {
+              ...state.selectedBookIdByProject,
+              [projectId]: bookId,
+            },
+            activeStepByBook: {
+              ...state.activeStepByBook,
+              [bookId]: 'catalog',
+            },
+          };
+        });
+      },
+
+      selectBook: (projectId, bookId) =>
+        set((state) => ({
+          selectedBookIdByProject: {
+            ...state.selectedBookIdByProject,
+            [projectId]: bookId,
+          },
+        })),
+
+      setActiveStep: (bookId, step) =>
+        set((state) => ({
+          activeStepByBook: {
+            ...state.activeStepByBook,
+            [bookId]: step,
+          },
+        })),
+
+      createBook: (projectId, meta) => {
+        const id = `book-${Date.now()}`;
+        const newBook: BookRecord = {
+          id,
+          bookName: meta.bookName.trim() || '新建谱书',
+          headerName: meta.headerName.trim() || meta.bookName.trim() || '谱书',
+          hallName: meta.hallName.trim(),
+          volumeNo: sanitizeVolumeNo(meta.volumeNo),
+          editor: meta.editor.trim(),
+          compilationDate:
+            meta.compilationDate || new Date().toISOString().slice(0, 10),
+          sections: createEmptySections(),
+          layoutConfig: { ...DEFAULT_BOOK_LAYOUT },
+          editions: [],
+          updatedAt: formatTimestampNow(),
+        };
+
+        set((state) => ({
+          booksByProject: {
+            ...state.booksByProject,
+            [projectId]: [...(state.booksByProject[projectId] || []), newBook],
+          },
+          selectedBookIdByProject: {
+            ...state.selectedBookIdByProject,
+            [projectId]: id,
+          },
+          activeStepByBook: {
+            ...state.activeStepByBook,
+            [id]: 'catalog',
+          },
+        }));
+        return id;
+      },
+
+      updateBookMeta: (projectId, bookId, meta) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            bookName: meta.bookName.trim() || b.bookName,
+            headerName: meta.headerName.trim() || b.headerName,
+            hallName: meta.hallName.trim(),
+            volumeNo: sanitizeVolumeNo(meta.volumeNo),
+            editor: meta.editor.trim(),
+            compilationDate: meta.compilationDate || b.compilationDate,
+            updatedAt: formatTimestampNow(),
+          })),
+        })),
+
+      duplicateBook: (projectId, bookId) =>
+        set((state) => {
+          const list = state.booksByProject[projectId] || [];
+          const idx = list.findIndex((b) => b.id === bookId);
+          if (idx < 0) return state;
+          const src = list[idx];
+          const copyId = `book-${Date.now()}`;
+          const cloned: BookRecord = {
+            ...JSON.parse(JSON.stringify(src)),
+            id: copyId,
+            bookName: `${src.bookName} (副本)`,
+            updatedAt: formatTimestampNow(),
+          };
+          const nextList = [...list];
+          nextList.splice(idx + 1, 0, cloned);
+          return {
+            booksByProject: {
+              ...state.booksByProject,
+              [projectId]: nextList,
+            },
+            selectedBookIdByProject: {
+              ...state.selectedBookIdByProject,
+              [projectId]: copyId,
+            },
+            activeStepByBook: {
+              ...state.activeStepByBook,
+              [copyId]: 'catalog',
+            },
+          };
+        }),
+
+      deleteBook: (projectId, bookId) =>
+        set((state) => {
+          const list = state.booksByProject[projectId] || [];
+          const idx = list.findIndex((b) => b.id === bookId);
+          const nextList = list.filter((b) => b.id !== bookId);
+          const currentSelected = state.selectedBookIdByProject[projectId];
+          let nextSelected = currentSelected;
+          if (currentSelected === bookId) {
+            const fallback = nextList[Math.min(idx, nextList.length - 1)];
+            nextSelected = fallback?.id || '';
+          }
+          return {
+            booksByProject: {
+              ...state.booksByProject,
+              [projectId]: nextList,
+            },
+            selectedBookIdByProject: {
+              ...state.selectedBookIdByProject,
+              [projectId]: nextSelected,
+            },
+          };
+        }),
+
+      moveBook: (projectId, bookId, direction) =>
+        set((state) => {
+          const list = state.booksByProject[projectId] || [];
+          const idx = list.findIndex((b) => b.id === bookId);
+          if (idx < 0) return state;
+          const targetIdx = idx + direction;
+          if (targetIdx < 0 || targetIdx >= list.length) return state;
+          const nextList = [...list];
+          const [moved] = nextList.splice(idx, 1);
+          nextList.splice(targetIdx, 0, moved);
+          return {
+            booksByProject: {
+              ...state.booksByProject,
+              [projectId]: nextList,
+            },
+          };
+        }),
+
+      toggleSectionCollapsed: (projectId, bookId, sectionCode) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: {
+              ...b.sections,
+              [sectionCode]: {
+                ...b.sections[sectionCode],
+                collapsed: !b.sections[sectionCode].collapsed,
+              },
+            },
+          })),
+        })),
+
+      toggleChapterCollapsed: (projectId, bookId, sectionCode, chapterId) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: {
+              ...b.sections,
+              [sectionCode]: {
+                ...b.sections[sectionCode],
+                items: b.sections[sectionCode].items.map((n) =>
+                  n.id === chapterId && n.nodeType === 'chapter'
+                    ? { ...n, collapsed: !n.collapsed }
+                    : n
+                ),
+              },
+            },
+          })),
+        })),
+
+      addChapter: (projectId, bookId, sectionCode, title) => {
+        const chapterId = `cat-ch-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 5)}`;
+        const newChapter: CatalogChapterNode = {
+          id: chapterId,
+          nodeType: 'chapter',
+          title: title.trim() || '新建章节',
+          collapsed: false,
+          children: [],
+        };
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: {
+              ...b.sections,
+              [sectionCode]: {
+                ...b.sections[sectionCode],
+                collapsed: false,
+                items: [...b.sections[sectionCode].items, newChapter],
+              },
+            },
+            updatedAt: formatTimestampNow(),
+          })),
+        }));
+        return chapterId;
+      },
+
+      renameChapter: (projectId, bookId, chapterId, title) =>
+        set((state) => {
+          const clean = title.trim();
+          if (!clean) return state;
+          return {
+            booksByProject: updateBookInProject(
+              state,
+              projectId,
+              bookId,
+              (b) => {
+                const nextSections = { ...b.sections };
+                (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
+                  (code) => {
+                    nextSections[code] = {
+                      ...nextSections[code],
+                      items: nextSections[code].items.map((n) =>
+                        n.id === chapterId && n.nodeType === 'chapter'
+                          ? { ...n, title: clean }
+                          : n
+                      ),
+                    };
+                  }
+                );
+                return {
+                  ...b,
+                  sections: nextSections,
+                  updatedAt: formatTimestampNow(),
+                };
+              }
+            ),
+          };
+        }),
+
+      addArticleRefs: (projectId, bookId, sectionCode, chapterId, articles) =>
+        set((state) => {
+          if (!articles.length) return state;
+          const newNodes: CatalogLeafNode[] = articles.map((a, idx) => ({
+            id: `cat-art-${Date.now()}-${idx}-${Math.random()
+              .toString(36)
+              .slice(2, 5)}`,
+            nodeType: 'article',
+            sourceArticleId: a.sourceArticleId,
+            sourceTitle: a.sourceTitle,
+            displayTitle: a.sourceTitle,
+          }));
+
+          return {
+            booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+              const sec = b.sections[sectionCode];
+              let nextItems: CatalogNode[];
+              if (chapterId) {
+                nextItems = sec.items.map((n) =>
+                  n.id === chapterId && n.nodeType === 'chapter'
+                    ? {
+                        ...n,
+                        collapsed: false,
+                        children: [...n.children, ...newNodes],
+                      }
+                    : n
+                );
+              } else {
+                nextItems = [...sec.items, ...newNodes];
+              }
+              return {
+                ...b,
+                sections: {
+                  ...b.sections,
+                  [sectionCode]: { ...sec, collapsed: false, items: nextItems },
+                },
+                updatedAt: formatTimestampNow(),
+              };
+            }),
+          };
+        }),
+
+      updateArticleRef: (projectId, bookId, nodeId, updates) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+            const nextSections = { ...b.sections };
+            const patchLeaf = (node: CatalogLeafNode): CatalogLeafNode => {
+              if (node.id === nodeId && node.nodeType === 'article') {
+                return {
+                  ...node,
+                  displayTitle: updates.displayTitle.trim() || node.displayTitle,
+                  sourceArticleId: updates.sourceArticleId,
+                  sourceTitle: updates.sourceTitle,
+                };
+              }
+              return node;
+            };
+            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
+              (code) => {
+                nextSections[code] = {
+                  ...nextSections[code],
+                  items: nextSections[code].items.map((n) =>
+                    n.nodeType === 'chapter'
+                      ? { ...n, children: n.children.map(patchLeaf) }
+                      : patchLeaf(n)
+                  ),
+                };
+              }
+            );
+            return {
+              ...b,
+              sections: nextSections,
+              updatedAt: formatTimestampNow(),
+            };
+          }),
+        })),
+
+      addLineageRef: (projectId, bookId, sectionCode, chapterId, payload) =>
+        set((state) => {
+          const newNode: CatalogLineageNode = {
+            ...payload,
+            id: `cat-lin-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 5)}`,
+            nodeType: 'lineage',
+          };
+          return {
+            booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+              const sec = b.sections[sectionCode];
+              const nextItems = chapterId
+                ? sec.items.map((n) =>
+                    n.id === chapterId && n.nodeType === 'chapter'
+                      ? {
+                          ...n,
+                          collapsed: false,
+                          children: [...n.children, newNode],
+                        }
+                      : n
+                  )
+                : [...sec.items, newNode];
+              return {
+                ...b,
+                sections: {
+                  ...b.sections,
+                  [sectionCode]: { ...sec, collapsed: false, items: nextItems },
+                },
+                updatedAt: formatTimestampNow(),
+              };
+            }),
+          };
+        }),
+
+      updateLineageRefSettings: (projectId, bookId, nodeId, updates) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+            const nextSections = { ...b.sections };
+            const patchLeaf = (node: CatalogLeafNode): CatalogLeafNode =>
+              node.id === nodeId && node.nodeType === 'lineage'
+                ? { ...node, ...updates }
+                : node;
+            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
+              (code) => {
+                nextSections[code] = {
+                  ...nextSections[code],
+                  items: nextSections[code].items.map((n) =>
+                    n.nodeType === 'chapter'
+                      ? { ...n, children: n.children.map(patchLeaf) }
+                      : patchLeaf(n)
+                  ),
+                };
+              }
+            );
+            return {
+              ...b,
+              sections: nextSections,
+              updatedAt: formatTimestampNow(),
+            };
+          }),
+        })),
+
+      removeCatalogNode: (projectId, bookId, nodeId) => {
+        const list = get().booksByProject[projectId] || [];
+        const book = list.find((b) => b.id === bookId);
+        if (!book) return { blocked: false };
+
+        for (const code of Object.keys(book.sections) as CatalogSectionCode[]) {
+          const hit = book.sections[code].items.find((n) => n.id === nodeId);
+          if (hit && hit.nodeType === 'chapter' && hit.children.length > 0) {
+            return {
+              blocked: true,
+              reason: '该目录下已有内容，请先迁出或删除内容后再删除目录。',
+            };
+          }
+        }
+
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+            const nextSections = { ...b.sections };
+            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
+              (code) => {
+                const { nextNodes } = removeNodeFromList(
+                  nextSections[code].items,
+                  nodeId
+                );
+                nextSections[code] = {
+                  ...nextSections[code],
+                  items: nextNodes,
+                };
+              }
+            );
+            return {
+              ...b,
+              sections: nextSections,
+              updatedAt: formatTimestampNow(),
+            };
+          }),
+        }));
+
+        return { blocked: false };
+      },
+
+      moveCatalogNodeOrder: (
+        projectId,
+        bookId,
+        sectionCode,
+        parentChapterId,
+        nodeId,
+        direction
+      ) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+            const sec = b.sections[sectionCode];
+            const nextItems = parentChapterId
+              ? sec.items.map((n) =>
+                  n.id === parentChapterId && n.nodeType === 'chapter'
+                    ? {
+                        ...n,
+                        children: reorderInList(n.children, nodeId, direction),
+                      }
+                    : n
+                )
+              : reorderInList(sec.items, nodeId, direction);
+
+            return {
+              ...b,
+              sections: {
+                ...b.sections,
+                [sectionCode]: { ...sec, items: nextItems },
+              },
+              updatedAt: formatTimestampNow(),
+            };
+          }),
+        })),
+
+      transferCatalogNode: (
+        projectId,
+        bookId,
+        sourceNodeId,
+        targetSectionCode,
+        targetChapterId
+      ) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
+            let extracted: CatalogNode | null = null;
+            const nextSections = { ...b.sections };
+
+            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
+              (code) => {
+                if (extracted) return;
+                const { nextNodes, removed } = removeNodeFromList(
+                  nextSections[code].items,
+                  sourceNodeId
+                );
+                if (removed) {
+                  extracted = removed;
+                  nextSections[code] = {
+                    ...nextSections[code],
+                    items: nextNodes,
+                  };
+                }
+              }
+            );
+
+            if (!extracted) return b;
+            const movedNode = extracted as CatalogNode;
+
+            const targetSec = nextSections[targetSectionCode];
+            if (targetChapterId && movedNode.nodeType !== 'chapter') {
+              nextSections[targetSectionCode] = {
+                ...targetSec,
+                collapsed: false,
+                items: targetSec.items.map((n) =>
+                  n.id === targetChapterId && n.nodeType === 'chapter'
+                    ? {
+                        ...n,
+                        collapsed: false,
+                        children: [...n.children, movedNode],
+                      }
+                    : n
+                ),
+              };
+            } else {
+              nextSections[targetSectionCode] = {
+                ...targetSec,
+                collapsed: false,
+                items: [...targetSec.items, movedNode],
+              };
+            }
+
+            return {
+              ...b,
+              sections: nextSections,
+              updatedAt: formatTimestampNow(),
+            };
+          }),
+        })),
+
+      touchBookSaved: (projectId, bookId) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            updatedAt: formatTimestampNow(),
+          })),
+        })),
+
+      updateLayoutConfig: (projectId, bookId, updates) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            layoutConfig: { ...b.layoutConfig, ...updates },
+            updatedAt: formatTimestampNow(),
+          })),
+        })),
+
+      generateEdition: (projectId, bookId, ctx) => {
+        const list = get().booksByProject[projectId] || [];
+        const book = list.find((b) => b.id === bookId);
+        if (!book) return null;
+
+        const edition = compileBookEdition({
+          projectId,
+          book,
+          articlesByKey: ctx.articlesByKey,
+          lineageTree: ctx.lineageTree,
+          personsByChart: ctx.personsByChart,
+          projectSurname: ctx.projectSurname,
+        });
+
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            editions: [edition, ...b.editions].slice(0, 9),
+            updatedAt: formatTimestampNow(),
+          })),
+        }));
+
+        return edition;
+      },
+
+      deleteEdition: (projectId, bookId, editionId) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            editions: b.editions.filter((ed) => ed.id !== editionId),
+          })),
+        })),
+
+      finalizeEditionPrint: (projectId, bookId, editionId) =>
+        set((state) => ({
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            editions: b.editions.map((ed) =>
+              ed.id === editionId ? { ...ed, printStatus: 'finalized' } : ed
+            ),
+          })),
+        })),
+    }),
+    {
+      name: 'nocoapp:books',
+      version: 1,
+      storage: createAppStorage(),
+    }
+  )
+);

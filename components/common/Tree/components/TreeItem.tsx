@@ -2,7 +2,7 @@
 import React, { forwardRef, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../../../lib/utils';
-import { ChevronRight, ChevronDown, Pencil, Trash2, File, Folder, Plus, MoreVertical, Copy } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, SquarePen, Trash2, File, Folder, Plus, MoreVertical, Copy } from 'lucide-react';
 import { FlattenedItem } from '../types';
 
 export interface TreeItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>, 'onClick'> {
@@ -18,6 +18,8 @@ export interface TreeItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>,
   indentationWidth: number;
   item: FlattenedItem;
   onCollapse?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  editLabel?: string;
   onRemove?: (id: string) => void;
   onRename?: (id: string, name: string) => void;
   onAdd?: (id: string) => void;
@@ -43,6 +45,8 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
       indicator,
       collapsed,
       onCollapse,
+      onEdit,
+      editLabel,
       onRemove,
       onRename,
       onAdd,
@@ -238,7 +242,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                 </button>
                             )}
                             
-                            {(onRename || onRemove || onDuplicate) && (
+                            {(onEdit || onRename || onRemove || onDuplicate) && (
                                 <>
                                     <button 
                                         ref={menuTriggerRef}
@@ -260,6 +264,19 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                                             style={{ top: menuPos.top, left: menuPos.left }}
                                             onMouseDown={(e) => e.stopPropagation()} // Prevent drag/click outside during interaction
                                         >
+                                            {onEdit && (
+                                                <button 
+                                                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] text-left w-full transition-colors cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowMenu(false);
+                                                        onEdit(item.id as string);
+                                                    }}
+                                                >
+                                                    <SquarePen size={12} className="text-muted-foreground" />
+                                                    {editLabel || '编辑世系'}
+                                                </button>
+                                            )}
                                             {onRename && (
                                                 <button 
                                                     className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] text-left w-full transition-colors"

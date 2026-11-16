@@ -630,7 +630,8 @@ const HAN_ROYAL_PERSONS: PersonRecord[] = [
 export function createSeedPersonsForChart(
   chartId: string,
   chartName?: string,
-  surname?: string
+  surname?: string,
+  progenitor?: string
 ): PersonRecord[] {
   if (chartId === 'lineage-royal-1') {
     return JSON.parse(JSON.stringify(HAN_ROYAL_PERSONS));
@@ -649,22 +650,29 @@ export function createSeedPersonsForChart(
     }));
   }
 
+  const cleanSurname = surname?.trim() || undefined;
+  const cleanProgenitor = progenitor?.trim();
+
   // Custom newly created chart: clean 1世始祖 starter node ready for editing & drag-drop
-  const rootName = surname?.trim()
-    ? `${surname.trim()}始祖`
-    : chartName?.replace(/世系图|图系|世次/g, '').trim() || '始祖';
+  const rootName =
+    cleanProgenitor ||
+    (cleanSurname
+      ? `${cleanSurname}始祖`
+      : chartName?.replace(/世系图|图系|世次/g, '').trim() || '始祖');
 
   return [
     {
       id: `${chartId}-root-1`,
+      surname: cleanSurname,
       name: rootName,
       generation: 1,
       gender: 'male',
       rank: '始祖',
+      relationTitle: '始祖',
       status: 'deceased',
       fatherId: null,
       spouses: [],
-      biography: `「${chartName || '新建世系图'}」开基始祖，可点击节点上方或右侧档案面板继续添子嗣、完善生卒与行状。`,
+      biography: `「${chartName || '新建世系图'}」开基始祖，可点击节点上方或右侧档案面板继续添录配偶、子嗣与生平传记。`,
       branchId: chartId,
       biographyPage: 1,
       biographyOrder: 1,

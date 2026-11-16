@@ -278,8 +278,8 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                       </kbd>
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-border/60">
-                      <span>点击「项目」卡片</span>
-                      <span className="text-foreground">进入项目概览与数据表</span>
+                      <span>点击「家族」卡片</span>
+                      <span className="text-foreground">进入家族概览与数据表</span>
                     </div>
                     <div className="flex items-center justify-between py-1.5">
                       <span>点击「应用」卡片</span>
@@ -288,9 +288,9 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
-                    <p>1. 在项目概览与「数据」面板中可管理数据表结构、视图与外键关系。</p>
+                    <p>1. 在家族概览与「数据」面板中可管理数据表结构、视图与外键关系。</p>
                     <p>2. 在「应用」面板中可拖拽表格、图表、统计卡与表单组件构建页面。</p>
-                    <p>3. 在「设置」面板中可配置项目基本信息、外部数据源及代码文件。</p>
+                    <p>3. 在「设置」面板中可配置家族基本信息、外部数据源及代码文件。</p>
                   </div>
                 )}
                 <div className="mt-5 flex justify-end">
@@ -444,7 +444,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                     </kbd>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-border/60">
-                    <span>点击「项目」卡片</span>
+                    <span>点击「家族」卡片</span>
                     <span className="text-foreground">进入数据表与模型视图</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5">
@@ -454,7 +454,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
-                  <p>1. 在「项目」面板中可管理数据表结构、外键关系与数据源连接。</p>
+                  <p>1. 在「家族」面板中可管理数据表结构、外键关系与数据源连接。</p>
                   <p>2. 在「应用」面板中可拖拽表格、图表、统计卡与表单组件构建页面。</p>
                   <p>3. 使用左侧底部头像菜单可随时切换工作区主题或退出登录。</p>
                 </div>

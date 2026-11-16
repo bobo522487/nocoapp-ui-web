@@ -12,6 +12,7 @@ type MockProject = {
   name: string;
   status: 'planning' | 'in_progress' | 'completed';
   surname: string | null;
+  ancestor: string | null;
   hallName: string | null;
   originText: string | null;
   description: string | null;
@@ -47,6 +48,64 @@ type ConsoleDb = {
   activatedAt: Record<string, number>;
 };
 
+function createSeedConsoleDb(): ConsoleDb {
+  const now = new Date().toISOString();
+  const earlier = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+  const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  return {
+    projects: [
+      {
+        id: 'proj-chen-yimen',
+        organizationId: 'ws-personal',
+        name: '义门陈氏宗谱',
+        status: 'in_progress',
+        surname: '陈',
+        ancestor: '陈旺',
+        hallName: '义门陈氏宗谱',
+        originText: '江西省/九江市/德安县',
+        description: '梳理义门陈氏历代迁徙源流、分庄支派及世系行传。',
+        colorTheme: 'sky',
+        projectLevel: 5,
+        createdAt: yesterday,
+        updatedAt: now,
+      },
+      {
+        id: 'proj-han-royal',
+        organizationId: 'ws-personal',
+        name: '两汉刘氏天潢谱',
+        status: 'completed',
+        surname: '刘',
+        ancestor: '刘邦',
+        hallName: '丰沛刘氏天潢',
+        originText: '江苏省/徐州市/丰县',
+        description: '收录西汉、东汉及蜀汉宗室世系图谱与帝王行传参考。',
+        colorTheme: 'indigo',
+        projectLevel: 4,
+        createdAt: yesterday,
+        updatedAt: earlier,
+      },
+      {
+        id: 'proj-peng-ancestors',
+        organizationId: 'ws-team',
+        name: '彭城远祖合修谱',
+        status: 'in_progress',
+        surname: '彭',
+        ancestor: '彭祖',
+        hallName: '彭城彭氏合谱',
+        originText: '贵州省/遵义市/桐梓县',
+        description: '宗亲协同校勘各房世派字辈、墓茔坐向与行状传记。',
+        colorTheme: 'emerald',
+        projectLevel: 4,
+        createdAt: yesterday,
+        updatedAt: earlier,
+      },
+    ],
+    members: {},
+    invites: {},
+    activatedAt: { 'ws-personal': Date.now() },
+  };
+}
+
 function loadConsoleDb(): ConsoleDb {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -56,13 +115,16 @@ function loadConsoleDb(): ConsoleDb {
       for (const project of db.projects ?? []) {
         project.colorTheme ??= 'sky';
         project.projectLevel ??= 1;
+        project.ancestor ??= null;
       }
       return db;
     }
   } catch {
     // 忽略损坏的本地数据。
   }
-  return { projects: [], members: {}, invites: {}, activatedAt: {} };
+  const seed = createSeedConsoleDb();
+  saveConsoleDb(seed);
+  return seed;
 }
 
 function saveConsoleDb(db: ConsoleDb): void {
@@ -419,6 +481,7 @@ function handleOrganizations(parts: string[], search: string, options: RequestOp
         name,
         status,
         surname: typeof body.surname === 'string' && body.surname.trim() ? body.surname.trim() : null,
+        ancestor: typeof body.ancestor === 'string' && body.ancestor.trim() ? body.ancestor.trim() : null,
         hallName: typeof body.hallName === 'string' && body.hallName.trim() ? body.hallName.trim() : null,
         originText: typeof body.originText === 'string' && body.originText.trim() ? body.originText.trim() : null,
         description: typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null,
@@ -496,7 +559,7 @@ function handleProjects(parts: string[], search: string, options: RequestOptions
     ) {
       project.status = body.status;
     }
-    for (const field of ['surname', 'hallName', 'originText', 'description'] as const) {
+    for (const field of ['surname', 'ancestor', 'hallName', 'originText', 'description'] as const) {
       if (field in body) {
         const value = body[field];
         project[field] =

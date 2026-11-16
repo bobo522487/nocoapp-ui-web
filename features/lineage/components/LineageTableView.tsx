@@ -69,7 +69,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
             宗谱族人名录总表
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            全量谱系人员结构化档案明细，支持跨世代、字号、功名及墓葬方位检索。
+            全量世系人员结构化档案明细，支持跨世代、字号、功名及墓葬方位检索。
           </p>
         </div>
 

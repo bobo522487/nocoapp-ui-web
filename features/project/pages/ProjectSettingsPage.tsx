@@ -31,6 +31,7 @@ const ProjectSettingsPage: React.FC = () => {
   const [primarySurname, setPrimarySurname] = useState(
     activeProject?.primarySurname || ''
   );
+  const [ancestor, setAncestor] = useState(activeProject?.ancestor || '');
   const [primaryName, setPrimaryName] = useState(
     activeProject?.primaryName || ''
   );
@@ -58,6 +59,7 @@ const ProjectSettingsPage: React.FC = () => {
     if (activeProject) {
       setName(activeProject.name);
       setPrimarySurname(activeProject.primarySurname || '');
+      setAncestor(activeProject.ancestor || '');
       setPrimaryName(activeProject.primaryName || '');
       setRegion(activeProject.region || DEFAULT_REGION_PATH);
       setProjectState(activeProject.projectState || '0');
@@ -74,6 +76,7 @@ const ProjectSettingsPage: React.FC = () => {
     updateProject(activeProject.id, {
       name: name.trim(),
       primarySurname: primarySurname.trim() || undefined,
+      ancestor: ancestor.trim() || undefined,
       primaryName: primaryName.trim() || undefined,
       region: region.trim() || undefined,
       projectState,
@@ -97,9 +100,9 @@ const ProjectSettingsPage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
         <div>
-          <h1 className="text-[18px] font-semibold text-foreground">项目设置</h1>
+          <h1 className="text-[18px] font-semibold text-foreground">家族设置</h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            管理「{activeProject?.name || '云谱项目'}」的谱牒档案信息、所属地区与封面配色。
+            管理「{activeProject?.name || '家族'}」的谱牒档案信息、所属地区与封面配色。
           </p>
         </div>
 
@@ -108,7 +111,7 @@ const ProjectSettingsPage: React.FC = () => {
           <h2 className="text-[14px] font-semibold text-foreground">基本信息</h2>
           <form onSubmit={handleSave} className="space-y-4 max-w-lg">
             <div className="space-y-1.5">
-              <Label htmlFor="project-name-input">项目名</Label>
+              <Label htmlFor="project-name-input">家族名</Label>
               <Input
                 id="project-name-input"
                 value={name}
@@ -118,25 +121,35 @@ const ProjectSettingsPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <div className="space-y-1.5">
-                <Label htmlFor="project-settings-surname">姓氏</Label>
+                <Label htmlFor="project-settings-surname">家族姓氏</Label>
                 <Input
                   id="project-settings-surname"
                   value={primarySurname}
                   maxLength={24}
                   onChange={(e) => setPrimarySurname(e.target.value)}
-                  placeholder="如：陳"
+                  placeholder="如：张"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="project-settings-primary-name">主题名</Label>
+                <Label htmlFor="project-settings-ancestor">始迁祖</Label>
+                <Input
+                  id="project-settings-ancestor"
+                  value={ancestor}
+                  maxLength={24}
+                  onChange={(e) => setAncestor(e.target.value)}
+                  placeholder="录入始迁祖姓名"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="project-settings-primary-name">堂号</Label>
                 <Input
                   id="project-settings-primary-name"
                   value={primaryName}
                   maxLength={10}
                   onChange={(e) => setPrimaryName(e.target.value)}
-                  placeholder="如：義門陳氏宗谱"
+                  placeholder="如：百忍堂"
                 />
               </div>
             </div>
@@ -206,7 +219,7 @@ const ProjectSettingsPage: React.FC = () => {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                placeholder="请输入项目备注"
+                placeholder="请输入家族备注"
                 className="resize-none"
               />
             </div>
@@ -238,7 +251,7 @@ const ProjectSettingsPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label>项目 ID</Label>
+              <Label>家族 ID</Label>
               <div className="flex items-center gap-2">
                 <Input
                   value={activeProject?.id || ''}
@@ -267,7 +280,7 @@ const ProjectSettingsPage: React.FC = () => {
               </Button>
               {savedToast && (
                 <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                  已保存项目设置
+                  已保存家族设置
                 </span>
               )}
             </div>
@@ -276,14 +289,14 @@ const ProjectSettingsPage: React.FC = () => {
 
         {/* Project Actions */}
         <section className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h2 className="text-[14px] font-semibold text-foreground">项目操作</h2>
+          <h2 className="text-[14px] font-semibold text-foreground">家族操作</h2>
           <div className="flex flex-wrap items-center justify-between gap-3 py-1">
             <div>
               <div className="text-[13px] font-medium text-foreground">
-                复制云谱项目
+                复制家族
               </div>
               <div className="text-[12px] text-muted-foreground">
-                创建一个包含相同基础档案的副本项目。
+                创建一个包含相同基础档案的家族副本。
               </div>
             </div>
             <Button
@@ -297,7 +310,7 @@ const ProjectSettingsPage: React.FC = () => {
               }}
               className="gap-1.5 whitespace-nowrap shrink-0"
             >
-              <Copy size={13} /> 复制项目
+              <Copy size={13} /> 复制家族
             </Button>
           </div>
 
@@ -306,10 +319,10 @@ const ProjectSettingsPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 py-1">
             <div>
               <div className="text-[13px] font-medium text-destructive">
-                删除当前项目
+                删除当前家族
               </div>
               <div className="text-[12px] text-muted-foreground">
-                删除后该项目将从工作区项目列表中移除。
+                删除后该家族将从工作区家族列表中移除。
               </div>
             </div>
             {confirmDelete ? (
@@ -340,7 +353,7 @@ const ProjectSettingsPage: React.FC = () => {
                 onClick={() => setConfirmDelete(true)}
                 className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 whitespace-nowrap shrink-0"
               >
-                <Trash2 size={13} /> 删除项目
+                <Trash2 size={13} /> 删除家族
               </Button>
             )}
           </div>

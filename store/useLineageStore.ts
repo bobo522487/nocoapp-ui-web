@@ -178,6 +178,14 @@ function collectDescendantIds(persons: PersonRecord[], rootId: string): Set<stri
   return toDelete;
 }
 
+export interface LineageChartMeta {
+  name: string;
+  surname?: string;
+  hallName?: string;
+  progenitor?: string;
+  region?: string;
+}
+
 interface LineageState {
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
@@ -186,9 +194,22 @@ interface LineageState {
   viewModeByProject: Record<string, LineageViewMode>;
 
   setTree: (projectId: string, items: TreeItem[]) => void;
+  initializeProjectLineage: (
+    projectId: string,
+    params: { familyName: string; ancestor: string; surname?: string }
+  ) => void;
   selectNode: (projectId: string, nodeId: string) => void;
   addGroup: (projectId: string, name?: string) => string;
-  addChart: (projectId: string, parentId?: string, name?: string) => string;
+  addChart: (
+    projectId: string,
+    parentId?: string,
+    input?: string | LineageChartMeta
+  ) => string;
+  updateChartMeta: (
+    projectId: string,
+    chartId: string,
+    meta: LineageChartMeta
+  ) => void;
   renameNode: (projectId: string, id: string, name: string) => void;
   duplicateNode: (projectId: string, id: string) => void;
   removeNode: (projectId: string, id: string) => void;
@@ -250,6 +271,68 @@ export const useLineageStore = create<LineageState>()(
           };
         }),
 
+      initializeProjectLineage: (projectId, { familyName, ancestor, surname }) =>
+        set((state) => {
+          if (state.treesByProject[projectId]?.length) {
+            return state;
+          }
+          const cleanFamily = familyName.trim() || '家族';
+          const cleanAncestor = ancestor.trim() || '始迁祖';
+          const cleanSurname = surname?.trim() || undefined;
+          const chartId = `lineage-chart-${Date.now()}`;
+          const chartName = `${cleanFamily}总世系`;
+          const key = makeChartStorageKey(projectId, chartId);
+
+          const rootTree: TreeItem[] = [
+            {
+              id: chartId,
+              type: 'chart',
+              data: {
+                name: chartName,
+                ...(cleanSurname ? { surname: cleanSurname } : {}),
+                progenitor: cleanAncestor,
+              },
+              children: [],
+            },
+          ];
+
+          const rootPerson: PersonRecord = {
+            id: `${chartId}-root-1`,
+            branchId: chartId,
+            surname: cleanSurname,
+            name: cleanAncestor,
+            generation: 1,
+            gender: 'male',
+            rank: '始迁祖',
+            relationTitle: '始迁祖',
+            status: 'deceased',
+            fatherId: null,
+            spouses: [],
+            biography: `「${cleanFamily}」始迁祖，可点击节点上方或右侧档案面板继续添录配偶、子嗣与生平传记。`,
+            biographyPage: 1,
+            biographyOrder: 1,
+          };
+
+          return {
+            treesByProject: {
+              ...state.treesByProject,
+              [projectId]: rootTree,
+            },
+            selectedNodeIdByProject: {
+              ...state.selectedNodeIdByProject,
+              [projectId]: chartId,
+            },
+            personsByChart: {
+              ...state.personsByChart,
+              [key]: [rootPerson],
+            },
+            selectedPersonIdByChart: {
+              ...state.selectedPersonIdByChart,
+              [key]: null,
+            },
+          };
+        }),
+
       selectNode: (projectId, nodeId) =>
         set((state) => ({
           selectedNodeIdByProject: {
@@ -281,14 +364,29 @@ export const useLineageStore = create<LineageState>()(
         return id;
       },
 
-      addChart: (projectId, parentId, name) => {
+      addChart: (projectId, parentId, input) => {
         const id = `lineage-chart-${Date.now()}`;
-        const chartName = name?.trim() || '新建世系图';
+        const meta: LineageChartMeta =
+          typeof input === 'string'
+            ? { name: input }
+            : input || { name: '新建世系图' };
+        const chartName = meta.name?.trim() || '新建世系图';
+        const cleanSurname = meta.surname?.trim() || undefined;
+        const cleanHall = meta.hallName?.trim() || undefined;
+        const cleanProgenitor = meta.progenitor?.trim() || undefined;
+        const cleanRegion = meta.region?.trim() || undefined;
+
         const current = get().treesByProject[projectId] || cloneDefaultTree();
         const newChart: TreeItem = {
           id,
           type: 'chart',
-          data: { name: chartName },
+          data: {
+            name: chartName,
+            ...(cleanSurname ? { surname: cleanSurname } : {}),
+            ...(cleanHall ? { hallName: cleanHall } : {}),
+            ...(cleanProgenitor ? { progenitor: cleanProgenitor } : {}),
+            ...(cleanRegion ? { region: cleanRegion } : {}),
+          },
           children: [],
         };
 
@@ -314,7 +412,12 @@ export const useLineageStore = create<LineageState>()(
         }
 
         const key = makeChartStorageKey(projectId, id);
-        const seed = createSeedPersonsForChart(id, chartName);
+        const seed = createSeedPersonsForChart(
+          id,
+          chartName,
+          cleanSurname,
+          cleanProgenitor
+        );
 
         set((state) => ({
           treesByProject: {
@@ -336,6 +439,82 @@ export const useLineageStore = create<LineageState>()(
         }));
         return id;
       },
+
+      updateChartMeta: (projectId, chartId, meta) =>
+        set((state) => {
+          const current =
+            state.treesByProject[projectId] || cloneDefaultTree();
+          const prevNode = findItemDeep(current, chartId);
+          const cleanName = meta.name.trim() || prevNode?.data?.name || '世系图';
+          const cleanSurname = meta.surname?.trim() || '';
+          const cleanHall = meta.hallName?.trim() || '';
+          const cleanProgenitor = meta.progenitor?.trim() || '';
+          const cleanRegion = meta.region?.trim() || '';
+
+          const updatedTree = setProperty(
+            JSON.parse(JSON.stringify(current)),
+            chartId,
+            'data',
+            (data) => ({
+              ...data,
+              name: cleanName,
+              surname: cleanSurname || undefined,
+              hallName: cleanHall || undefined,
+              progenitor: cleanProgenitor || undefined,
+              region: cleanRegion || undefined,
+            })
+          );
+
+          const key = makeChartStorageKey(projectId, chartId);
+          const existingPersons = state.personsByChart[key];
+          let nextPersonsByChart = state.personsByChart;
+
+          if (existingPersons && existingPersons.length > 0) {
+            const prevProgenitor = prevNode?.data?.progenitor?.trim();
+            const rootId = `${chartId}-root-1`;
+            const hasExplicitRoot = existingPersons.some((p) => p.id === rootId);
+            const firstGenRoots = existingPersons.filter(
+              (p) => p.generation === 1 && !p.fatherId
+            );
+            const targetRootId = hasExplicitRoot
+              ? rootId
+              : firstGenRoots.length === 1
+                ? firstGenRoots[0].id
+                : null;
+
+            const updatedPersons = existingPersons.map((p) => {
+              const isRootTarget =
+                targetRootId !== null && p.id === targetRootId;
+              const shouldUpdateName =
+                isRootTarget &&
+                cleanProgenitor &&
+                (p.name !== cleanProgenitor || prevProgenitor === p.name);
+
+              return {
+                ...p,
+                ...(isRootTarget && shouldUpdateName
+                  ? { name: cleanProgenitor }
+                  : {}),
+                ...(isRootTarget && cleanSurname
+                  ? { surname: cleanSurname }
+                  : {}),
+              };
+            });
+
+            nextPersonsByChart = {
+              ...state.personsByChart,
+              [key]: updatedPersons,
+            };
+          }
+
+          return {
+            treesByProject: {
+              ...state.treesByProject,
+              [projectId]: updatedTree,
+            },
+            personsByChart: nextPersonsByChart,
+          };
+        }),
 
       renameNode: (projectId, id, name) =>
         set((state) => {

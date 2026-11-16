@@ -19,7 +19,7 @@ interface RegionCascaderProps {
 export const RegionCascader: React.FC<RegionCascaderProps> = ({
   value,
   onChange,
-  placeholder = '请选择项目所属地区',
+  placeholder = '请选择家族所属地区',
   hasError = false,
   id,
 }) => {

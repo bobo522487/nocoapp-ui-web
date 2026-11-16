@@ -51,6 +51,7 @@ export type ProjectRecord = {
   name: string;
   status: ProjectStatus;
   surname: string | null;
+  ancestor: string | null;
   hallName: string | null;
   originText: string | null;
   description: string | null;
@@ -93,6 +94,7 @@ export type CreateProjectPayload = {
   name: string;
   status?: ProjectStatus;
   surname?: string;
+  ancestor?: string;
   hallName?: string;
   originText?: string;
   description?: string;

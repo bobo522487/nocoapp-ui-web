@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { Button } from '../../../components/ui/button';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { useLineageStore } from '../../../store/useLineageStore';
 import { errorMessage } from '../../../lib/api';
 import {
   createProjectRequest,
@@ -20,7 +21,6 @@ import PageSkeleton from '../components/PageSkeleton';
 import PageError from '../components/PageError';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { AssetEditorModal } from '../components/AssetEditorModal';
-import { DEFAULT_REGION_PATH } from '../data/regions';
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   planning: '规划中',
@@ -80,6 +80,9 @@ const DashboardPage: React.FC = () => {
         fetchOrganization(activeWorkspaceId),
         fetchProjects(activeWorkspaceId, { limit: 50, sort: 'recent' }),
       ]);
+      useWorkspaceStore
+        .getState()
+        .syncWorkspaceProjects(activeWorkspaceId, projectsResult.items);
       setState({
         loading: false,
         error: null,
@@ -134,12 +137,13 @@ const DashboardPage: React.FC = () => {
     }));
   };
 
-  // 富弹窗（远端仓库“新建云谱项目”界面）提交：映射到项目 API 载荷。
+  // 家族建档弹窗提交：映射到项目 API 载荷，并在新建时初始化始迁祖世系节点。
   const handleEditorSubmit = async (values: {
     name: string;
     description: string;
     colorTheme: ProjectColorTheme;
     primarySurname?: string;
+    ancestor?: string;
     region?: string;
     primaryName?: string;
     projectState?: '0' | '1';
@@ -155,12 +159,20 @@ const DashboardPage: React.FC = () => {
           name: values.name.trim(),
           status: statusFromState(state0),
           surname: values.primarySurname?.trim(),
+          ancestor: values.ancestor?.trim(),
           hallName: values.primaryName?.trim(),
-          originText: values.region?.trim(),
+          originText: values.region?.trim() || undefined,
           description: values.description.trim() || undefined,
           colorTheme: values.colorTheme,
           projectLevel: values.projectLevel ?? 1,
         });
+        if (values.ancestor?.trim()) {
+          useLineageStore.getState().initializeProjectLineage(created.project.id, {
+            familyName: values.name,
+            ancestor: values.ancestor,
+            surname: values.primarySurname,
+          });
+        }
         handleSaved(created.project);
       } else if (formDialog.project) {
         const original = formDialog.project;
@@ -168,8 +180,9 @@ const DashboardPage: React.FC = () => {
           name: values.name.trim(),
           status: statusFromState(state0, original.status),
           surname: values.primarySurname?.trim() ?? null,
+          ancestor: values.ancestor?.trim() ?? null,
           hallName: values.primaryName?.trim() ?? null,
-          originText: values.region?.trim() ?? null,
+          originText: values.region?.trim() || null,
           description: values.description.trim() || null,
           colorTheme: values.colorTheme,
           projectLevel: values.projectLevel ?? original.projectLevel,
@@ -227,15 +240,15 @@ const DashboardPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-foreground tracking-tight">项目</h1>
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">家族</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {state.detail?.name ?? '当前组织'} · 共 {state.projects.length} 个项目
+              {state.detail?.name ?? '当前组织'} · 共 {state.projects.length} 个家族
             </p>
           </div>
           {canCreate && (
             <Button size="sm" onClick={() => setFormDialog({ mode: 'create' })}>
               <FolderPlus size={15} className="mr-1.5" />
-              新建项目
+              新建家族
             </Button>
           )}
         </div>
@@ -254,7 +267,7 @@ const DashboardPage: React.FC = () => {
 
         {state.projects.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
-            <p className="text-sm text-muted-foreground">尚无项目</p>
+            <p className="text-sm text-muted-foreground">尚无家族</p>
             {canCreate && (
               <Button
                 variant="outline"
@@ -263,7 +276,7 @@ const DashboardPage: React.FC = () => {
                 onClick={() => setFormDialog({ mode: 'create' })}
               >
                 <FolderPlus size={14} className="mr-1.5" />
-                新建项目
+                新建家族
               </Button>
             )}
           </div>
@@ -297,7 +310,7 @@ const DashboardPage: React.FC = () => {
                     type="button"
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted"
                     onClick={() => setMenuFor(menuFor === project.id ? null : project.id)}
-                    aria-label="项目操作"
+                    aria-label="家族操作"
                   >
                     <MoreVertical size={15} />
                   </button>
@@ -361,7 +374,8 @@ const DashboardPage: React.FC = () => {
                     // 网络边界兜底：后端未返回新字段时避免预览组件读 undefined 崩溃。
                     colorTheme: p.colorTheme ?? 'sky',
                     primarySurname: p.surname ?? '',
-                    region: p.originText || DEFAULT_REGION_PATH,
+                    ancestor: p.ancestor ?? '',
+                    region: p.originText ?? '',
                     primaryName: p.hallName ?? '',
                     projectState: (p.status === 'completed' ? '1' : '0') as '0' | '1',
                     projectLevel: p.projectLevel ?? 1,
@@ -380,8 +394,8 @@ const DashboardPage: React.FC = () => {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="删除项目"
-        description={`删除「${deleteTarget?.name ?? ''}」后，项目列表中将不再出现该操作，且不可撤销。`}
+        title="删除家族"
+        description={`删除「${deleteTarget?.name ?? ''}」后，家族列表中将不再出现该记录，且不可撤销。`}
         confirmLabel="删除"
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}

@@ -24,14 +24,48 @@ export type MockDb = {
 
 const STORAGE_KEY = 'nocoapp:mock-auth';
 
+export const DEMO_ACCOUNT = {
+  id: 'user-demo',
+  email: 'demo@yunpu.cn',
+  password: 'demo123456',
+  name: '云谱修编者',
+} as const;
+
+function createSeedDb(): MockDb {
+  return {
+    users: [{ ...DEMO_ACCOUNT }],
+    organizations: {
+      [DEMO_ACCOUNT.id]: [
+        {
+          id: 'ws-personal',
+          name: '个人修谱空间',
+          role: 'owner',
+          isOwner: true,
+          status: 'active',
+        },
+        {
+          id: 'ws-team',
+          name: '宗亲修谱空间',
+          role: 'owner',
+          isOwner: true,
+          status: 'active',
+        },
+      ],
+    },
+    sessionUserId: DEMO_ACCOUNT.id,
+  };
+}
+
 export function loadDb(): MockDb {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as MockDb;
   } catch {
-    // 忽略损坏的本地数据，回退到空库。
+    // 忽略损坏的本地数据，回退到种子库。
   }
-  return { users: [], organizations: {}, sessionUserId: null };
+  const seed = createSeedDb();
+  saveDb(seed);
+  return seed;
 }
 
 export function saveDb(db: MockDb): void {

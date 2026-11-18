@@ -14,6 +14,7 @@ import {
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Select } from '../../../components/ui/select';
+import { getPersonDateDisplay } from '../../date-input';
 import { formatGivenName } from '../utils/nameUtils';
 
 interface LineageTableViewProps {
@@ -209,8 +210,8 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                     <td className="py-3 px-4">
                       <div className="line-clamp-2 max-w-md text-[11px] leading-relaxed">
                         {p.biography ||
-                          (p.birthDate
-                            ? `生于：${p.birthDate}`
+                          (getPersonDateDisplay(p, 'birth')
+                            ? `生于：${getPersonDateDisplay(p, 'birth')}`
                             : '暂无详细事略')}
                       </div>
                     </td>

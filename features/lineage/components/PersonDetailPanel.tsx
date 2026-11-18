@@ -17,6 +17,16 @@ import { Input } from '../../../components/ui/input';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import { Select } from '../../../components/ui/select';
 import {
+  DateInput,
+  readGenealogyDate,
+  writeGenealogyDate,
+} from '../../date-input';
+import {
+  PlaceInput,
+  readGenealogyPlace,
+  writeGenealogyPlace,
+} from '../../place-input';
+import {
   BiographyPreviewPreferences,
   DrawerLayoutMode,
   PersonRecord,
@@ -725,17 +735,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                 >
                   出生时间
                 </label>
-                <Input
+                <DateInput
                   id="person-birth-date"
-                  value={formData.birth?.date || ''}
-                  onChange={(e) =>
-                    markDirty((prev) => ({
-                      ...prev,
-                      birth: { ...(prev.birth || {}), date: e.target.value },
-                    }))
+                  label="出生日期"
+                  value={readGenealogyDate(formData, 'birth')}
+                  onChange={(nextVal) =>
+                    markDirty((prev) => writeGenealogyDate(prev, 'birth', nextVal))
                   }
-                  placeholder="例如：1988-05-12 或 戊辰年三月"
-                  className="h-8 text-xs px-2.5 tabular-nums"
+                  enableTime
+                  enableOriginal
+                  placeholder="输入如 1990-05-12，或点右侧选择"
                 />
               </div>
               <div>
@@ -745,17 +754,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                 >
                   出生地点
                 </label>
-                <Input
+                <PlaceInput
                   id="person-birth-place"
-                  value={formData.birth?.place || ''}
-                  onChange={(e) =>
-                    markDirty((prev) => ({
-                      ...prev,
-                      birth: { ...(prev.birth || {}), place: e.target.value },
-                    }))
+                  label="出生地点"
+                  value={readGenealogyPlace(formData, 'birth')}
+                  onChange={(nextVal) =>
+                    markDirty((prev) => writeGenealogyPlace(prev, 'birth', nextVal))
                   }
-                  placeholder="例如：江西吉安泰和县"
-                  className="h-8 text-xs px-2.5"
+                  clanPersons={allPersons}
+                  placeholder="输入省市区县（如 江西泰和），或点右侧细化"
+                  detailPlaceholder="例如：澄江镇南溪村"
                 />
               </div>
             </div>
@@ -781,17 +789,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                   >
                     去世时间
                   </label>
-                  <Input
+                  <DateInput
                     id="person-death-date"
-                    value={formData.death?.date || ''}
-                    onChange={(e) =>
-                      markDirty((prev) => ({
-                        ...prev,
-                        death: { ...(prev.death || {}), date: e.target.value },
-                      }))
+                    label="去世日期"
+                    value={readGenealogyDate(formData, 'death')}
+                    onChange={(nextVal) =>
+                      markDirty((prev) => writeGenealogyDate(prev, 'death', nextVal))
                     }
-                    placeholder="例如：2015-10-03 或 乙未年八月"
-                    className="h-8 text-xs px-2.5 tabular-nums"
+                    enableTime
+                    enableOriginal
+                    placeholder="输入如 1990-05-12，或点右侧选择"
                   />
                 </div>
                 <div>
@@ -801,20 +808,16 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                   >
                     去世地点
                   </label>
-                  <Input
+                  <PlaceInput
                     id="person-death-place"
-                    value={formData.death?.burialPlace || ''}
-                    onChange={(e) =>
-                      markDirty((prev) => ({
-                        ...prev,
-                        death: {
-                          ...(prev.death || {}),
-                          burialPlace: e.target.value,
-                        },
-                      }))
+                    label="去世地点"
+                    value={readGenealogyPlace(formData, 'death')}
+                    onChange={(nextVal) =>
+                      markDirty((prev) => writeGenealogyPlace(prev, 'death', nextVal))
                     }
-                    placeholder="例如：祖山坐北朝南 / 县人民医院"
-                    className="h-8 text-xs px-2.5"
+                    clanPersons={allPersons}
+                    placeholder="输入省市区县或祖茔山名，点右侧细化"
+                    detailPlaceholder="例如：狮子山金钗穴，坐北朝南 / 县人民医院"
                   />
                 </div>
               </div>

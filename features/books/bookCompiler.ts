@@ -7,6 +7,7 @@ import {
 } from '../articles/articleData';
 import { createSeedPersonsForChart } from '../lineage/lineageData';
 import type { PersonRecord } from '../lineage/types';
+import { getPersonDateDisplay } from '../date-input';
 import type {
   BookEdition,
   BookLayoutConfig,
@@ -190,8 +191,9 @@ function buildPersonSummary(
   const parts: string[] = [];
   if (p.courtesyName) parts.push(`字${p.courtesyName}`);
   if (p.rank) parts.push(p.rank);
-  if (p.birthDate || p.birth?.date) {
-    parts.push(`生于${p.birthDate || p.birth?.date}`);
+  const birthDisplay = getPersonDateDisplay(p, 'birth');
+  if (birthDisplay) {
+    parts.push(`生于${birthDisplay}`);
   }
   if (p.officialTitle || p.career?.title) {
     parts.push(p.officialTitle || p.career?.title || '');
@@ -202,8 +204,9 @@ function buildPersonSummary(
       .join('；');
     parts.push(spText);
   }
-  if (p.deathDate || p.death?.date) {
-    parts.push(`卒于${p.deathDate || p.death?.date}`);
+  const deathDisplay = getPersonDateDisplay(p, 'death');
+  if (deathDisplay) {
+    parts.push(`卒于${deathDisplay}`);
   }
   if (p.burialPlace || p.death?.burialPlace) {
     parts.push(`葬${p.burialPlace || p.death?.burialPlace}`);

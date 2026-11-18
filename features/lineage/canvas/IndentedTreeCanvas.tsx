@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ChevronDown,
-  ChevronRight,
-  Minus,
-  Plus,
-  RotateCcw,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { PersonRecord } from '../types';
 import { formatGivenName } from '../utils/nameUtils';
 import {
@@ -14,6 +8,7 @@ import {
   getSpouseSortScore,
 } from '../utils/personHelpers';
 import { InlineNodeNameInput } from './components/InlineNodeNameInput';
+import { CanvasZoomBar } from './components/CanvasZoomBar';
 
 interface IndentedTreeCanvasProps {
   persons: PersonRecord[];
@@ -34,6 +29,7 @@ interface IndentedTreeCanvasProps {
     openDrawer: boolean
   ) => void;
   onCancelInlineName?: (personId: string) => void;
+  toolbar?: React.ReactNode;
 }
 
 const CHINESE_NUMS = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
@@ -109,6 +105,7 @@ export const IndentedTreeCanvas: React.FC<IndentedTreeCanvasProps> = ({
   onAddSpouse,
   onCommitInlineName,
   onCancelInlineName,
+  toolbar,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -597,7 +594,7 @@ export const IndentedTreeCanvas: React.FC<IndentedTreeCanvasProps> = ({
         className="w-full h-full overflow-auto nc-dot-grid"
       >
         <div
-          className="tree-container min-w-max p-8 sm:p-10 pt-16 origin-top-left transition-transform duration-150"
+          className="tree-container min-w-max p-8 sm:p-10 pb-20 origin-top-left transition-transform duration-150"
           style={{ transform: `scale(${zoom})` }}
         >
           {roots.length === 0 ? (
@@ -612,35 +609,26 @@ export const IndentedTreeCanvas: React.FC<IndentedTreeCanvasProps> = ({
         </div>
       </div>
 
-      {/* Bottom-Left Compact Zoom Controls */}
-      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-0.5 bg-card/92 backdrop-blur-md border border-border rounded-xl p-1 shadow-[var(--shadow-popover)] text-xs">
-        <button
-          type="button"
-          onClick={() => setZoom((z) => Math.max(0.65, +(z - 0.1).toFixed(2)))}
-          title="缩小"
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] cursor-pointer"
-        >
-          <Minus size={13} />
-        </button>
-        <span className="px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground min-w-[44px] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          type="button"
-          onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))}
-          title="放大"
-          className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] cursor-pointer"
-        >
-          <Plus size={13} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setZoom(1)}
-          title="重置缩放"
-          className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] cursor-pointer"
-        >
-          <RotateCcw size={12} />
-        </button>
+      {/* Bottom-Left Compact Zoom Controls + Floating Toolbar */}
+      <div
+        data-no-print="true"
+        className="absolute bottom-3 left-3 right-3 z-30 flex flex-wrap items-end gap-2 pointer-events-none"
+      >
+        <div className="pointer-events-auto shrink-0">
+          <CanvasZoomBar
+            zoom={zoom}
+            minZoom={0.65}
+            maxZoom={1.5}
+            onZoomOut={() =>
+              setZoom((z) => Math.max(0.65, +(z - 0.1).toFixed(2)))
+            }
+            onZoomIn={() =>
+              setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))
+            }
+            onResetZoom={() => setZoom(1)}
+          />
+        </div>
+        {toolbar && <div className="pointer-events-auto max-w-full">{toolbar}</div>}
       </div>
     </div>
   );

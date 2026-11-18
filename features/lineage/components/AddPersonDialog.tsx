@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { PersonRecord } from '../types';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -6,6 +7,16 @@ import { Select } from '../../../components/ui/select';
 import { Textarea } from '../../../components/ui/textarea';
 import { X, UserPlus, Heart } from 'lucide-react';
 import { formatGivenName } from '../utils/nameUtils';
+import {
+  DateInput,
+  formatGenealogyDate,
+  type GenealogyDate,
+} from '../../date-input';
+import {
+  PlaceInput,
+  formatGenealogyPlace,
+  type GenealogyPlace,
+} from '../../place-input';
 
 interface AddPersonDialogProps {
   isOpen: boolean;
@@ -35,9 +46,10 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
   const [status, setStatus] = useState<'living' | 'deceased'>('deceased');
   const [fatherId, setFatherId] = useState<string | null>(null);
   const [spouseName, setSpouseName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthDateValue, setBirthDateValue] = useState<GenealogyDate | null>(null);
   const [officialTitle, setOfficialTitle] = useState('');
-  const [burialPlace, setBurialPlace] = useState('');
+  const [burialPlaceValue, setBurialPlaceValue] =
+    useState<GenealogyPlace | null>(null);
   const [biography, setBiography] = useState('');
 
   useEffect(() => {
@@ -66,6 +78,10 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
 
     const father = existingPersons.find((p) => p.id === fatherId);
 
+    const formattedBirth = formatGenealogyDate(birthDateValue).trim() || undefined;
+    const formattedBurialPlace =
+      formatGenealogyPlace(burialPlaceValue).trim() || undefined;
+
     onAdd({
       name: formatGivenName(name.trim(), clanSurname),
       courtesyName: courtesyName.trim() || undefined,
@@ -79,9 +95,21 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
         ? formatGivenName(father.name, clanSurname)
         : undefined,
       spouses: spouseName.trim() ? [{ name: spouseName.trim() }] : [],
-      birthDate: birthDate.trim() || undefined,
+      birthDate: formattedBirth,
+      birth: birthDateValue
+        ? {
+            date: formattedBirth || '',
+            structuredDate: birthDateValue,
+          }
+        : undefined,
       officialTitle: officialTitle.trim() || undefined,
-      burialPlace: burialPlace.trim() || undefined,
+      burialPlace: formattedBurialPlace,
+      death: burialPlaceValue
+        ? {
+            burialPlace: formattedBurialPlace || '',
+            structuredPlace: burialPlaceValue,
+          }
+        : undefined,
       biography: biography.trim() || undefined,
       branchId,
     });
@@ -90,15 +118,21 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
     setCourtesyName('');
     setGenerationWord('');
     setSpouseName('');
-    setBirthDate('');
+    setBirthDateValue(null);
     setOfficialTitle('');
-    setBurialPlace('');
+    setBurialPlaceValue(null);
     setBiography('');
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  const dialogContent = (
+    <div
+      className="fixed inset-0 z-[95] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/20">
@@ -271,14 +305,20 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
+              <label
+                htmlFor="add-person-birth-date"
+                className="block text-[11px] text-muted-foreground mb-1"
+              >
                 生辰年月
               </label>
-              <Input
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                placeholder="如: 明永乐元年癸未"
-                className="h-8 text-xs"
+              <DateInput
+                id="add-person-birth-date"
+                label="生辰年月"
+                value={birthDateValue}
+                onChange={setBirthDateValue}
+                enableTime
+                enableOriginal
+                placeholder="输入如 1990-05-12，或点右侧选择"
               />
             </div>
             <div>
@@ -295,14 +335,20 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1">
+            <label
+              htmlFor="add-person-burial-place"
+              className="block text-[11px] text-muted-foreground mb-1"
+            >
               墓茔葬地与坐向
             </label>
-            <Input
-              value={burialPlace}
-              onChange={(e) => setBurialPlace(e.target.value)}
-              placeholder="如: 凤凰山下象鼻嘴，坐东向西"
-              className="h-8 text-xs"
+            <PlaceInput
+              id="add-person-burial-place"
+              label="墓茔葬地与坐向"
+              value={burialPlaceValue}
+              onChange={setBurialPlaceValue}
+              clanPersons={existingPersons}
+              placeholder="输入省市区县或祖茔山名，点右侧细化坐向"
+              detailPlaceholder="例如：凤凰山下象鼻嘴，坐东向西"
             />
           </div>
 
@@ -331,4 +377,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return dialogContent;
+  return createPortal(dialogContent, document.body);
 };

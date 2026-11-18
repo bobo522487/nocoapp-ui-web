@@ -3,7 +3,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
-  Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -11,6 +10,7 @@ import {
   Connection,
   Edge,
   useReactFlow,
+  useViewport,
   Panel,
   BackgroundVariant,
   Node,
@@ -29,6 +29,7 @@ import { buildBookLtrGenealogyGraph } from './utils/bookLtrLayout';
 import { layoutWithElk } from './utils/elkLayout';
 import { GenealogyFlowNode, GenealogyFlowEdge } from './types';
 import { IndentedTreeCanvas } from './IndentedTreeCanvas';
+import { CanvasZoomBar } from './components/CanvasZoomBar';
 import {
   Sparkles,
   Plus,
@@ -46,7 +47,6 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 
 type CanvasLayoutMode = 'indented_tree' | 'book_ltr' | 'card_vertical';
@@ -116,6 +116,7 @@ interface ReactFlowCanvasViewProps {
     openDrawer: boolean
   ) => void;
   onCancelInlineName?: (personId: string) => void;
+  toolbar?: React.ReactNode;
 }
 
 const ReactFlowCanvasView: React.FC<ReactFlowCanvasViewProps> = ({
@@ -138,8 +139,10 @@ const ReactFlowCanvasView: React.FC<ReactFlowCanvasViewProps> = ({
   onUpdatePersonFather,
   onCommitInlineName,
   onCancelInlineName,
+  toolbar,
 }) => {
   const reactFlow = useReactFlow();
+  const { zoom } = useViewport();
   const isDarkMode = usePreferencesStore((state) => state.isDarkMode);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(
     new Set()
@@ -395,140 +398,157 @@ const ReactFlowCanvasView: React.FC<ReactFlowCanvasViewProps> = ({
   );
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      isValidConnection={isValidConnection}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onPaneClick={() => onSelectPerson?.(null)}
-      minZoom={0.2}
-      maxZoom={2.8}
-      defaultViewport={{ x: 60, y: 60, zoom: 0.9 }}
-      className="touch-none bg-background"
-    >
-      <Background
-        variant={
-          layoutMode === 'book_ltr'
-            ? BackgroundVariant.Lines
-            : BackgroundVariant.Dots
-        }
-        gap={layoutMode === 'book_ltr' ? 140 : 24}
-        size={1}
-        color="hsl(var(--border))"
-        className="opacity-70 dark:opacity-35"
-      />
-
-      <Controls
-        showInteractive={false}
-        position="bottom-left"
-        className="!bg-card/95 !backdrop-blur !border-border !rounded-lg !shadow-md"
-      />
-
-      {showMiniMap && (
-        <MiniMap
-          position="bottom-right"
-          nodeColor={(node: Node) => {
-            if (node.type === 'union') return 'hsl(var(--border-strong))';
-            if (node.type === 'quickAdd') return 'hsl(var(--primary) / 0.45)';
-            if (node.id === selectedPersonId) return 'hsl(var(--primary))';
-            const gen =
-              (node.data as { person?: { generation?: number } })?.person
-                ?.generation || 1;
-            if (gen === 1) return 'hsl(var(--primary))';
-            return isDarkMode ? '#52525b' : '#a1a1aa';
-          }}
-          nodeStrokeWidth={2}
-          className="!bg-card/90 !backdrop-blur !border-border !rounded-lg !shadow-md !w-44 !h-32"
-        />
-      )}
-
-      {/* BOTTOM-RIGHT: DRAG & DROP QUICK CREATION PALETTE */}
-      <Panel
-        position="bottom-right"
-        className="m-3 mr-14 flex flex-col gap-1 z-20"
+    <div className="w-full h-full relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        isValidConnection={isValidConnection}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onPaneClick={() => onSelectPerson?.(null)}
+        minZoom={0.2}
+        maxZoom={2.8}
+        defaultViewport={{ x: 60, y: 60, zoom: 0.9 }}
+        className="touch-none bg-background"
       >
-        <div className="bg-card/92 backdrop-blur-md border border-border rounded-xl p-2 shadow-[var(--shadow-popover)]">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-foreground pb-1.5 border-b border-border/60 mb-1.5">
-            <span className="flex items-center gap-1">
-              <GripHorizontal size={11} className="text-primary" />
-              拖拽录入族人
-            </span>
+        <Background
+          variant={
+            layoutMode === 'book_ltr'
+              ? BackgroundVariant.Lines
+              : BackgroundVariant.Dots
+          }
+          gap={layoutMode === 'book_ltr' ? 140 : 24}
+          size={1}
+          color="hsl(var(--border))"
+          className="opacity-70 dark:opacity-35"
+        />
+
+        {showMiniMap && (
+          <MiniMap
+            position="top-right"
+            nodeColor={(node: Node) => {
+              if (node.type === 'union') return 'hsl(var(--border-strong))';
+              if (node.type === 'quickAdd') return 'hsl(var(--primary) / 0.45)';
+              if (node.id === selectedPersonId) return 'hsl(var(--primary))';
+              const gen =
+                (node.data as { person?: { generation?: number } })?.person
+                  ?.generation || 1;
+              if (gen === 1) return 'hsl(var(--primary))';
+              return isDarkMode ? '#52525b' : '#a1a1aa';
+            }}
+            nodeStrokeWidth={2}
+            className="!bg-card/90 !backdrop-blur !border-border !rounded-lg !shadow-md !w-44 !h-32"
+          />
+        )}
+
+        {/* BOTTOM-RIGHT: DRAG & DROP QUICK CREATION PALETTE */}
+        <Panel
+          position="bottom-right"
+          className="m-3 flex flex-col gap-1 z-20"
+        >
+          <div
+            data-no-print="true"
+            className="bg-card/92 backdrop-blur-md border border-border rounded-xl p-2 shadow-[var(--shadow-popover)]"
+          >
+            <div className="flex items-center justify-between text-[11px] font-semibold text-foreground pb-1.5 border-b border-border/60 mb-1.5">
+              <span className="flex items-center gap-1">
+                <GripHorizontal size={11} className="text-primary" />
+                拖拽录入族人
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Male Template */}
+              <div
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    'application/genealogy-template',
+                    JSON.stringify({
+                      name: '新男丁',
+                      gender: 'male',
+                      rank: '长子',
+                    })
+                  );
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 hover:bg-muted border border-border/70 cursor-grab active:cursor-grabbing text-xs text-foreground transition-all hover:border-primary/50 whitespace-nowrap"
+              >
+                <User size={11} className="text-primary" />
+                <span>男丁</span>
+                <Plus size={10} className="text-muted-foreground" />
+              </div>
+
+              {/* Female Template */}
+              <div
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    'application/genealogy-template',
+                    JSON.stringify({
+                      name: '新女眷',
+                      gender: 'female',
+                      rank: '长女',
+                    })
+                  );
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 hover:bg-muted border border-border/70 cursor-grab active:cursor-grabbing text-xs text-foreground transition-all hover:border-pink-500/50 whitespace-nowrap"
+              >
+                <User size={11} className="text-pink-500" />
+                <span>女眷</span>
+                <Plus size={10} className="text-muted-foreground" />
+              </div>
+
+              {/* Root Ancestor */}
+              <div
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    'application/genealogy-template',
+                    JSON.stringify({
+                      name: '新立始祖',
+                      gender: 'male',
+                      isRoot: true,
+                      generation: 1,
+                    })
+                  );
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent hover:bg-accent/80 border border-border cursor-grab active:cursor-grabbing text-xs text-foreground transition-all whitespace-nowrap"
+              >
+                <Crown size={11} className="text-primary" />
+                <span>始祖</span>
+                <Plus size={10} className="text-primary" />
+              </div>
+            </div>
           </div>
+        </Panel>
+      </ReactFlow>
 
-          <div className="flex items-center gap-1.5">
-            {/* Male Template */}
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(
-                  'application/genealogy-template',
-                  JSON.stringify({
-                    name: '新男丁',
-                    gender: 'male',
-                    rank: '长子',
-                  })
-                );
-                e.dataTransfer.effectAllowed = 'copy';
-              }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 hover:bg-muted border border-border/70 cursor-grab active:cursor-grabbing text-xs text-foreground transition-all hover:border-primary/50 whitespace-nowrap"
-            >
-              <User size={11} className="text-primary" />
-              <span>男丁</span>
-              <Plus size={10} className="text-muted-foreground" />
-            </div>
-
-            {/* Female Template */}
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(
-                  'application/genealogy-template',
-                  JSON.stringify({
-                    name: '新女眷',
-                    gender: 'female',
-                    rank: '长女',
-                  })
-                );
-                e.dataTransfer.effectAllowed = 'copy';
-              }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/40 hover:bg-muted border border-border/70 cursor-grab active:cursor-grabbing text-xs text-foreground transition-all hover:border-pink-500/50 whitespace-nowrap"
-            >
-              <User size={11} className="text-pink-500" />
-              <span>女眷</span>
-              <Plus size={10} className="text-muted-foreground" />
-            </div>
-
-            {/* Root Ancestor */}
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(
-                  'application/genealogy-template',
-                  JSON.stringify({
-                    name: '新立始祖',
-                    gender: 'male',
-                    isRoot: true,
-                    generation: 1,
-                  })
-                );
-                e.dataTransfer.effectAllowed = 'copy';
-              }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent hover:bg-accent/80 border border-border cursor-grab active:cursor-grabbing text-xs text-foreground transition-all whitespace-nowrap"
-            >
-              <Crown size={11} className="text-primary" />
-              <span>始祖</span>
-              <Plus size={10} className="text-primary" />
-            </div>
-          </div>
+      {/* Bottom-Left Compact Zoom Controls + Floating Toolbar */}
+      <div
+        data-no-print="true"
+        className="absolute bottom-3 left-3 right-3 sm:right-[244px] z-30 flex flex-wrap items-end gap-2 pointer-events-none"
+      >
+        <div className="pointer-events-auto shrink-0">
+          <CanvasZoomBar
+            zoom={zoom}
+            minZoom={0.2}
+            maxZoom={2.8}
+            onZoomOut={() => reactFlow.zoomOut({ duration: 150 })}
+            onZoomIn={() => reactFlow.zoomIn({ duration: 150 })}
+            onResetZoom={() => reactFlow.zoomTo(1, { duration: 200 })}
+          />
         </div>
-      </Panel>
-    </ReactFlow>
+        {toolbar && <div className="pointer-events-auto max-w-full">{toolbar}</div>}
+      </div>
+    </div>
   );
 };
 
@@ -585,202 +605,203 @@ export const GenealogyCanvas: React.FC<GenealogyCanvasProps> = ({
 
   const maxGen = Math.max(...persons.map((p) => p.generation || 1), 1);
 
-  return (
-    <div className="w-full h-full relative overflow-hidden bg-background text-foreground select-none">
-      {/* Unified Top-Right Canvas Floating Control Dock */}
-      <div
-        data-no-print="true"
-        className="absolute top-3 right-3 z-30 flex flex-wrap items-center justify-end gap-1 max-w-[calc(100%-24px)] bg-card/92 backdrop-blur-md border border-border rounded-xl p-1 shadow-[var(--shadow-popover)]"
-      >
-        {/* Quick Search */}
-        <div className="relative w-36 md:w-44">
-          <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/80"
-            size={12}
-          />
-          <input
-            type="text"
-            placeholder="搜姓名或字号定位..."
-            value={searchQuery}
-            onChange={(e) => handleSearchLocate(e.target.value)}
-            className="w-full h-7 pl-7 pr-6 py-1 bg-[hsl(var(--surface-subtle))]/70 border border-transparent rounded-lg text-xs text-foreground placeholder:text-placeholder placeholder:font-normal outline-none focus:bg-card focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-colors"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label="清空搜索"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] cursor-pointer"
-            >
-              <X size={11} />
-            </button>
-          )}
-        </div>
-
-        <span
-          aria-hidden="true"
-          className="hidden sm:block h-4 w-px bg-border/80 mx-0.5 shrink-0"
+  const floatingToolbar = (
+    <div
+      data-no-print="true"
+      className="flex flex-wrap items-center gap-1 bg-card/92 backdrop-blur-md border border-border rounded-xl p-1 shadow-[var(--shadow-popover)]"
+    >
+      {/* Quick Search */}
+      <div className="relative w-36 md:w-44">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/80"
+          size={12}
         />
-
-        {/* 3-Way Layout Mode Switcher */}
-        <div
-          role="tablist"
-          aria-label="画布视图切换"
-          className="flex items-center bg-[hsl(var(--surface-subtle))] rounded-lg p-0.5 gap-0.5"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={layoutMode === 'indented_tree'}
-            onClick={() => setLayoutMode('indented_tree')}
-            className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-              layoutMode === 'indented_tree'
-                ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
-                : 'text-muted-foreground font-medium hover:text-foreground'
-            }`}
-            title="默认树形视图：按世系缩进展开，支持折叠枝干与行内快捷添丁"
-          >
-            <GitFork
-              size={12}
-              className={
-                layoutMode === 'indented_tree' ? 'text-primary' : undefined
-              }
-            />
-            <span>树形视图</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={layoutMode === 'book_ltr'}
-            onClick={() => setLayoutMode('book_ltr')}
-            className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-              layoutMode === 'book_ltr'
-                ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
-                : 'text-muted-foreground font-medium hover:text-foreground'
-            }`}
-            title="现代书籍阅读习惯：欧式世系图（从左至右 横向排版）"
-          >
-            <BookOpen
-              size={12}
-              className={layoutMode === 'book_ltr' ? 'text-primary' : undefined}
-            />
-            <span>欧式图谱</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={layoutMode === 'card_vertical'}
-            onClick={() => setLayoutMode('card_vertical')}
-            className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-              layoutMode === 'card_vertical'
-                ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
-                : 'text-muted-foreground font-medium hover:text-foreground'
-            }`}
-            title="现代卡片式（纵向层级树）"
-          >
-            <LayoutGrid
-              size={12}
-              className={
-                layoutMode === 'card_vertical' ? 'text-primary' : undefined
-              }
-            />
-            <span>卡片树</span>
-          </button>
-        </div>
-
-        <span
-          aria-hidden="true"
-          className="hidden sm:block h-4 w-px bg-border/80 mx-0.5 shrink-0"
+        <input
+          type="text"
+          placeholder="搜姓名或字号定位..."
+          value={searchQuery}
+          onChange={(e) => handleSearchLocate(e.target.value)}
+          className="w-full h-7 pl-7 pr-6 py-1 bg-[hsl(var(--surface-subtle))]/70 border border-transparent rounded-lg text-xs text-foreground placeholder:text-placeholder placeholder:font-normal outline-none focus:bg-card focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-colors"
         />
-
-        {/* Contextual Tools & Generation Filter */}
-        <div className="flex items-center gap-1">
-          {layoutMode === 'card_vertical' && (
-            <button
-              type="button"
-              onClick={() => setElkNonce((n) => n + 1)}
-              disabled={isLayouting}
-              className="h-7 px-2.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 flex items-center gap-1 font-medium whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <Sparkles
-                size={12}
-                className={isLayouting ? 'animate-spin' : ''}
-              />
-              <span>{isLayouting ? '排版中' : 'ELK排版'}</span>
-            </button>
-          )}
-
-          {/* Generation Range Filter */}
-          <div className="relative flex items-center h-7 rounded-lg px-2 hover:bg-[hsl(var(--surface-hover))]/65 transition-colors">
-            <Filter size={12} className="text-primary shrink-0 mr-1.5" />
-            <select
-              aria-label="世代范围筛选"
-              value={activeGenFilter}
-              onChange={(e) => setActiveGenFilter(Number(e.target.value))}
-              className="appearance-none bg-transparent border-none text-foreground font-medium outline-none text-xs cursor-pointer tabular-nums pr-4"
-            >
-              <option value={99} className="bg-card text-foreground">
-                全部世代 ({maxGen}世)
-              </option>
-              {Array.from({ length: maxGen }, (_, i) => i + 1).map((g) => (
-                <option key={g} value={g} className="bg-card text-foreground">
-                  前 {g} 世
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={12}
-              aria-hidden="true"
-              className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-          </div>
-
-          <span
-            aria-hidden="true"
-            className="h-4 w-px bg-border/70 mx-0.5 shrink-0"
-          />
-
-          {/* Fit / Reset View */}
+        {searchQuery && (
           <button
             type="button"
-            onClick={() => setResetNonce((n) => n + 1)}
-            className="h-7 px-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer"
-            title="居中重置视图"
+            onClick={() => setSearchQuery('')}
+            aria-label="清空搜索"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] cursor-pointer"
           >
-            <RotateCcw size={12} />
-            <span>居中</span>
+            <X size={11} />
           </button>
-
-          {/* Print / Export */}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors flex items-center justify-center cursor-pointer shrink-0"
-            title="打印世系图"
-            aria-label="打印世系图"
-          >
-            <Printer size={13} />
-          </button>
-
-          {/* Toggle MiniMap (ReactFlow modes only) */}
-          {layoutMode !== 'indented_tree' && (
-            <button
-              type="button"
-              onClick={() => setShowMiniMap(!showMiniMap)}
-              className={`h-7 w-7 rounded-lg transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
-                showMiniMap
-                  ? 'bg-[hsl(var(--surface-active))] text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-              }`}
-              title="切换小地图"
-              aria-label="切换小地图"
-            >
-              <MapIcon size={13} />
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
+      <span
+        aria-hidden="true"
+        className="hidden sm:block h-4 w-px bg-border/80 mx-0.5 shrink-0"
+      />
+
+      {/* 3-Way Layout Mode Switcher */}
+      <div
+        role="tablist"
+        aria-label="画布视图切换"
+        className="flex items-center bg-[hsl(var(--surface-subtle))] rounded-lg p-0.5 gap-0.5"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={layoutMode === 'indented_tree'}
+          onClick={() => setLayoutMode('indented_tree')}
+          className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            layoutMode === 'indented_tree'
+              ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
+              : 'text-muted-foreground font-medium hover:text-foreground'
+          }`}
+          title="默认树形视图：按世系缩进展开，支持折叠枝干与行内快捷添丁"
+        >
+          <GitFork
+            size={12}
+            className={
+              layoutMode === 'indented_tree' ? 'text-primary' : undefined
+            }
+          />
+          <span>树形视图</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={layoutMode === 'book_ltr'}
+          onClick={() => setLayoutMode('book_ltr')}
+          className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            layoutMode === 'book_ltr'
+              ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
+              : 'text-muted-foreground font-medium hover:text-foreground'
+          }`}
+          title="现代书籍阅读习惯：欧式世系图（从左至右 横向排版）"
+        >
+          <BookOpen
+            size={12}
+            className={layoutMode === 'book_ltr' ? 'text-primary' : undefined}
+          />
+          <span>欧式图谱</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={layoutMode === 'card_vertical'}
+          onClick={() => setLayoutMode('card_vertical')}
+          className={`h-6 px-2.5 rounded-md text-xs transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            layoutMode === 'card_vertical'
+              ? 'bg-card text-foreground font-semibold shadow-2xs border border-border/60'
+              : 'text-muted-foreground font-medium hover:text-foreground'
+          }`}
+          title="现代卡片式（纵向层级树）"
+        >
+          <LayoutGrid
+            size={12}
+            className={
+              layoutMode === 'card_vertical' ? 'text-primary' : undefined
+            }
+          />
+          <span>卡片树</span>
+        </button>
+      </div>
+
+      <span
+        aria-hidden="true"
+        className="hidden sm:block h-4 w-px bg-border/80 mx-0.5 shrink-0"
+      />
+
+      {/* Contextual Tools & Generation Filter */}
+      <div className="flex items-center gap-1">
+        {layoutMode === 'card_vertical' && (
+          <button
+            type="button"
+            onClick={() => setElkNonce((n) => n + 1)}
+            disabled={isLayouting}
+            className="h-7 px-2.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 flex items-center gap-1 font-medium whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <Sparkles
+              size={12}
+              className={isLayouting ? 'animate-spin' : ''}
+            />
+            <span>{isLayouting ? '排版中' : 'ELK排版'}</span>
+          </button>
+        )}
+
+        {/* Generation Range Filter */}
+        <div className="relative flex items-center h-7 rounded-lg px-2 hover:bg-[hsl(var(--surface-hover))]/65 transition-colors">
+          <Filter size={12} className="text-primary shrink-0 mr-1.5" />
+          <select
+            aria-label="世代范围筛选"
+            value={activeGenFilter}
+            onChange={(e) => setActiveGenFilter(Number(e.target.value))}
+            className="appearance-none bg-transparent border-none text-foreground font-medium outline-none text-xs cursor-pointer tabular-nums pr-4"
+          >
+            <option value={99} className="bg-card text-foreground">
+              全部世代 ({maxGen}世)
+            </option>
+            {Array.from({ length: maxGen }, (_, i) => i + 1).map((g) => (
+              <option key={g} value={g} className="bg-card text-foreground">
+                前 {g} 世
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={12}
+            aria-hidden="true"
+            className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+        </div>
+
+        <span
+          aria-hidden="true"
+          className="h-4 w-px bg-border/70 mx-0.5 shrink-0"
+        />
+
+        {/* Fit / Reset View */}
+        <button
+          type="button"
+          onClick={() => setResetNonce((n) => n + 1)}
+          className="h-7 px-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer"
+          title="居中重置视图"
+        >
+          <RotateCcw size={12} />
+          <span>居中</span>
+        </button>
+
+        {/* Print / Export */}
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors flex items-center justify-center cursor-pointer shrink-0"
+          title="打印世系图"
+          aria-label="打印世系图"
+        >
+          <Printer size={13} />
+        </button>
+
+        {/* Toggle MiniMap (ReactFlow modes only) */}
+        {layoutMode !== 'indented_tree' && (
+          <button
+            type="button"
+            onClick={() => setShowMiniMap(!showMiniMap)}
+            className={`h-7 w-7 rounded-lg transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
+              showMiniMap
+                ? 'bg-[hsl(var(--surface-active))] text-primary'
+                : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
+            }`}
+            title="切换小地图"
+            aria-label="切换小地图"
+          >
+            <MapIcon size={13} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full h-full relative overflow-hidden bg-background text-foreground select-none">
       {/* Active Canvas Surface */}
       {layoutMode === 'indented_tree' ? (
         <IndentedTreeCanvas
@@ -798,6 +819,7 @@ export const GenealogyCanvas: React.FC<GenealogyCanvasProps> = ({
           onAddSpouse={onAddSpouse}
           onCommitInlineName={onCommitInlineName}
           onCancelInlineName={onCancelInlineName}
+          toolbar={floatingToolbar}
         />
       ) : (
         <ReactFlowProvider>
@@ -821,6 +843,7 @@ export const GenealogyCanvas: React.FC<GenealogyCanvasProps> = ({
             onUpdatePersonFather={onUpdatePersonFather}
             onCommitInlineName={onCommitInlineName}
             onCancelInlineName={onCancelInlineName}
+            toolbar={floatingToolbar}
           />
         </ReactFlowProvider>
       )}

@@ -35,6 +35,7 @@
         "react-router-dom": "6.22.0",
         "tailwind-merge": "^2.2.0",
         "tailwindcss": "^4.3.3",
+        "tyme4ts": "^1.5.6",
         "zustand": "5.0.2",
       },
       "devDependencies": {
@@ -555,6 +556,8 @@
     "tippy.js": ["tippy.js@6.3.7", "", { "dependencies": { "@popperjs/core": "^2.9.0" } }, "sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ=="],
 
     "tslib": ["tslib@2.9.1", "", {}, "sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA=="],
+
+    "tyme4ts": ["tyme4ts@1.5.6", "", {}, "sha512-duqoMhKeqTta5/e62fz6Vov1mulM6QLhbpkTvsUBF185zjfyxlmoxLaCrp94p66Q7w72yqE3RSO/7GnCY3pyLA=="],
 
     "typescript": ["typescript@5.8.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ=="],
 

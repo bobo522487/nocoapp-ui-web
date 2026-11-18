@@ -1,3 +1,5 @@
+import { formatGenealogyDate, getPersonDateDisplay } from '../../date-input';
+import { formatGenealogyPlace } from '../../place-input';
 import {
   BiographyPreviewPreferences,
   PersonRecord,
@@ -243,8 +245,14 @@ export function hydratePersonDraft(
           : '生子'),
     spouses: (person.spouses || []).map((s) => ({ ...s })),
     birth: {
-      date: person.birth?.date ?? person.birthDate ?? '',
-      place: person.birth?.place ?? '',
+      date: person.birth?.structuredDate
+        ? formatGenealogyDate(person.birth.structuredDate)
+        : (person.birth?.date ?? person.birthDate ?? ''),
+      structuredDate: person.birth?.structuredDate ?? undefined,
+      place: person.birth?.structuredPlace
+        ? formatGenealogyPlace(person.birth.structuredPlace)
+        : (person.birth?.place ?? ''),
+      structuredPlace: person.birth?.structuredPlace ?? undefined,
       summary: person.birth?.summary ?? '',
     },
     career: {
@@ -259,8 +267,14 @@ export function hydratePersonDraft(
       lifeSummary: career.lifeSummary ?? '',
     },
     death: {
-      date: person.death?.date ?? person.deathDate ?? '',
-      burialPlace: person.death?.burialPlace ?? person.burialPlace ?? '',
+      date: person.death?.structuredDate
+        ? formatGenealogyDate(person.death.structuredDate)
+        : (person.death?.date ?? person.deathDate ?? ''),
+      structuredDate: person.death?.structuredDate ?? undefined,
+      burialPlace: person.death?.structuredPlace
+        ? formatGenealogyPlace(person.death.structuredPlace)
+        : (person.death?.burialPlace ?? person.burialPlace ?? ''),
+      structuredPlace: person.death?.structuredPlace ?? undefined,
       summary: person.death?.summary ?? '',
       age: person.death?.age ?? person.age,
     },
@@ -291,9 +305,22 @@ export function normalizePersonForSave(
     ? allPersons.find((p) => p.id === draft.fatherId)
     : null;
 
-  const birthDate = draft.birth?.date?.trim() || undefined;
-  const deathDate = draft.death?.date?.trim() || undefined;
-  const burialPlace = draft.death?.burialPlace?.trim() || undefined;
+  const birthStructured = draft.birth?.structuredDate ?? undefined;
+  const deathStructured = draft.death?.structuredDate ?? undefined;
+  const birthDate = birthStructured
+    ? formatGenealogyDate(birthStructured).trim() || undefined
+    : draft.birth?.date?.trim() || undefined;
+  const deathDate = deathStructured
+    ? formatGenealogyDate(deathStructured).trim() || undefined
+    : draft.death?.date?.trim() || undefined;
+  const birthStructuredPlace = draft.birth?.structuredPlace ?? undefined;
+  const deathStructuredPlace = draft.death?.structuredPlace ?? undefined;
+  const birthPlace = birthStructuredPlace
+    ? formatGenealogyPlace(birthStructuredPlace).trim() || undefined
+    : draft.birth?.place?.trim() || undefined;
+  const burialPlace = deathStructuredPlace
+    ? formatGenealogyPlace(deathStructuredPlace).trim() || undefined
+    : draft.death?.burialPlace?.trim() || undefined;
   const age = draft.death?.age || undefined;
   const officialTitle =
     draft.career?.title?.trim() ||
@@ -326,6 +353,24 @@ export function normalizePersonForSave(
     biography: draft.biography?.trim() || undefined,
     notes: draft.notes?.trim() || undefined,
     spouses: cleanedSpouses,
+    birth: draft.birth
+      ? {
+          ...draft.birth,
+          date: birthDate || '',
+          structuredDate: birthStructured,
+          place: birthPlace || '',
+          structuredPlace: birthStructuredPlace,
+        }
+      : undefined,
+    death: draft.death
+      ? {
+          ...draft.death,
+          date: deathDate || '',
+          structuredDate: deathStructured,
+          burialPlace: burialPlace || '',
+          structuredPlace: deathStructuredPlace,
+        }
+      : undefined,
     birthDate,
     deathDate,
     burialPlace,
@@ -412,8 +457,9 @@ export function buildBiographyPreviewData(
       : '';
 
   const birthParts: string[] = [];
-  if (prefs.showBirth && (draft.birth?.date || draft.birthDate)) {
-    birthParts.push(`生于 ${draft.birth?.date || draft.birthDate}`);
+  const birthDisplay = getPersonDateDisplay(draft, 'birth');
+  if (prefs.showBirth && birthDisplay) {
+    birthParts.push(`生于 ${birthDisplay}`);
   }
   if (prefs.showBirthDetail) {
     if (draft.birth?.place) {
@@ -446,8 +492,9 @@ export function buildBiographyPreviewData(
 
   const deathParts: string[] = [];
   if (draft.status === 'deceased') {
-    if (prefs.showDeath && (draft.death?.date || draft.deathDate)) {
-      deathParts.push(`卒于 ${draft.death?.date || draft.deathDate}`);
+    const deathDisplay = getPersonDateDisplay(draft, 'death');
+    if (prefs.showDeath && deathDisplay) {
+      deathParts.push(`卒于 ${deathDisplay}`);
     }
     const ageVal = draft.death?.age ?? draft.age;
     if (prefs.showDeath && ageVal) {

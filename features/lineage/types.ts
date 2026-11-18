@@ -1,3 +1,6 @@
+import type { GenealogyDate } from '../date-input/date.types';
+import type { GenealogyPlace } from '../place-input/place.types';
+
 export type RelationKind =
   | '生子'
   | '抚子'
@@ -34,8 +37,10 @@ export interface SpouseInfo {
 }
 
 export interface PersonBirthInfo {
-  date?: string; // 出生日期
+  date?: string; // 兼容投影展示字符串（由 structuredDate 自动生成或历史旧文本）
+  structuredDate?: GenealogyDate | null; // 唯一权威结构化出生日期
   place?: string; // 出生地
+  structuredPlace?: GenealogyPlace | null; // 唯一权威结构化出生地点
   summary?: string; // 出生描述
 }
 
@@ -52,8 +57,10 @@ export interface PersonCareerInfo {
 }
 
 export interface PersonDeathInfo {
-  date?: string; // 去世时间
+  date?: string; // 兼容投影展示字符串（由 structuredDate 自动生成或历史旧文本）
+  structuredDate?: GenealogyDate | null; // 唯一权威结构化去世日期
   burialPlace?: string; // 卒葬地+墓址坐向
+  structuredPlace?: GenealogyPlace | null; // 唯一权威结构化卒葬地点
   summary?: string; // 卒葬描述
   age?: number; // 享寿
 }

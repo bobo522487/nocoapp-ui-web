@@ -194,16 +194,20 @@ const WorkspaceSettingsPage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-4 md:px-6 py-7 space-y-8">
         <div>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">设置</h1>
+          <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+            设置
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {org.detail?.name ?? '当前组织'}
           </p>
         </div>
 
         {/* 组织设置分区 */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
           <div>
-            <h2 className="text-[14px] font-semibold text-foreground">组织设置</h2>
+            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+              组织设置
+            </h2>
             <p className="text-[12px] text-muted-foreground mt-0.5">
               {canManageOrg
                 ? '仅管理员可修改组织名称或归档组织'
@@ -261,9 +265,11 @@ const WorkspaceSettingsPage: React.FC = () => {
         </section>
 
         {/* 账号设置分区 */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
           <div>
-            <h2 className="text-[14px] font-semibold text-foreground">账号设置</h2>
+            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+              账号设置
+            </h2>
             <p className="text-[12px] text-muted-foreground mt-0.5">
               仅对当前账号生效
             </p>

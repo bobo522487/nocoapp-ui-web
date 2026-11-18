@@ -89,8 +89,9 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   );
 
   const q = query.trim().toLowerCase();
-  const matchedProjects = workspaceProjects.filter((p) =>
-    p.name.toLowerCase().includes(q)
+  const matchedProjects = React.useMemo(
+    () => workspaceProjects.filter((p) => p.name.toLowerCase().includes(q)),
+    [workspaceProjects, q]
   );
 
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
@@ -113,50 +114,133 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       }
     };
     walk(items);
-    return results.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        (a.volume && a.volume.toLowerCase().includes(q))
-    );
+    return results
+      .filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          (a.volume && a.volume.toLowerCase().includes(q))
+      )
+      .slice(0, 8);
   }, [articleTreesByProject, activeProjectId, q]);
 
-  const workbenchModules = [
-    {
-      id: 'lineage',
-      name: '世系',
-      desc: '世系图谱与房支结构',
-      path: `/projects/${activeProjectId}/lineage`,
-    },
-    {
-      id: 'articles',
-      name: '谱文',
-      desc: '谱序、凡例与人物传记',
-      path: `/projects/${activeProjectId}/articles`,
-    },
-    {
-      id: 'books',
-      name: '谱书',
-      desc: '分卷目录与线装成书',
-      path: `/projects/${activeProjectId}/books`,
-    },
-  ].filter(
-    (m) =>
-      m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q)
+  const workbenchModules = React.useMemo(
+    () =>
+      [
+        {
+          id: 'lineage',
+          name: '世系',
+          desc: '世系图谱与房支结构',
+          path: `/projects/${activeProjectId}/lineage`,
+        },
+        {
+          id: 'articles',
+          name: '谱文',
+          desc: '谱序、凡例与人物传记',
+          path: `/projects/${activeProjectId}/articles`,
+        },
+        {
+          id: 'books',
+          name: '谱书',
+          desc: '分卷目录与线装成书',
+          path: `/projects/${activeProjectId}/books`,
+        },
+      ].filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q)
+      ),
+    [activeProjectId, q]
   );
 
+  type ActionItem = {
+    key: string;
+    run: () => void;
+  };
+
+  const actionItems = React.useMemo<ActionItem[]>(() => {
+    const list: ActionItem[] = [];
+    matchedProjects.forEach((proj) => {
+      list.push({
+        key: `proj:${proj.id}`,
+        run: () => {
+          onClose();
+          setActiveProjectId(proj.id);
+          navigate(`/projects/${proj.id}`);
+        },
+      });
+    });
+    workbenchModules.forEach((mod) => {
+      list.push({
+        key: `mod:${mod.id}`,
+        run: () => {
+          onClose();
+          navigate(mod.path);
+        },
+      });
+    });
+    flattenedArticles.forEach((art) => {
+      list.push({
+        key: `art:${art.id}`,
+        run: () => {
+          onClose();
+          selectArticleNode(activeProjectId, art.id);
+          navigate(`/projects/${activeProjectId}/articles`);
+        },
+      });
+    });
+    return list;
+  }, [
+    matchedProjects,
+    workbenchModules,
+    flattenedArticles,
+    activeProjectId,
+    navigate,
+    onClose,
+    selectArticleNode,
+    setActiveProjectId,
+  ]);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [q]);
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (actionItems.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev + 1) % actionItems.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev - 1 + actionItems.length) % actionItems.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const target = actionItems[activeIndex];
+      if (target) target.run();
+    }
+  };
+
+  const indexOfKey = (key: string) => actionItems.findIndex((i) => i.key === key);
+
   return createPortal(
-    <div className="fixed inset-0 z-[95] flex items-start justify-center pt-[14vh] px-4">
+    <div
+      className="fixed inset-0 z-[95] flex items-start justify-center pt-[14vh] px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="全局快速搜索"
+    >
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/45 backdrop-blur-xs"
         onClick={onClose}
       />
       <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center px-3.5 h-12 border-b border-border gap-2.5">
+        <div className="flex items-center px-4 h-12 border-b border-border gap-2.5 bg-card">
           <SearchIcon size={16} className="text-muted-foreground shrink-0" />
           <input
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder="搜索家族、世系、谱文或谱书..."
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
             autoFocus
@@ -164,7 +248,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted hover:text-foreground font-mono"
+            className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--surface-subtle))] hover:text-foreground font-mono cursor-pointer"
           >
             ESC
           </button>
@@ -173,106 +257,145 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         <div className="max-h-80 overflow-y-auto p-2 space-y-3">
           {matchedProjects.length > 0 && (
             <div>
-              <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
+              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
                 家族
               </div>
               <div className="space-y-0.5">
-                {matchedProjects.map((proj) => (
-                  <button
-                    key={proj.id}
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      setActiveProjectId(proj.id);
-                      navigate(`/projects/${proj.id}`);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-muted text-left transition-colors"
-                  >
-                    <ProjectColoredIcon
-                      colorTheme={proj.colorTheme}
-                      className="w-4 h-4 shrink-0"
-                    />
-                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">
-                      {proj.name}
-                    </span>
-                    <span className="text-[12px] text-muted-foreground">家族</span>
-                  </button>
-                ))}
+                {matchedProjects.map((proj) => {
+                  const idx = indexOfKey(`proj:${proj.id}`);
+                  const highlighted = idx === activeIndex;
+                  return (
+                    <button
+                      key={proj.id}
+                      type="button"
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onClick={() => {
+                        onClose();
+                        setActiveProjectId(proj.id);
+                        navigate(`/projects/${proj.id}`);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                        highlighted
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-[hsl(var(--surface-hover))]'
+                      }`}
+                    >
+                      <ProjectColoredIcon
+                        colorTheme={proj.colorTheme}
+                        className="w-4 h-4 shrink-0"
+                      />
+                      <span className="text-[13px] font-medium text-foreground flex-1 truncate">
+                        {proj.name}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground shrink-0">家族</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {workbenchModules.length > 0 && (
             <div>
-              <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
+              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
                 家族工作台模块
               </div>
               <div className="space-y-0.5">
-                {workbenchModules.map((mod) => (
-                  <button
-                    key={mod.id}
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      navigate(mod.path);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-muted text-left transition-colors"
-                  >
-                    <FileText size={14} className="text-muted-foreground shrink-0" />
-                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">
-                      {mod.name}
-                    </span>
-                    <span className="text-[12px] text-muted-foreground truncate">
-                      {mod.desc}
-                    </span>
-                  </button>
-                ))}
+                {workbenchModules.map((mod) => {
+                  const idx = indexOfKey(`mod:${mod.id}`);
+                  const highlighted = idx === activeIndex;
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onClick={() => {
+                        onClose();
+                        navigate(mod.path);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                        highlighted
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-[hsl(var(--surface-hover))]'
+                      }`}
+                    >
+                      <FileText size={14} className="text-muted-foreground shrink-0" />
+                      <span className="text-[13px] font-medium text-foreground flex-1 truncate">
+                        {mod.name}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground truncate">
+                        {mod.desc}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {flattenedArticles.length > 0 && (
             <div>
-              <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground">
+              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
                 谱文篇章
               </div>
               <div className="space-y-0.5">
-                {flattenedArticles.slice(0, 8).map((art) => (
-                  <button
-                    key={art.id}
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      selectArticleNode(activeProjectId, art.id);
-                      navigate(`/projects/${activeProjectId}/articles`);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-muted text-left transition-colors"
-                  >
-                    <ScrollText
-                      size={14}
-                      className="text-primary/80 shrink-0"
-                    />
-                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">
-                      {art.title}
-                    </span>
-                    {art.volume && (
-                      <span className="text-[12px] text-muted-foreground truncate max-w-[140px]">
-                        {art.volume}
+                {flattenedArticles.map((art) => {
+                  const idx = indexOfKey(`art:${art.id}`);
+                  const highlighted = idx === activeIndex;
+                  return (
+                    <button
+                      key={art.id}
+                      type="button"
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onClick={() => {
+                        onClose();
+                        selectArticleNode(activeProjectId, art.id);
+                        navigate(`/projects/${activeProjectId}/articles`);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                        highlighted
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-[hsl(var(--surface-hover))]'
+                      }`}
+                    >
+                      <ScrollText
+                        size={14}
+                        className="text-primary/80 shrink-0"
+                      />
+                      <span className="text-[13px] font-medium text-foreground flex-1 truncate">
+                        {art.title}
                       </span>
-                    )}
-                  </button>
-                ))}
+                      {art.volume && (
+                        <span className="text-[12px] text-muted-foreground truncate max-w-[140px]">
+                          {art.volume}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {matchedProjects.length === 0 &&
-            workbenchModules.length === 0 &&
-            flattenedArticles.length === 0 && (
-              <div className="py-8 text-center text-xs text-muted-foreground">
-                未找到与 “{query}” 匹配的内容
-              </div>
-            )}
+          {actionItems.length === 0 && (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              未找到与 “{query}” 匹配的内容
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-2 border-t border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1">
+              <kbd className="px-1 py-0.2 rounded border border-border bg-card font-mono">↑↓</kbd>
+              选择
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <kbd className="px-1 py-0.2 rounded border border-border bg-card font-mono">Enter</kbd>
+              进入
+            </span>
+          </div>
+          <span className="font-mono tabular-nums">{actionItems.length} 项结果</span>
         </div>
       </div>
     </div>,

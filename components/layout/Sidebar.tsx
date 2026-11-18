@@ -154,18 +154,19 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       <>
         <aside
           style={{ width }}
-          className="flex flex-col bg-background h-full shrink-0 border-r border-border select-none relative z-30"
+          className="flex flex-col bg-[hsl(var(--surface-subtle))] h-full shrink-0 border-r border-border select-none relative z-30"
         >
           {/* Top Workspace Switcher (h-14) */}
           <div
             ref={wsDropdownRef}
-            className="relative h-14 px-2 flex items-center flex-none border-b border-border"
+            className="relative h-14 px-2.5 flex items-center flex-none border-b border-border"
           >
             <button
               type="button"
               onClick={() => setIsWsDropdownOpen((v) => !v)}
               data-testid="nc-ws-sidebar-selector"
-              className="flex flex-1 items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-lg cursor-pointer min-w-0 transition-colors hover:bg-muted/80 text-left"
+              aria-expanded={isWsDropdownOpen}
+              className="flex flex-1 items-center gap-2.5 pl-1.5 pr-2 py-1.5 rounded-lg cursor-pointer min-w-0 transition-colors duration-150 hover:bg-[hsl(var(--surface-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left"
             >
               <WorkspaceLogoIcon className="w-7 h-7" />
               <div className="flex-1 min-w-0">
@@ -180,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             </button>
 
             {isWsDropdownOpen && (
-              <div className="absolute top-13 left-2 right-2 rounded-xl border border-border bg-popover text-popover-foreground shadow-xl z-[70] p-1.5">
+              <div className="absolute top-13 left-2.5 right-2.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[70] p-1.5">
                 <div className="relative mb-1.5">
                   <Search
                     size={13}
@@ -191,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                     value={wsSearch}
                     onChange={(e) => setWsSearch(e.target.value)}
                     placeholder="搜索工作区..."
-                    className="w-full h-8 pl-8 pr-2 text-xs rounded-md border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full h-8 pl-8 pr-2 text-xs rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     autoFocus
                   />
                 </div>
@@ -205,10 +206,10 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                         onClick={() => {
                           void handleSwitchOrganization(ws.id);
                         }}
-                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left text-[13px] transition-colors ${
+                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left text-[13px] transition-colors cursor-pointer ${
                           isSelected
                             ? 'bg-accent text-accent-foreground font-medium'
-                            : 'text-foreground hover:bg-muted'
+                            : 'text-foreground hover:bg-[hsl(var(--surface-hover))]'
                         }`}
                       >
                         <div
@@ -241,9 +242,9 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                       setSwitchError(null);
                       setIsCreateWsOpen(true);
                     }}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] text-foreground hover:bg-muted transition-colors"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium text-primary hover:bg-accent/70 transition-colors cursor-pointer"
                   >
-                    <Plus size={14} className="text-muted-foreground" />
+                    <Plus size={14} />
                     <span>新建组织</span>
                   </button>
                 </div>
@@ -252,11 +253,11 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           </div>
 
           {/* Middle Workspace Navigation */}
-          <div className="flex-1 flex flex-col overflow-hidden pt-2">
-            <div className="px-4 py-1.5 text-[12px] leading-4 font-semibold text-muted-foreground">
+          <div className="flex-1 flex flex-col overflow-hidden pt-3">
+            <div className="px-4 py-1.5 text-[11px] leading-4 font-semibold tracking-wider text-muted-foreground">
               工作区
             </div>
-            <nav className="flex-1 overflow-y-auto px-2 space-y-1">
+            <nav aria-label="工作区主导航" className="flex-1 overflow-y-auto px-2.5 space-y-1">
               {navItems.map((item) => {
                 const isActive = activeView === item.id;
                 return (
@@ -265,22 +266,22 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                     type="button"
                     onClick={() => navigate(item.path)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full h-8 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] leading-5 transition-colors whitespace-nowrap ${
+                    className={`w-full h-9 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] leading-5 transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isActive
-                        ? 'bg-primary/[0.08] dark:bg-primary/15 text-foreground font-semibold'
-                        : 'text-foreground font-medium hover:bg-muted/70'
+                        ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
+                        : 'text-foreground/80 font-medium border border-transparent hover:bg-[hsl(var(--surface-hover))] hover:text-foreground'
                     }`}
                   >
                     <span
-                      className={`flex-none ${
-                        isActive ? 'text-foreground' : 'text-foreground/85'
+                      className={`flex-none transition-colors ${
+                        isActive ? 'text-primary' : 'text-muted-foreground'
                       }`}
                     >
                       {item.icon}
                     </span>
                     <span className="flex-1 text-left truncate">{item.label}</span>
                     {typeof item.count === 'number' && (
-                      <span className="text-[12px] leading-4 tabular-nums font-medium text-muted-foreground mr-1">
+                      <span className="text-[12px] leading-4 font-mono tabular-nums font-medium text-muted-foreground mr-0.5">
                         {item.count}
                       </span>
                     )}

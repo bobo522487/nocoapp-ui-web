@@ -1,4 +1,5 @@
 import { PersonRecord } from '../../types';
+import { getSpouseSortScore } from '../../utils/personHelpers';
 import { GenealogyFlowNode, GenealogyFlowEdge, PersonFlowNode } from '../types';
 
 export interface BookLayoutOptions {
@@ -9,11 +10,14 @@ export interface BookLayoutOptions {
   onToggleCollapse?: (personId: string) => void;
   collapsedNodeIds?: Set<string>;
   selectedPersonId?: string | null;
+  editingPersonId?: string | null;
   clanSurname?: string;
   colWidth?: number;
   rowHeight?: number;
   startX?: number;
   startY?: number;
+  onCommitInlineName?: (personId: string, name: string, openDrawer: boolean) => void;
+  onCancelInlineName?: (personId: string) => void;
 }
 
 const RANK_MAP: Record<string, number> = {
@@ -68,11 +72,14 @@ export function buildBookLtrGenealogyGraph(
     onAddSpouse,
     onDeletePerson,
     selectedPersonId,
+    editingPersonId = null,
     clanSurname = '',
     colWidth = 196,
     rowHeight = 64,
     startX = 60,
     startY = 110,
+    onCommitInlineName,
+    onCancelInlineName,
   } = options;
 
   const childrenMap = new Map<string, PersonRecord[]>();
@@ -113,17 +120,45 @@ export function buildBookLtrGenealogyGraph(
 
   const visiblePersons = persons.filter((p) => !hiddenPersonIds.has(p.id));
   const allVisibleIds = new Set(visiblePersons.map((p) => p.id));
+
+  const spousesByPartnerId = new Map<string, PersonRecord[]>();
+  visiblePersons.forEach((p) => {
+    if (p.spouseOfId && allVisibleIds.has(p.spouseOfId)) {
+      if (!spousesByPartnerId.has(p.spouseOfId)) {
+        spousesByPartnerId.set(p.spouseOfId, []);
+      }
+      spousesByPartnerId.get(p.spouseOfId)!.push(p);
+    }
+  });
+  spousesByPartnerId.forEach((list, partnerId) => {
+    list.sort((a, b) => {
+      const diff = getSpouseSortScore(a) - getSpouseSortScore(b);
+      if (diff !== 0) return diff;
+      const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
+      const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
+      return orderA - orderB;
+    });
+    spousesByPartnerId.set(partnerId, list);
+  });
+
   const rootPersons = visiblePersons.filter(
-    (p) => !p.fatherId || !allVisibleIds.has(p.fatherId)
+    (p) =>
+      (!p.fatherId || !allVisibleIds.has(p.fatherId)) &&
+      !(p.spouseOfId && allVisibleIds.has(p.spouseOfId))
   );
   const roots =
     rootPersons.length > 0
       ? rootPersons
-      : visiblePersons.filter((p) => p.generation === 1);
+      : visiblePersons.filter(
+          (p) =>
+            p.generation === 1 &&
+            !(p.spouseOfId && allVisibleIds.has(p.spouseOfId))
+        );
   roots.sort((a, b) => getPersonRankScore(a) - getPersonRankScore(b));
 
   const positions = new Map<string, { x: number; y: number }>();
   let currentLeafY = startY;
+  const SPOUSE_OFFSET_Y = 44;
 
   function layoutSubtree(person: PersonRecord, assignedY: number): void {
     const gen = person.generation || 1;
@@ -132,24 +167,42 @@ export function buildBookLtrGenealogyGraph(
 
     positions.set(person.id, { x, y: assignedY });
 
+    const attachedSpouses = spousesByPartnerId.get(person.id) || [];
+    attachedSpouses.forEach((spouse, sIdx) => {
+      positions.set(spouse.id, {
+        x,
+        y: assignedY + (sIdx + 1) * SPOUSE_OFFSET_Y,
+      });
+    });
+
+    const slotHeight = Math.max(
+      rowHeight,
+      (attachedSpouses.length + 1) * SPOUSE_OFFSET_Y + 14
+    );
+
     const isCollapsed = collapsedNodeIds.has(person.id);
     const visibleChildren = isCollapsed
       ? []
-      : (childrenMap.get(person.id) || []).filter((c) => !hiddenPersonIds.has(c.id));
+      : (childrenMap.get(person.id) || []).filter(
+          (c) => !hiddenPersonIds.has(c.id)
+        );
 
     if (visibleChildren.length === 0) {
-      currentLeafY = Math.max(currentLeafY, assignedY + rowHeight);
+      currentLeafY = Math.max(currentLeafY, assignedY + slotHeight);
       return;
     }
 
     visibleChildren.forEach((child, index) => {
       if (index === 0) {
         layoutSubtree(child, assignedY);
+        currentLeafY = Math.max(currentLeafY, assignedY + slotHeight);
       } else {
         const childY = currentLeafY;
         layoutSubtree(child, childY);
       }
     });
+
+    currentLeafY = Math.max(currentLeafY, assignedY + slotHeight);
   }
 
   roots.forEach((root) => {
@@ -219,6 +272,7 @@ export function buildBookLtrGenealogyGraph(
         generation: person.generation,
         clanSurname,
         isSelected: person.id === selectedPersonId,
+        isEditingName: person.id === editingPersonId,
         hasChildren: allChildren.length > 0,
         isCollapsed,
         childrenCount: descendantsCount,
@@ -229,9 +283,25 @@ export function buildBookLtrGenealogyGraph(
         onAddSpouse,
         onDelete: onDeletePerson,
         onToggleCollapse,
+        onCommitName: onCommitInlineName,
+        onCancelEditing: onCancelInlineName,
       },
     };
     nodes.push(node);
+
+    const attachedSpouses = spousesByPartnerId.get(person.id) || [];
+    attachedSpouses.forEach((spouse, sIdx) => {
+      const prevNodeId = sIdx === 0 ? person.id : attachedSpouses[sIdx - 1].id;
+      edges.push({
+        id: `e-marriage-${prevNodeId}-${spouse.id}`,
+        source: prevNodeId,
+        sourceHandle: 'spouse-out-ltr',
+        target: spouse.id,
+        targetHandle: 'spouse-in-ltr',
+        type: 'bookGenealogy',
+        data: { relationship: 'marriage' },
+      });
+    });
 
     visibleChildren.forEach((child) => {
       edges.push({

@@ -34,7 +34,6 @@ import { LineageTreeView } from '../../lineage/components/LineageTreeView';
 import { LineageGridView } from '../../lineage/components/LineageGridView';
 import { LineageTableView } from '../../lineage/components/LineageTableView';
 import { PersonDetailPanel } from '../../lineage/components/PersonDetailPanel';
-import { AddPersonDialog } from '../../lineage/components/AddPersonDialog';
 import { LineageEditorModal } from '../components/LineageEditorModal';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
@@ -126,7 +125,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
   const addPersonStore = useLineageStore((s) => s.addPerson);
   const updatePersonStore = useLineageStore((s) => s.updatePerson);
   const deletePersonStore = useLineageStore((s) => s.deletePerson);
-  const reorderSiblingStore = useLineageStore((s) => s.reorderSibling);
 
   const drawerMode = usePreferencesStore((s) => s.lineageDrawerMode || 'narrow');
   const setDrawerMode = usePreferencesStore((s) => s.setLineageDrawerMode);
@@ -137,10 +135,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     (s) => s.updateBiographyPreviewPrefs
   );
 
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [addDialogParent, setAddDialogParent] = useState<PersonRecord | null>(
-    null
-  );
   const [isCreateLineageOpen, setIsCreateLineageOpen] = useState(false);
   const [isCreateArticleOpen, setIsCreateArticleOpen] = useState(false);
 
@@ -162,15 +156,15 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     setWidth: setInspectorWidth,
     startResizing,
   } = useResizable({
-    initialWidth: drawerMode === 'wide' ? 760 : 390,
-    minWidth: drawerMode === 'wide' ? 660 : 320,
-    maxWidth: drawerMode === 'wide' ? 980 : 540,
+    initialWidth: drawerMode === 'wide' ? 780 : 440,
+    minWidth: drawerMode === 'wide' ? 680 : 360,
+    maxWidth: drawerMode === 'wide' ? 980 : 560,
     edge: 'right',
   });
 
   const handleChangeDrawerMode = (mode: 'narrow' | 'wide') => {
     setDrawerMode(mode);
-    setInspectorWidth(mode === 'wide' ? 760 : 390);
+    setInspectorWidth(mode === 'wide' ? 780 : 440);
   };
 
   const activeProject =
@@ -318,13 +312,18 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
   );
 
   const [viewMode, setViewMode] = useState<LineageViewMode>('tree');
+  const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
 
   useEffect(() => {
     setViewMode('tree');
+    setEditingPersonId(null);
   }, [activeProjectId, chartId]);
 
   const handleSelectPerson = (personId: string | null) => {
     if (!chartId) return;
+    if (personId !== editingPersonId) {
+      setEditingPersonId(null);
+    }
     selectPersonStore(activeProjectId, chartId, personId);
   };
 
@@ -345,6 +344,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
 
   const handleDeletePerson = (personId: string) => {
     if (!chartId) return;
+    setEditingPersonId((prev) => (prev === personId ? null : prev));
     deletePersonStore(
       activeProjectId,
       chartId,
@@ -354,107 +354,218 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     );
   };
 
-  const handleReorderSibling = (
-    parentId: string,
-    childId: string,
-    direction: 'up' | 'down'
+  const handleCommitInlineName = (
+    personId: string,
+    rawName: string,
+    openDrawer: boolean
   ) => {
     if (!chartId) return;
-    reorderSiblingStore(
-      activeProjectId,
-      chartId,
-      parentId,
-      childId,
-      direction,
-      chartName,
-      effectiveSurname
-    );
+    const trimmed = rawName.trim();
+    setEditingPersonId((prev) => (prev === personId ? null : prev));
+    if (!trimmed) {
+      handleDeletePerson(personId);
+      return;
+    }
+
+    const target = chartPersons.find((p) => p.id === personId);
+    const personSurname = target?.spouseOfId
+      ? ''
+      : target?.surname?.trim() || effectiveSurname.trim();
+    const resolvedName =
+      personSurname &&
+      trimmed.startsWith(personSurname) &&
+      trimmed.length > personSurname.length
+        ? trimmed.slice(personSurname.length).trim()
+        : trimmed;
+
+    handleUpdatePerson(personId, { name: resolvedName || trimmed });
+    if (openDrawer) {
+      selectPersonStore(activeProjectId, chartId, personId);
+    }
   };
 
-  const handleOpenAddChild = (fatherId: string) => {
-    const father = chartPersons.find((p) => p.id === fatherId) || null;
-    setAddDialogParent(father);
-    setIsAddDialogOpen(true);
+  const handleCancelInlineName = (personId: string) => {
+    setEditingPersonId((prev) => (prev === personId ? null : prev));
+    handleDeletePerson(personId);
+  };
+
+  const handleOpenAddChild = (
+    fatherId: string,
+    gender: 'male' | 'female' = 'male'
+  ) => {
+    if (!chartId) return;
+    const rawParent = chartPersons.find((p) => p.id === fatherId);
+    const resolvedFatherId = rawParent?.spouseOfId || fatherId;
+    const father = chartPersons.find((p) => p.id === resolvedFatherId) || null;
+    const siblingCount = chartPersons.filter(
+      (p) => p.fatherId === resolvedFatherId
+    ).length;
+    const generation = father ? father.generation + 1 : 1;
+    const newId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const newChild: PersonRecord = {
+      id: newId,
+      branchId: chartId,
+      surname: father?.surname || effectiveSurname || undefined,
+      name: gender === 'female' ? '新千金' : '新子嗣',
+      generation,
+      gender,
+      status: 'living',
+      siblingOrder: father ? siblingCount + 1 : undefined,
+      fatherId: father ? father.id : null,
+      fatherName: father?.name,
+      relationType: gender === 'female' ? '生女' : '生子',
+      spouses: [],
+      biographyPage: 20 + (generation - 1) * 3,
+      biographyOrder: chartPersons.length + 1,
+    };
+
+    const inlineMode = viewMode === 'tree';
+    addPersonStore(
+      activeProjectId,
+      chartId,
+      newChild,
+      chartName,
+      effectiveSurname,
+      { select: !inlineMode }
+    );
+    if (inlineMode) {
+      setEditingPersonId(newId);
+    }
+  };
+
+  const handleOpenAddSibling = (
+    refPersonId: string,
+    gender: 'male' | 'female' = 'male'
+  ) => {
+    if (!chartId) return;
+    const rawTarget = chartPersons.find((p) => p.id === refPersonId);
+    if (!rawTarget) return;
+    const resolvedRefId = rawTarget.spouseOfId || rawTarget.id;
+    const refPerson =
+      chartPersons.find((p) => p.id === resolvedRefId) || rawTarget;
+    const father = refPerson.fatherId
+      ? chartPersons.find((p) => p.id === refPerson.fatherId) || null
+      : null;
+    const siblingCount = refPerson.fatherId
+      ? chartPersons.filter((p) => p.fatherId === refPerson.fatherId).length
+      : chartPersons.filter(
+          (p) => !p.fatherId && !p.spouseOfId && p.generation === refPerson.generation
+        ).length;
+    const newId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const newSibling: PersonRecord = {
+      id: newId,
+      branchId: chartId,
+      surname: refPerson.surname || father?.surname || effectiveSurname || undefined,
+      name: gender === 'female' ? '新姐妹' : '新兄弟',
+      generation: refPerson.generation || 1,
+      gender,
+      status: 'living',
+      siblingOrder: siblingCount + 1,
+      fatherId: refPerson.fatherId ?? null,
+      fatherName: father?.name || refPerson.fatherName,
+      relationType: gender === 'female' ? '生女' : '生子',
+      spouses: [],
+      biographyPage: 20 + ((refPerson.generation || 1) - 1) * 3,
+      biographyOrder: chartPersons.length + 1,
+    };
+
+    const inlineMode = viewMode === 'tree';
+    addPersonStore(
+      activeProjectId,
+      chartId,
+      newSibling,
+      chartName,
+      effectiveSurname,
+      { select: !inlineMode }
+    );
+    if (inlineMode) {
+      setEditingPersonId(newId);
+    }
   };
 
   const handleOpenAddSpouse = (personId: string) => {
-    handleSelectPerson(personId);
-    const person = chartPersons.find((p) => p.id === personId);
-    if (person) {
-      const currentSpouses = person.spouses || [];
-      handleUpdatePerson(personId, {
-        spouses: [...currentSpouses, { name: '妣某氏', clanOrigin: '系出待考' }],
-      });
+    if (!chartId) return;
+    const rawTarget = chartPersons.find((p) => p.id === personId);
+    if (!rawTarget) return;
+    const partnerId = rawTarget.spouseOfId || rawTarget.id;
+    const partner = chartPersons.find((p) => p.id === partnerId) || rawTarget;
+
+    const existingSpouseCount = Math.max(
+      partner.spouses?.length || 0,
+      chartPersons.filter((p) => p.spouseOfId === partner.id).length
+    );
+    const spouseRankLabels = ['原配', '继配', '三配', '四配'];
+    const relationLabel =
+      spouseRankLabels[existingSpouseCount] || `第${existingSpouseCount + 1}配`;
+    const spouseGender: 'male' | 'female' =
+      partner.gender === 'male' ? 'female' : 'male';
+    const newId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const newSpouse: PersonRecord = {
+      id: newId,
+      branchId: chartId,
+      name: '新配偶',
+      generation: partner.generation,
+      gender: spouseGender,
+      status: partner.status || 'living',
+      siblingOrder: existingSpouseCount + 1,
+      fatherId: null,
+      spouseOfId: partner.id,
+      relationType: spouseGender === 'male' ? '丈夫' : '妻子',
+      spouseRelationLabel: relationLabel,
+      spouses: [],
+      biographyOrder: chartPersons.length + 1,
+    };
+
+    const inlineMode = viewMode === 'tree';
+    addPersonStore(
+      activeProjectId,
+      chartId,
+      newSpouse,
+      chartName,
+      effectiveSurname,
+      { select: !inlineMode }
+    );
+    if (inlineMode) {
+      setEditingPersonId(newId);
     }
   };
 
   const handleAddPersonDirectly = (initialData: Partial<PersonRecord>) => {
     if (!chartId) return;
-    const newId = `person-${Date.now()}`;
+    const newId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const newPerson: PersonRecord = {
       id: newId,
+      surname: effectiveSurname || undefined,
       name: initialData.name || '新录族人',
       generation: initialData.generation || 1,
       gender: initialData.gender || 'male',
-      rank: initialData.rank || (initialData.generation === 1 ? '始祖' : '子'),
+      rank: initialData.rank,
       status: initialData.status || 'living',
       fatherId: initialData.fatherId ?? null,
       fatherName: initialData.fatherName,
+      relationType:
+        initialData.relationType ??
+        (initialData.gender === 'female' ? '生女' : '生子'),
       branchId: chartId,
       spouses: initialData.spouses || [],
       biographyPage: 20 + ((initialData.generation || 1) - 1) * 3,
       biographyOrder: chartPersons.length + 1,
     };
+    const inlineMode = viewMode === 'tree';
     addPersonStore(
       activeProjectId,
       chartId,
       newPerson,
       chartName,
-      effectiveSurname
+      effectiveSurname,
+      { select: !inlineMode }
     );
-  };
-
-  const handleAddPersonSubmit = (personData: Partial<PersonRecord>) => {
-    if (!chartId) return;
-    const newId = `person-${Date.now()}`;
-    const siblingCount = personData.fatherId
-      ? chartPersons.filter((p) => p.fatherId === personData.fatherId).length
-      : 0;
-    const newPerson: PersonRecord = {
-      id: newId,
-      name: personData.name || '新录族人',
-      courtesyName: personData.courtesyName,
-      generation: personData.generation || 1,
-      generationWord: personData.generationWord,
-      rank: personData.rank,
-      siblingOrder: personData.fatherId ? siblingCount + 1 : undefined,
-      gender: personData.gender || 'male',
-      status: personData.status || 'deceased',
-      fatherId: personData.fatherId ?? null,
-      fatherName: personData.fatherName,
-      spouses: personData.spouses || [],
-      birthDate: personData.birthDate,
-      officialTitle: personData.officialTitle,
-      burialPlace: personData.burialPlace,
-      biography: personData.biography,
-      birth: personData.birthDate ? { date: personData.birthDate } : undefined,
-      career: personData.officialTitle
-        ? { title: personData.officialTitle }
-        : undefined,
-      death: personData.burialPlace
-        ? { burialPlace: personData.burialPlace }
-        : undefined,
-      branchId: chartId,
-      biographyPage: 20 + ((personData.generation || 1) - 1) * 3,
-      biographyOrder: chartPersons.length + 1,
-    };
-    addPersonStore(
-      activeProjectId,
-      chartId,
-      newPerson,
-      chartName,
-      effectiveSurname
-    );
+    if (inlineMode) {
+      setEditingPersonId(newId);
+    }
   };
 
   const handleUpdatePersonFather = (
@@ -475,22 +586,26 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
   // Interactive Genealogy Canvas Workspace when viewing a lineage chart
   if (section === 'lineage' && selectedLineageNode?.type !== 'folder') {
     return (
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col min-h-0 h-full min-w-0 overflow-hidden bg-background">
         {/* Main Content & Right Resizable Inspector */}
-        <div className="flex-1 flex overflow-hidden relative">
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-muted/10">
+        <div className="flex-1 flex min-h-0 overflow-hidden relative">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative bg-muted/10">
             {viewMode === 'tree' && (
               <LineageTreeView
                 persons={chartPersons}
                 selectedPersonId={selectedPerson?.id ?? null}
+                editingPersonId={editingPersonId}
                 branchTitle={chartName}
                 clanSurname={effectiveSurname}
                 onSelectPerson={handleSelectPerson}
                 onAddChild={handleOpenAddChild}
+                onAddSibling={handleOpenAddSibling}
                 onAddSpouse={handleOpenAddSpouse}
                 onDeletePerson={handleDeletePerson}
                 onAddPersonDirectly={handleAddPersonDirectly}
                 onUpdatePersonFather={handleUpdatePersonFather}
+                onCommitInlineName={handleCommitInlineName}
+                onCancelInlineName={handleCancelInlineName}
               />
             )}
             {viewMode === 'grid' && (
@@ -508,10 +623,14 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
                 selectedPersonId={selectedPerson?.id ?? null}
                 clanSurname={effectiveSurname}
                 onSelectPerson={handleSelectPerson}
-                onAddPerson={() => {
-                  setAddDialogParent(null);
-                  setIsAddDialogOpen(true);
-                }}
+                onAddPerson={() =>
+                  handleAddPersonDirectly({
+                    name: '新录族人',
+                    generation: 1,
+                    gender: 'male',
+                    status: 'living',
+                  })
+                }
                 onDeletePerson={handleDeletePerson}
               />
             )}
@@ -537,25 +656,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
                 onUpdatePerson={handleUpdatePerson}
                 onDeletePerson={handleDeletePerson}
                 onAddChild={handleOpenAddChild}
-                onSelectPerson={handleSelectPerson}
-                onReorderSibling={handleReorderSibling}
+                onAddSpouse={handleOpenAddSpouse}
                 width={inspectorWidth}
                 onClose={() => handleSelectPerson(null)}
               />
             </>
           )}
         </div>
-
-        {/* Add Person Modal */}
-        <AddPersonDialog
-          isOpen={isAddDialogOpen}
-          onClose={() => setIsAddDialogOpen(false)}
-          onAdd={handleAddPersonSubmit}
-          parentPerson={addDialogParent}
-          existingPersons={chartPersons}
-          branchId={chartId}
-          clanSurname={effectiveSurname}
-        />
       </div>
     );
   }

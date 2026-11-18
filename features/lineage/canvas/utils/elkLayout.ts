@@ -14,19 +14,20 @@ export async function layoutWithElk(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
-      'elk.spacing.nodeNode': '48',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '90',
+      'elk.spacing.nodeNode': '26',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '46',
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.edgeRouting': 'ORTHOGONAL',
     },
     children: nodes.map((node) => {
-      const isPerson = node.type === 'person';
-      const width = isPerson ? 220 : 24;
-      const height = isPerson ? 120 : 24;
-      const generation = isPerson
-        ? (node.data as { person?: { generation?: number } }).person?.generation
-        : (node.data as { generation?: number })?.generation;
+      const isCard = node.type === 'person' || node.type === 'quickAdd';
+      const width = isCard ? 100 : 8;
+      const height = isCard ? 114 : 8;
+      const generation =
+        node.type === 'person'
+          ? (node.data as { person?: { generation?: number } }).person?.generation
+          : (node.data as { generation?: number })?.generation;
 
       return {
         id: node.id,

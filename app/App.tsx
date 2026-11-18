@@ -184,7 +184,6 @@ const MainLayout: React.FC = () => {
 const App: React.FC = () => {
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
-  const theme = usePreferencesStore((s) => s.theme);
   const bootstrap = useAuthStore((s) => s.bootstrap);
 
   useEffect(() => {
@@ -207,16 +206,12 @@ const App: React.FC = () => {
       } else {
         root.classList.remove('dark');
       }
-
       root.classList.remove(
         'theme-slack',
         'theme-supabase',
         'theme-vscode',
         'theme-vercel'
       );
-      if (theme && theme !== 'vercel') {
-        root.classList.add(`theme-${theme}`);
-      }
     };
 
     applyThemeClass();
@@ -230,7 +225,7 @@ const App: React.FC = () => {
       media.addEventListener('change', handleChange);
       return () => media.removeEventListener('change', handleChange);
     }
-  }, [themeMode, theme, setThemeMode]);
+  }, [themeMode, setThemeMode]);
 
   return (
     <HashRouter>

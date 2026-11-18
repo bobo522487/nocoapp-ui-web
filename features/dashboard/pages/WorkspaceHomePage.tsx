@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useLineageStore } from '../../../store/useLineageStore';
-import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { errorMessage } from '../../../lib/api';
 import {
   createProjectRequest,
@@ -134,7 +133,7 @@ const WorkspaceHomePage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-8">
         <div>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">
+          <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
             你好，{user.name}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -144,23 +143,23 @@ const WorkspaceHomePage: React.FC = () => {
 
         {/* 组织概览 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="text-[12px] font-medium text-muted-foreground">家族</div>
-            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
               {detail?.projectCount ?? 0}
             </div>
           </div>
-          <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="text-[12px] font-medium text-muted-foreground">成员</div>
-            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
               {detail?.memberCount ?? 0}
             </div>
           </div>
-          <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="text-[12px] font-medium text-muted-foreground">
               待处理邀请
             </div>
-            <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
               {detail?.pendingInviteCount ?? 0}
             </div>
           </div>
@@ -174,33 +173,37 @@ const WorkspaceHomePage: React.FC = () => {
               setCreateError(null);
               setCreateOpen(true);
             }}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group cursor-pointer"
+            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-lg bg-accent text-accent-foreground flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border text-primary flex items-center justify-center shrink-0">
               <FolderPlus size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground">新建家族</div>
+              <div className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors">
+                新建家族
+              </div>
               <div className="text-[12px] font-medium text-muted-foreground mt-0.5 tabular-nums">
                 创建一份新的家谱
               </div>
             </div>
             <ArrowRight
               size={15}
-              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform"
+              className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all"
             />
           </button>
 
           <button
             type="button"
             onClick={() => navigate('/members')}
-            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-xs transition-all text-left group"
+            className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border text-primary flex items-center justify-center shrink-0">
               <UserPlus size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-semibold text-foreground">邀请成员</div>
+              <div className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors">
+                邀请成员
+              </div>
               <div className="text-[12px] font-medium text-muted-foreground mt-0.5 tabular-nums">
                 当前 {detail?.memberCount ?? 0} 名成员
                 {detail && detail.pendingInviteCount > 0
@@ -210,7 +213,7 @@ const WorkspaceHomePage: React.FC = () => {
             </div>
             <ArrowRight
               size={15}
-              className="text-muted-foreground group-hover:translate-x-0.5 transition-transform"
+              className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all"
             />
           </button>
         </div>
@@ -218,11 +221,13 @@ const WorkspaceHomePage: React.FC = () => {
         {/* Recent Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-foreground">最近家族</h2>
+            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+              最近家族
+            </h2>
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="text-[13px] font-medium text-primary hover:underline"
+              className="text-[13px] font-medium text-primary hover:underline cursor-pointer whitespace-nowrap shrink-0"
             >
               查看全部
             </button>
@@ -244,29 +249,45 @@ const WorkspaceHomePage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {recentProjects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={() => {
-                    syncProject(project);
-                    navigate(`/projects/${project.id}`);
-                  }}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card hover:border-muted-foreground/40 hover:shadow-xs transition-all cursor-pointer h-16 overflow-hidden"
-                >
-                  <div className="self-stretch w-16 flex items-center justify-center shrink-0 bg-sky-50 dark:bg-sky-500/10">
-                    <ProjectColoredIcon colorTheme="sky" className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 min-w-0 pr-3">
-                    <div className="text-[14px] font-semibold text-foreground truncate">
-                      {project.name}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {recentProjects.map((project) => {
+                const surnameChar = (
+                  project.surname?.trim() ||
+                  project.name.trim().slice(0, 1) ||
+                  '谱'
+                ).slice(0, 1);
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => {
+                      syncProject(project);
+                      setActiveProjectId(project.id);
+                      navigate(`/projects/${project.id}`);
+                    }}
+                    className="group flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 cursor-pointer text-left"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border flex items-center justify-center shrink-0 text-muted-foreground group-hover:text-primary group-hover:border-primary/40 transition-colors">
+                      <span className="font-editorial text-lg font-bold">
+                        {surnameChar}
+                      </span>
                     </div>
-                    <div className="text-[12px] font-medium text-muted-foreground tabular-nums">
-                      家族 · {new Date(project.updatedAt).toLocaleDateString()}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-editorial text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                        {project.name}
+                      </div>
+                      <div className="text-[12px] text-muted-foreground tabular-nums truncate mt-0.5">
+                        {project.originText || '家族'} ·{' '}
+                        {new Date(project.updatedAt).toLocaleDateString()}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                    <ArrowRight
+                      size={14}
+                      className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0"
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

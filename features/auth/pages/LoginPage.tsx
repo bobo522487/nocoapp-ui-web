@@ -20,7 +20,7 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const mockMode = useSyncExternalStore(subscribeMockMode, isMockMode);
+  const mockMode = useSyncExternalStore(subscribeMockMode, isMockMode, isMockMode);
 
   if (status === 'authenticated') {
     // 已登录访问登录页 → 落地首页（FR-001）。

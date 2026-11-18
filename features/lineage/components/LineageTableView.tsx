@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { Select } from '../../../components/ui/select';
 import { formatGivenName } from '../utils/nameUtils';
 
 interface LineageTableViewProps {
@@ -65,7 +66,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
         <div>
-          <h2 className="text-lg font-bold tracking-tight text-foreground font-serif">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
             宗谱族人名录总表
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -82,23 +83,26 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索族人姓名/字号/官阶/葬地..."
-              className="h-8 pl-8 text-xs bg-muted/30"
+              placeholder="例如：搜姓名、字号或葬地..."
+              className="h-8 pl-8 text-xs"
             />
           </div>
 
-          <select
+          <Select
             value={genFilter}
             onChange={(e) => setGenFilter(e.target.value)}
-            className="h-8 px-2 text-xs rounded-md border border-input bg-background text-foreground outline-none focus:ring-1 focus:ring-ring"
+            containerClassName="w-36 shrink-0"
+            className="tabular-nums"
           >
-            <option value="all">全部世次</option>
+            <option value="all" className="bg-card text-foreground">
+              全部世次
+            </option>
             {Array.from({ length: maxGen }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={String(g)}>
+              <option key={g} value={String(g)} className="bg-card text-foreground">
                 第{g}世{g === 1 ? ' (始祖)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
 
           <Button size="sm" className="h-8 text-xs" onClick={onAddPerson}>
             <Plus size={14} className="mr-1" /> 新增族人
@@ -151,19 +155,30 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                       第{p.generation}世
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-bold text-foreground text-sm font-serif">
-                        {formatGivenName(p.name, clanSurname)}
+                      <div className="font-semibold text-foreground text-sm">
+                        {p.spouseOfId
+                          ? [
+                              p.surname && !p.name.startsWith(p.surname)
+                                ? p.surname
+                                : '',
+                              p.name,
+                            ].join('') || '配偶'
+                          : formatGivenName(p.name, clanSurname)}
                       </div>
                       {p.courtesyName && (
                         <div className="text-[11px] text-muted-foreground">
-                          字 {p.courtesyName}
+                          {p.courtesyName}
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-4">{p.rank || '男'}</td>
+                    <td className="py-3 px-4">
+                      {p.spouseOfId ? p.spouseRelationLabel || '配偶' : p.rank || '男'}
+                    </td>
                     <td className="py-3 px-4">
                       {p.fatherName
                         ? `${formatGivenName(p.fatherName, clanSurname)} 公`
+                        : p.spouseOfId
+                        ? '配偶节点'
                         : p.generation === 1
                         ? '始迁祖'
                         : '待考'}
@@ -237,7 +252,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                         >
                           <Edit3 size={13} />
                         </Button>
-                        {p.generation > 1 && (
+                        {(p.generation > 1 || Boolean(p.spouseOfId)) && (
                           <Button
                             variant={isConfirming ? 'destructive' : 'ghost'}
                             size={isConfirming ? 'sm' : 'icon'}

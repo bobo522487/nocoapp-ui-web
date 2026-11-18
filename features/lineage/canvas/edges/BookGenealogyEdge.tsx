@@ -11,7 +11,11 @@ export const BookGenealogyEdge: React.FC<EdgeProps> = ({
   targetPosition,
   style = {},
   selected,
+  data,
 }) => {
+  const isMarriage =
+    (data as { relationship?: string } | undefined)?.relationship === 'marriage';
+
   // Classic orthogonal tree lines as in traditional woodblock / modern printed genealogy books
   const [edgePath] = getSmoothStepPath({
     sourceX,
@@ -20,7 +24,7 @@ export const BookGenealogyEdge: React.FC<EdgeProps> = ({
     targetX,
     targetY,
     targetPosition,
-    borderRadius: 0,
+    borderRadius: isMarriage ? 4 : 0,
   });
 
   return (
@@ -31,7 +35,10 @@ export const BookGenealogyEdge: React.FC<EdgeProps> = ({
         strokeWidth: selected ? 2.5 : 1.5,
         stroke: selected
           ? 'hsl(var(--primary))'
+          : isMarriage
+          ? 'hsl(var(--primary) / 0.55)'
           : 'hsl(var(--muted-foreground) / 0.5)',
+        strokeDasharray: isMarriage ? '4 3' : undefined,
         strokeLinecap: 'square',
         ...style,
       }}

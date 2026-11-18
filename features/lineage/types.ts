@@ -1,24 +1,23 @@
 export type RelationKind =
   | '生子'
-  | '嗣子'
-  | '继子'
-  | '祧子'
-  | '养子'
-  | '义子'
   | '抚子'
-  | '螟蛉子'
-  | '随母子'
+  | '养子'
+  | '继子'
   | '赘子'
-  | '契子'
-  | '假子'
-  | '外子'
-  | '异姓子'
-  | '抱子'
-  | '拾子'
-  | '寄子'
+  | '义子'
+  | '出继'
+  | '出嗣'
+  | '承嗣'
+  | '出祧'
+  | '兼祧'
+  | '出绍'
+  | '过继'
+  | '承继'
+  | '奉祀'
+  | '无(断代)'
   | '生女'
-  | '养女'
   | '继女'
+  | '养女'
   | string;
 
 export interface SpouseInfo {
@@ -97,6 +96,8 @@ export interface PersonRecord {
   fatherId: string | null; // 父亲ID
   fatherName?: string;
   motherName?: string; // 生母
+  spouseOfId?: string; // 若作为配偶独立节点，指向主配偶ID
+  spouseRelationLabel?: string; // 配偶称谓：原配 / 继配 / 配偶
   relationType?: RelationKind; // 与父母关系：生子/嗣子/继子...
   relationTitle?: string; // 关系称谓：如 始迁祖
   relationPrefix?: string; // 前缀：如 左徒

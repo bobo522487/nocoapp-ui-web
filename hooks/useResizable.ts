@@ -21,50 +21,42 @@ export const useResizable = ({
   const startResizing = useCallback(() => setIsResizing(true), []);
   const stopResizing = useCallback(() => setIsResizing(false), []);
 
-  const resize = useCallback(
-    (e: MouseEvent) => {
-      if (isResizing) {
-        let newWidth = width;
-        
-        if (edge === 'left') {
-          // Resizing element on the left (e.g. Sidebar)
-          // Calculate width based on mouse position minus offset (e.g. ActivityBar)
-          newWidth = e.clientX - leftOffset;
-        } else {
-          // Resizing element on the right (e.g. PropertyPanel)
-          // Calculate width based on window width minus mouse position
-          newWidth = document.body.clientWidth - e.clientX;
-        }
-
-        // Clamp value
-        if (newWidth >= minWidth && newWidth <= maxWidth) {
-          setWidth(newWidth);
-        }
-      }
-    },
-    [isResizing, edge, leftOffset, minWidth, maxWidth, width]
-  );
-
   useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', resize);
-      window.addEventListener('mouseup', stopResizing);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    } else {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+    if (!isResizing) {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      return;
     }
 
+    let rafId = 0;
+
+    const resize = (e: MouseEvent) => {
+      const nextRaw =
+        edge === 'left'
+          ? e.clientX - leftOffset
+          : document.body.clientWidth - e.clientX;
+
+      if (nextRaw < minWidth || nextRaw > maxWidth) return;
+
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setWidth(nextRaw);
+      });
+    };
+
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', resize);
       window.removeEventListener('mouseup', stopResizing);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isResizing, resize, stopResizing]);
+  }, [isResizing, edge, leftOffset, minWidth, maxWidth, stopResizing]);
 
   return { width, setWidth, isResizing, startResizing };
 };

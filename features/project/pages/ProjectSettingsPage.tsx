@@ -100,15 +100,19 @@ const ProjectSettingsPage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
         <div>
-          <h1 className="text-[18px] font-semibold text-foreground">家族设置</h1>
+          <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+            家族设置
+          </h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
             管理「{activeProject?.name || '家族'}」的谱牒档案信息、所属地区与封面配色。
           </p>
         </div>
 
         {/* General Project Info */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h2 className="text-[14px] font-semibold text-foreground">基本信息</h2>
+        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
+          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            基本信息
+          </h2>
           <form onSubmit={handleSave} className="space-y-4 max-w-lg">
             <div className="space-y-1.5">
               <Label htmlFor="project-name-input">家族名</Label>
@@ -279,7 +283,7 @@ const ProjectSettingsPage: React.FC = () => {
                 保存更改
               </Button>
               {savedToast && (
-                <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                <span className="text-xs font-medium text-primary">
                   已保存家族设置
                 </span>
               )}
@@ -288,8 +292,10 @@ const ProjectSettingsPage: React.FC = () => {
         </section>
 
         {/* Project Actions */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <h2 className="text-[14px] font-semibold text-foreground">家族操作</h2>
+        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
+          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            家族操作
+          </h2>
           <div className="flex flex-wrap items-center justify-between gap-3 py-1">
             <div>
               <div className="text-[13px] font-medium text-foreground">

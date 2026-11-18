@@ -150,14 +150,22 @@ const Dropdown: React.FC<DropdownProps> = ({
       if (isOpen) handleOpenChange(false);
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleOpenChange(false);
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
       window.addEventListener('scroll', handleScroll, true);
       window.addEventListener('resize', handleScroll);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleScroll);
     };
@@ -227,8 +235,8 @@ const Dropdown: React.FC<DropdownProps> = ({
                  className={cn(
                    "relative flex items-center gap-3 rounded-lg px-2 py-2 text-[13px] outline-none cursor-pointer select-none transition-colors group",
                    selectedId === item.id 
-                   ? "bg-muted text-foreground font-semibold" 
-                   : "text-foreground font-medium hover:bg-muted/70"
+                   ? "bg-[hsl(var(--surface-subtle))] text-foreground font-semibold" 
+                   : "text-foreground font-medium hover:bg-[hsl(var(--surface-hover))]"
                  )}
                >
                  {item.avatar ? (
@@ -255,7 +263,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       </div>
 
       {footer && (
-        <div className="border-t border-border p-1 bg-muted/20">
+        <div className="border-t border-border p-1 bg-[hsl(var(--surface-subtle))]">
            {footer}
         </div>
       )}
@@ -268,8 +276,8 @@ const Dropdown: React.FC<DropdownProps> = ({
         ref={triggerRef}
         onMouseDown={toggleDropdown}
         className={cn(
-            "flex items-center gap-2 hover:bg-muted/50 px-2 py-1.5 rounded-md cursor-pointer transition-colors group select-none",
-            isOpen && "bg-muted/50",
+            "flex items-center gap-2 hover:bg-[hsl(var(--surface-hover))] px-2 py-1.5 rounded-md cursor-pointer transition-colors group select-none",
+            isOpen && "bg-[hsl(var(--surface-hover))]",
             className
         )}
       >

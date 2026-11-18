@@ -7,35 +7,45 @@ import { formatGivenName } from './nameUtils';
 
 export const RELATION_TYPE_OPTIONS: RelationKind[] = [
   '生子',
-  '嗣子',
-  '继子',
-  '祧子',
-  '养子',
-  '义子',
   '抚子',
-  '螟蛉子',
-  '随母子',
+  '养子',
+  '继子',
   '赘子',
-  '契子',
-  '假子',
-  '外子',
-  '异姓子',
-  '抱子',
-  '拾子',
-  '寄子',
-  '生女',
-  '养女',
-  '继女',
+  '义子',
+  '出继',
+  '出嗣',
+  '承嗣',
+  '出祧',
+  '兼祧',
+  '出绍',
+  '过继',
+  '承继',
+  '奉祀',
+  '无(断代)',
 ];
 
-export const SPOUSE_RELATION_OPTIONS = [
-  '原配',
-  '继配',
-  '再配',
-  '侧室',
-  '夫君',
-  '配偶',
+export const FEMALE_RELATION_TYPE_OPTIONS: RelationKind[] = [
+  '生女',
+  '继女',
+  '养女',
 ];
+
+export const SPOUSE_TYPE_OPTIONS = ['妻子', '丈夫', '配偶'] as const;
+
+export const SPOUSE_RANK_OPTIONS = ['原配', '继配', '三配', '四配'] as const;
+
+export const SPOUSE_RANK_ORDER: Record<string, number> = {
+  原配: 1,
+  元配: 1,
+  正室: 1,
+  继配: 2,
+  次配: 2,
+  再配: 2,
+  三配: 3,
+  四配: 4,
+  五配: 5,
+  六配: 6,
+};
 
 export const EDUCATION_LEVEL_OPTIONS = [
   '小学',
@@ -93,6 +103,47 @@ export function getDerivedChildren(
     .sort((a, b) => getRankScore(a) - getRankScore(b));
 }
 
+export function getSpouseSortScore(person: PersonRecord): number {
+  const rankOrder = person.spouseRelationLabel
+    ? SPOUSE_RANK_ORDER[person.spouseRelationLabel.trim()]
+    : undefined;
+  if (rankOrder !== undefined) return rankOrder;
+  if (person.siblingOrder !== undefined) return person.siblingOrder;
+  if (person.biographyOrder !== undefined) return person.biographyOrder;
+  return 50;
+}
+
+/**
+ * Derive ordered spouse nodes for a partner, sorted by spouse rank / siblingOrder / biographyOrder.
+ */
+export function getDerivedSpouses(
+  allPersons: PersonRecord[],
+  partnerId: string
+): PersonRecord[] {
+  return allPersons
+    .filter((p) => p.spouseOfId === partnerId)
+    .sort((a, b) => {
+      const scoreDiff = getSpouseSortScore(a) - getSpouseSortScore(b);
+      if (scoreDiff !== 0) return scoreDiff;
+      const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
+      const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
+      return orderA - orderB;
+    });
+}
+
+/**
+ * Compute 1-based sequence order for a spouse node among all spouses of the same partner.
+ */
+export function computeSpouseOrderIndex(
+  person: PersonRecord,
+  allPersons: PersonRecord[]
+): number {
+  if (!person.spouseOfId) return person.siblingOrder || 1;
+  const spouses = getDerivedSpouses(allPersons, person.spouseOfId);
+  const idx = spouses.findIndex((s) => s.id === person.id);
+  return idx >= 0 ? idx + 1 : person.siblingOrder || 1;
+}
+
 /**
  * Collect self + all descendants to prevent circular parent assignments.
  */
@@ -115,6 +166,37 @@ export function getDescendantExclusionSet(
 }
 
 /**
+ * Compute automatic rank label (e.g. "始祖", "长子", "次女", or spouse "原配"/"继配"/"三配"/"四配").
+ */
+export function computeAutoRankLabel(
+  person: PersonRecord,
+  allPersons: PersonRecord[]
+): string {
+  if (person.spouseOfId) {
+    const orderNum = computeSpouseOrderIndex(person, allPersons);
+    if (orderNum === 1) return '原配';
+    if (orderNum === 2) return '继配';
+    if (orderNum === 3) return '三配';
+    if (orderNum === 4) return '四配';
+    return `第${orderNum}配`;
+  }
+  if (!person.fatherId) {
+    return person.generation === 1 ? '始祖' : '首节点';
+  }
+  const siblings = getDerivedChildren(allPersons, person.fatherId);
+  const idx = siblings.findIndex((s) => s.id === person.id);
+  const orderNum = idx >= 0 ? idx + 1 : person.siblingOrder || 1;
+  const suffix = person.gender === 'female' ? '女' : '子';
+  if (orderNum === 1) return `长${suffix}`;
+  if (orderNum === 2) return `次${suffix}`;
+  if (orderNum === 3) return `三${suffix}`;
+  if (orderNum === 4) return `四${suffix}`;
+  if (orderNum === 5) return `五${suffix}`;
+  if (orderNum === 6) return `六${suffix}`;
+  return `第${orderNum}${suffix}`;
+}
+
+/**
  * Compute read-only rank display such as "1-长子" from sibling order.
  */
 export function computeRankDisplay(
@@ -127,17 +209,7 @@ export function computeRankDisplay(
   const siblings = getDerivedChildren(allPersons, person.fatherId);
   const idx = siblings.findIndex((s) => s.id === person.id);
   const orderNum = idx >= 0 ? idx + 1 : person.siblingOrder || 1;
-  const fallbackRank =
-    person.rank ||
-    (orderNum === 1
-      ? person.gender === 'female'
-        ? '长女'
-        : '长子'
-      : orderNum === 2
-      ? person.gender === 'female'
-        ? '次女'
-        : '次子'
-      : `第${orderNum}${person.gender === 'female' ? '女' : '子'}`);
+  const fallbackRank = person.rank || computeAutoRankLabel(person, allPersons);
   return `${orderNum}-${fallbackRank}`;
 }
 
@@ -157,7 +229,18 @@ export function hydratePersonDraft(
 
   return {
     ...person,
-    surname: person.surname ?? clanSurname,
+    surname: person.spouseOfId
+      ? (person.surname ?? '')
+      : (person.surname ?? clanSurname),
+    relationType:
+      person.relationType ??
+      (person.spouseOfId
+        ? person.gender === 'male'
+          ? '丈夫'
+          : '妻子'
+        : person.gender === 'female'
+          ? '生女'
+          : '生子'),
     spouses: (person.spouses || []).map((s) => ({ ...s })),
     birth: {
       date: person.birth?.date ?? person.birthDate ?? '',
@@ -228,10 +311,12 @@ export function normalizePersonForSave(
     legalName: draft.legalName?.trim() || undefined,
     courtesyName: draft.courtesyName?.trim() || undefined,
     hangOrder: draft.hangOrder?.trim() || undefined,
+    rank: draft.rank?.trim() || undefined,
     fatherName: father ? father.name : draft.fatherId ? draft.fatherName : undefined,
     motherName: draft.motherName?.trim() || undefined,
     generationWord: draft.generationWord?.trim() || undefined,
-    relationType: draft.relationType || undefined,
+    relationType:
+      draft.relationType !== undefined ? draft.relationType : undefined,
     relationTitle: draft.relationTitle?.trim() || undefined,
     relationPrefix: draft.relationPrefix?.trim() || undefined,
     relationNotes: draft.relationNotes?.trim() || undefined,
@@ -289,16 +374,23 @@ export function buildBiographyPreviewData(
     : '';
 
   const kinshipParts: string[] = [];
+  const resolvedRank = draft.rank?.trim() || computeAutoRankLabel(draft, allPersons);
   if (draft.relationTitle) {
     kinshipParts.push(draft.relationTitle);
   } else if (fatherLabel) {
+    const customRelation =
+      draft.relationType &&
+      draft.relationType !== '生子' &&
+      draft.relationType !== '生女'
+        ? draft.relationType
+        : '';
     kinshipParts.push(
-      `${fatherLabel}之${draft.relationType || draft.rank || (draft.gender === 'female' ? '女' : '子')}`
+      `${fatherLabel}之${customRelation || resolvedRank || (draft.gender === 'female' ? '女' : '子')}`
     );
   } else if (draft.generation === 1) {
     kinshipParts.push('开基始祖');
   }
-  if (draft.courtesyName) kinshipParts.push(`字号/别名 ${draft.courtesyName}`);
+  if (draft.courtesyName) kinshipParts.push(`别名 ${draft.courtesyName}`);
   if (draft.hangOrder) kinshipParts.push(draft.hangOrder);
   if (draft.lineageRemarks) kinshipParts.push(draft.lineageRemarks);
   if (draft.branchLabel) kinshipParts.push(`分房：${draft.branchLabel}`);
@@ -324,7 +416,11 @@ export function buildBiographyPreviewData(
     birthParts.push(`生于 ${draft.birth?.date || draft.birthDate}`);
   }
   if (prefs.showBirthDetail) {
-    if (draft.birth?.place) birthParts.push(`生于 ${draft.birth.place}`);
+    if (draft.birth?.place) {
+      birthParts.push(
+        `${birthParts.length ? '生地 ' : '生于 '}${draft.birth.place}`
+      );
+    }
     if (draft.birth?.summary) birthParts.push(draft.birth.summary);
   }
 

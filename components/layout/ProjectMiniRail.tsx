@@ -61,30 +61,38 @@ const ProjectMiniRail: React.FC = () => {
   const isBooksActive = activeView === ViewMode.BOOKS;
   const isSettingsActive = activeView === ViewMode.PROJECT_SETTINGS;
 
+  const railButtonClass = (active: boolean) =>
+    `w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      active
+        ? 'bg-[hsl(var(--surface-active))] text-primary border border-primary/25 shadow-[var(--shadow-control)]'
+        : 'text-muted-foreground border border-transparent hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
+    }`;
+
   return (
     <nav
       aria-label="家族工作台导航"
       data-testid="nc-mini-sidebar-v2"
-      className="w-12 h-full shrink-0 border-r border-border bg-[hsl(var(--surface-subtle))] flex flex-col items-center justify-between py-1.5 select-none z-40 relative"
+      className="w-12 h-full shrink-0 border-r border-border bg-[hsl(var(--surface-subtle))] flex flex-col items-center justify-between py-2 select-none z-40 relative"
     >
       {/* Top: Back to Workspace Logo + Main Cloud Genealogy Modules */}
-      <div className="flex flex-col items-center w-full gap-1">
+      <div className="flex flex-col items-center w-full gap-1.5">
         <button
           type="button"
           onClick={() => navigate('/')}
           title={`返回工作区：${activeWorkspace?.name || '个人空间'}`}
+          aria-label={`返回工作区：${activeWorkspace?.name || '个人空间'}`}
           data-testid="nc-rail-logo"
-          className="group w-9 h-9 my-0.5 rounded-lg flex items-center justify-center hover:bg-[hsl(var(--surface-hover))] transition-colors relative cursor-pointer"
+          className="group w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[hsl(var(--surface-hover))] transition-colors relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="transition-opacity duration-150 group-hover:opacity-0 flex items-center justify-center">
             <WorkspaceLogoIcon className="w-6 h-6" />
           </span>
           <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-foreground">
-            <ArrowLeft size={17} strokeWidth={1.8} />
+            <ArrowLeft size={16} strokeWidth={1.8} />
           </span>
         </button>
 
-        <div className="w-6 h-px bg-border my-1" />
+        <div className="w-6 h-px bg-border my-0.5" />
 
         {/* 概览 */}
         <button
@@ -95,11 +103,7 @@ const ProjectMiniRail: React.FC = () => {
           data-panel="home"
           data-testid="nc-rail-home-btn"
           aria-current={isHomeActive ? 'page' : undefined}
-          className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isHomeActive
-              ? 'bg-primary/[0.12] text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-          }`}
+          className={railButtonClass(isHomeActive)}
         >
           <Home size={17} strokeWidth={1.75} />
         </button>
@@ -112,11 +116,7 @@ const ProjectMiniRail: React.FC = () => {
           aria-label="世系"
           data-panel="lineage"
           aria-current={isLineageActive ? 'page' : undefined}
-          className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isLineageActive
-              ? 'bg-primary/[0.12] text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-          }`}
+          className={railButtonClass(isLineageActive)}
         >
           <GitFork size={17} strokeWidth={1.75} />
         </button>
@@ -129,11 +129,7 @@ const ProjectMiniRail: React.FC = () => {
           aria-label="谱文"
           data-panel="articles"
           aria-current={isArticlesActive ? 'page' : undefined}
-          className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isArticlesActive
-              ? 'bg-primary/[0.12] text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-          }`}
+          className={railButtonClass(isArticlesActive)}
         >
           <ScrollText size={17} strokeWidth={1.75} />
         </button>
@@ -146,16 +142,12 @@ const ProjectMiniRail: React.FC = () => {
           aria-label="谱书"
           data-panel="books"
           aria-current={isBooksActive ? 'page' : undefined}
-          className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isBooksActive
-              ? 'bg-primary/[0.12] text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-          }`}
+          className={railButtonClass(isBooksActive)}
         >
           <BookOpen size={17} strokeWidth={1.75} />
         </button>
 
-        <div className="w-6 h-px bg-border my-1" />
+        <div className="w-6 h-px bg-border my-0.5" />
 
         {/* 家族设置 */}
         <button
@@ -165,19 +157,15 @@ const ProjectMiniRail: React.FC = () => {
           aria-label="设置"
           data-panel="settings"
           aria-current={isSettingsActive ? 'page' : undefined}
-          className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer ${
-            isSettingsActive
-              ? 'bg-primary/[0.12] text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
-              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
-          }`}
+          className={railButtonClass(isSettingsActive)}
         >
           <Settings size={17} strokeWidth={1.75} />
         </button>
       </div>
 
       {/* Bottom: Activity Notifications + User Avatar Menu */}
-      <div className="flex flex-col items-center w-full gap-1">
-        <div className="w-6 h-px bg-border my-1" />
+      <div className="flex flex-col items-center w-full gap-1.5">
+        <div className="w-6 h-px bg-border my-0.5" />
 
         <div
           ref={notifContainerRef}
@@ -186,34 +174,36 @@ const ProjectMiniRail: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsNotifOpen((v) => !v)}
-            title="活动"
+            title={unreadCount > 0 ? `活动通知 (${unreadCount} 条未读)` : '活动通知'}
+            aria-label={unreadCount > 0 ? `活动通知，${unreadCount} 条未读` : '活动通知'}
+            aria-expanded={isNotifOpen}
             data-panel="notification"
             data-testid="nc-home-sidebar-notification"
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative cursor-pointer ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               isNotifOpen
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
+                ? 'bg-[hsl(var(--surface-active))] text-foreground border border-primary/25 shadow-[var(--shadow-control)]'
+                : 'text-muted-foreground border border-transparent hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
             }`}
           >
             <Bell size={17} strokeWidth={1.75} />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 min-w-[14px] h-[14px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold tabular-nums flex items-center justify-center leading-none">
+              <span className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-mono font-semibold tabular-nums flex items-center justify-center leading-none">
                 {unreadCount}
               </span>
             )}
           </button>
 
           {isNotifOpen && (
-            <div className="absolute bottom-0 left-full ml-2 w-[310px] rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[85] overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
+            <div className="absolute bottom-0 left-full ml-2 w-[316px] rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[85] overflow-hidden">
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-[hsl(var(--surface-subtle))]">
                 <span className="text-xs font-semibold text-foreground tabular-nums">
-                  活动通知 ({unreadCount})
+                  活动通知 · {unreadCount} 未读
                 </span>
                 {unreadCount > 0 && (
                   <button
                     type="button"
                     onClick={markAllNotificationsRead}
-                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
                   >
                     <CheckCheck size={12} /> 全部已读
                   </button>
@@ -226,25 +216,26 @@ const ProjectMiniRail: React.FC = () => {
                   </div>
                 ) : (
                   notifications.map((n) => (
-                    <div
+                    <button
                       key={n.id}
+                      type="button"
                       onClick={() => markNotificationRead(n.id)}
-                      className={`px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors ${
-                        !n.read ? 'bg-accent/40' : ''
+                      className={`w-full text-left px-3.5 py-2.5 cursor-pointer hover:bg-[hsl(var(--surface-hover))] transition-colors ${
+                        !n.read ? 'bg-accent/35' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-medium text-foreground truncate">
                           {n.title}
                         </span>
-                        <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                        <span className="text-[11px] text-muted-foreground shrink-0 font-mono tabular-nums">
                           {n.time}
                         </span>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
                         {n.description}
                       </p>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>

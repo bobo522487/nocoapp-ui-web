@@ -85,23 +85,38 @@ function InviteFormDialog(props: {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-popover)]"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="邀请成员"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-foreground">邀请成员</h2>
-          <button type="button" onClick={onClose} aria-label="关闭">
-            <X size={16} className="text-muted-foreground" />
+          <h2 className="font-editorial text-[16px] font-semibold text-foreground">
+            邀请成员
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
+          >
+            <X size={16} />
           </button>
         </div>
         <div className="mt-4 space-y-3">
@@ -122,7 +137,7 @@ function InviteFormDialog(props: {
               id="invite-role"
               value={role}
               onChange={(event) => setRole(event.target.value as MemberRecord['role'])}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring"
             >
               {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map((value) => (
                 <option key={value} value={value}>
@@ -279,10 +294,12 @@ const MembersPage: React.FC = () => {
   return (
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-foreground tracking-tight">成员</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+              成员
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 tabular-nums">
               {detail?.name ?? '当前组织'} · 共 {members.items.length} 名成员
             </p>
           </div>
@@ -300,7 +317,12 @@ const MembersPage: React.FC = () => {
             className="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2.5 text-[13px] text-destructive"
           >
             <span>{actionError}</span>
-            <button type="button" onClick={() => setActionError(null)} aria-label="关闭">
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="关闭"
+              className="cursor-pointer"
+            >
               <X size={14} />
             </button>
           </div>
@@ -308,16 +330,18 @@ const MembersPage: React.FC = () => {
 
         {/* 成员名单 */}
         <section className="space-y-3">
-          <h2 className="text-[14px] font-semibold text-foreground">成员名单</h2>
+          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            成员名单
+          </h2>
           {members.loading ? (
             <PageSkeleton variant="rows" />
           ) : members.error ? (
             <PageError message={members.error} onRetry={() => void loadMembers()} />
           ) : (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-[var(--shadow-card)]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-[12px] text-muted-foreground">
+                  <tr className="border-b border-border bg-[hsl(var(--surface-subtle))] text-left text-[12px] text-muted-foreground">
                     <th className="px-4 py-2.5 font-medium">成员</th>
                     <th className="px-4 py-2.5 font-medium">角色</th>
                     <th className="px-4 py-2.5 font-medium">加入时间</th>
@@ -326,14 +350,17 @@ const MembersPage: React.FC = () => {
                 </thead>
                 <tbody>
                   {members.items.map((member) => (
-                    <tr key={member.userId} className="border-b border-border last:border-0">
+                    <tr
+                      key={member.userId}
+                      className="border-b border-border last:border-0 hover:bg-[hsl(var(--surface-hover))]/55 transition-colors"
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-foreground">
                             {member.name || member.email}
                           </span>
                           {member.isOwner && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary whitespace-nowrap shrink-0">
                               <Crown size={11} />
                               所有者
                             </span>
@@ -353,7 +380,7 @@ const MembersPage: React.FC = () => {
                                 event.target.value as MemberRecord['role'],
                               )
                             }
-                            className="h-8 rounded-md border border-input bg-background px-2 text-[13px] text-foreground"
+                            className="h-8 rounded-md border border-input bg-card px-2 text-[13px] text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring"
                             aria-label={`${member.name} 的角色`}
                           >
                             {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map(
@@ -375,11 +402,11 @@ const MembersPage: React.FC = () => {
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
                             {isOwner && !member.isOwner && (
                               <button
                                 type="button"
-                                className="text-[13px] text-primary hover:underline"
+                                className="text-[13px] text-primary hover:underline cursor-pointer whitespace-nowrap shrink-0"
                                 onClick={() => setTransferTarget(member)}
                               >
                                 设为所有者
@@ -388,7 +415,7 @@ const MembersPage: React.FC = () => {
                             {!member.isOwner && (
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 text-[13px] text-destructive hover:underline"
+                                className="inline-flex items-center gap-1 text-[13px] text-destructive hover:underline cursor-pointer whitespace-nowrap shrink-0"
                                 onClick={() => setRemoveTarget(member)}
                               >
                                 <Trash2 size={13} />
@@ -416,7 +443,9 @@ const MembersPage: React.FC = () => {
         {/* 邀请列表（仅管理员可见，与 C3 权限矩阵一致） */}
         {isAdmin && (
           <section className="space-y-3">
-            <h2 className="text-[14px] font-semibold text-foreground">邀请</h2>
+            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+              邀请
+            </h2>
             {invites.loading ? (
               <PageSkeleton variant="rows" />
             ) : invites.error ? (
@@ -426,10 +455,10 @@ const MembersPage: React.FC = () => {
                 暂无待处理邀请
               </div>
             ) : (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="rounded-xl border border-border bg-card overflow-hidden shadow-[var(--shadow-card)]">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-[12px] text-muted-foreground">
+                    <tr className="border-b border-border bg-[hsl(var(--surface-subtle))] text-left text-[12px] text-muted-foreground">
                       <th className="px-4 py-2.5 font-medium">邮箱</th>
                       <th className="px-4 py-2.5 font-medium">角色</th>
                       <th className="px-4 py-2.5 font-medium">状态</th>
@@ -441,7 +470,7 @@ const MembersPage: React.FC = () => {
                     {invites.items.map((invite) => (
                       <tr
                         key={invite.id}
-                        className="border-b border-border last:border-0"
+                        className="border-b border-border last:border-0 hover:bg-[hsl(var(--surface-hover))]/55 transition-colors"
                       >
                         <td className="px-4 py-3 text-foreground">{invite.email}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
@@ -457,7 +486,7 @@ const MembersPage: React.FC = () => {
                           {invite.status === 'pending' && (
                             <button
                               type="button"
-                              className="text-[13px] text-destructive hover:underline"
+                              className="text-[13px] text-destructive hover:underline cursor-pointer whitespace-nowrap shrink-0"
                               onClick={() => setRevokeTarget(invite)}
                             >
                               撤销

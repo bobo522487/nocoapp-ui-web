@@ -16,21 +16,15 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) =>
 
   const modes: { id: ThemeMode; label: string; icon: React.ElementType }[] = [
     { id: 'system', label: '跟随系统', icon: Monitor },
-    { id: 'light', label: '浅色模式', icon: Sun },
-    { id: 'dark', label: '深色模式', icon: Moon },
+    { id: 'light', label: '宣纸明韵', icon: Sun },
+    { id: 'dark', label: '墨石夜览', icon: Moon },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4 relative overflow-hidden">
-      <div
-        className="absolute inset-0 z-0 opacity-[0.35] pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-        }}
-      />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 relative overflow-hidden">
+      <div className="absolute inset-0 z-0 nc-dot-grid opacity-55 pointer-events-none" />
 
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-[var(--shadow-card)]">
         {modes.map((m) => {
           const Icon = m.icon;
           const active = themeMode === m.id;
@@ -40,10 +34,11 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) =>
               type="button"
               onClick={() => setThemeMode(m.id)}
               title={m.label}
-              className={`h-7 w-7 rounded-md flex items-center justify-center transition-colors ${
+              aria-label={m.label}
+              className={`h-7 w-7 rounded-md flex items-center justify-center transition-colors cursor-pointer ${
                 active
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))]'
               }`}
             >
               <Icon size={14} />
@@ -54,14 +49,16 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) =>
 
       <div className="w-full max-w-[400px] space-y-6 z-10">
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-1 bg-card border border-border shadow-sm">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-1 bg-card border border-border shadow-[var(--shadow-card)]">
             <WorkspaceLogoIcon className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+          <h1 className="font-editorial text-2xl font-semibold tracking-tight text-foreground">
+            {title}
+          </h1>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
 
-        <div className="bg-card text-card-foreground border border-border rounded-xl shadow-sm p-7">
+        <div className="bg-card text-card-foreground border border-border rounded-xl shadow-[var(--shadow-popover)] p-7">
           {children}
         </div>
       </div>

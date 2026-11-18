@@ -10,7 +10,7 @@ export enum ViewMode {
   PROJECT_SETTINGS = 'PROJECT_SETTINGS',
 }
 
-export type AppTheme = 'vercel' | 'supabase' | 'slack' | 'vscode';
+export type AppTheme = 'archival';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 export interface Workspace {

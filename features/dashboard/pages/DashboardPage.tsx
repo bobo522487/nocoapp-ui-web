@@ -1,10 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FolderPlus, MoreVertical, Pencil, Trash2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FolderPlus, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { Button } from '../../../components/ui/button';
+import type { TreeItem } from '../../../components/common/Tree/types';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
-import { useLineageStore } from '../../../store/useLineageStore';
+import {
+  DEFAULT_LINEAGE_TREE,
+  makeChartStorageKey,
+  useLineageStore,
+} from '../../../store/useLineageStore';
+import { useArticleStore } from '../../../store/useArticleStore';
+import { useBookStore } from '../../../store/useBookStore';
+import { usePreferencesStore } from '../../../store/usePreferencesStore';
+import { createSeedPersonsForChart } from '../../lineage/lineageData';
+import { countArticlesInTree } from '../../articles/articleData';
 import { errorMessage } from '../../../lib/api';
 import {
   createProjectRequest,
@@ -21,19 +30,23 @@ import PageSkeleton from '../components/PageSkeleton';
 import PageError from '../components/PageError';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { AssetEditorModal } from '../components/AssetEditorModal';
+import { FamilyCard, type FamilyCardMetrics } from '../components/FamilyCard';
+import { ZibeiSettingsModal } from '../components/ZibeiSettingsModal';
 
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  planning: '规划中',
-  in_progress: '进行中',
-  completed: '已完成',
-};
-
-/** 弹窗状态 ↔ API 状态：'1'已完成；'0'进行中（编辑时保留原有“规划中”，不静默升级）。 */
 const statusFromState = (
   state: '0' | '1',
-  original?: ProjectStatus,
+  original?: ProjectStatus
 ): ProjectStatus =>
   state === '1' ? 'completed' : original === 'planning' ? 'planning' : 'in_progress';
+
+function collectChartNodes(items: TreeItem[]): TreeItem[] {
+  const out: TreeItem[] = [];
+  for (const item of items) {
+    if (item.type === 'chart') out.push(item);
+    if (item.children?.length) out.push(...collectChartNodes(item.children));
+  }
+  return out;
+}
 
 type PageState = {
   loading: boolean;
@@ -53,10 +66,20 @@ const EMPTY: PageState = {
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const user = usePreferencesStore((s) => s.user);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const activeProjectId = useWorkspaceStore((s) => s.activeProjectId);
+  const zibeiByProject = useWorkspaceStore((s) => s.zibeiByProject || {});
+  const setProjectZibei = useWorkspaceStore((s) => s.setProjectZibei);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const dropProject = useWorkspaceStore((s) => s.dropProject);
   const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
+
+  const treesByProject = useLineageStore((s) => s.treesByProject);
+  const personsByChart = useLineageStore((s) => s.personsByChart);
+  const articleTreesByProject = useArticleStore((s) => s.treesByProject);
+  const articlesByKey = useArticleStore((s) => s.articlesByKey);
+  const booksByProject = useBookStore((s) => s.booksByProject);
 
   const [state, setState] = useState<PageState>(EMPTY);
   const [formDialog, setFormDialog] = useState<{
@@ -66,8 +89,9 @@ const DashboardPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSaving, setFormSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ProjectRecord | null>(null);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [zibeiTarget, setZibeiTarget] = useState<ProjectRecord | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!activeWorkspaceId) {
@@ -99,6 +123,12 @@ const DashboardPage: React.FC = () => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!actionNotice) return;
+    const timer = setTimeout(() => setActionNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [actionNotice]);
+
   const loadMore = async () => {
     if (!state.nextCursor || !activeWorkspaceId) return;
     try {
@@ -121,10 +151,117 @@ const DashboardPage: React.FC = () => {
   const canCreate = myRole === 'admin' || myRole === 'editor';
   const canDelete = myRole === 'admin';
 
-  const handleOpen = (project: ProjectRecord) => {
+  const currentProjectId = useMemo(() => {
+    if (
+      activeProjectId &&
+      state.projects.some((p) => p.id === activeProjectId)
+    ) {
+      return activeProjectId;
+    }
+    return state.projects[0]?.id ?? '';
+  }, [activeProjectId, state.projects]);
+
+  const metricsByProject = useMemo(() => {
+    const map: Record<string, FamilyCardMetrics> = {};
+    for (const project of state.projects) {
+      const lineageTree = treesByProject[project.id] ?? DEFAULT_LINEAGE_TREE;
+      const chartNodes = collectChartNodes(lineageTree);
+      let personCount = 0;
+      for (const chart of chartNodes) {
+        const cId = String(chart.id);
+        const key = makeChartStorageKey(project.id, cId);
+        const persons =
+          personsByChart[key] ??
+          createSeedPersonsForChart(
+            cId,
+            chart.data?.name,
+            chart.data?.surname ?? project.surname ?? undefined
+          );
+        personCount += persons.length;
+      }
+
+      const articleTree = articleTreesByProject[project.id];
+      const articleCount = articleTree ? countArticlesInTree(articleTree) : 6;
+      const bookCount = booksByProject[project.id]?.length ?? 0;
+
+      map[project.id] = {
+        lineageCount: chartNodes.length,
+        personCount,
+        articleCount,
+        bookCount,
+      };
+    }
+    return map;
+  }, [
+    state.projects,
+    treesByProject,
+    personsByChart,
+    articleTreesByProject,
+    booksByProject,
+  ]);
+
+  const handleOpen = (
+    project: ProjectRecord,
+    subPath: '' | '/lineage' | '/articles' | '/books' = ''
+  ) => {
     syncProject(project);
     setActiveProjectId(project.id);
-    navigate(`/projects/${project.id}`);
+    navigate(`/projects/${project.id}${subPath}`);
+  };
+
+  const handleExportFamily = (project: ProjectRecord) => {
+    try {
+      const lineageTree = treesByProject[project.id] ?? DEFAULT_LINEAGE_TREE;
+      const chartNodes = collectChartNodes(lineageTree);
+      const lineageCharts: Record<string, unknown> = {};
+      for (const chart of chartNodes) {
+        const cId = String(chart.id);
+        const key = makeChartStorageKey(project.id, cId);
+        lineageCharts[cId] = {
+          name: chart.data?.name || cId,
+          persons:
+            personsByChart[key] ??
+            createSeedPersonsForChart(
+              cId,
+              chart.data?.name,
+              chart.data?.surname ?? project.surname ?? undefined
+            ),
+        };
+      }
+
+      const projectArticles = Object.entries(articlesByKey)
+        .filter(([k]) => k.startsWith(`${project.id}::`))
+        .map(([, doc]) => doc);
+
+      const backupPayload = {
+        schema: 'yunpu-family-backup/v1',
+        exportedAt: new Date().toISOString(),
+        family: project,
+        zibei: zibeiByProject[project.id] ?? [],
+        lineageTree,
+        lineageCharts,
+        articleTree: articleTreesByProject[project.id] ?? [],
+        articles: projectArticles,
+        books: booksByProject[project.id] ?? [],
+      };
+
+      const blob = new Blob([JSON.stringify(backupPayload, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.name}-家族备份-${new Date()
+        .toISOString()
+        .slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setActionNotice(`已导出「${project.name}」家族完整备份文件`);
+    } catch (error) {
+      setActionError(`导出备份失败：${errorMessage(error)}`);
+    }
   };
 
   const handleSaved = (project: ProjectRecord) => {
@@ -238,10 +375,12 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-foreground tracking-tight">家族</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+              家族
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1 tabular-nums">
               {state.detail?.name ?? '当前组织'} · 共 {state.projects.length} 个家族
             </p>
           </div>
@@ -259,7 +398,29 @@ const DashboardPage: React.FC = () => {
             className="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2.5 text-[13px] text-destructive"
           >
             <span>{actionError}</span>
-            <button type="button" onClick={() => setActionError(null)} aria-label="关闭">
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              aria-label="关闭"
+              className="cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {actionNotice && (
+          <div
+            role="status"
+            className="flex items-center justify-between rounded-lg border border-primary/30 bg-[hsl(var(--surface-active))] px-4 py-2.5 text-[13px] text-foreground"
+          >
+            <span>{actionNotice}</span>
+            <button
+              type="button"
+              onClick={() => setActionNotice(null)}
+              aria-label="关闭"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+            >
               <X size={14} />
             </button>
           </div>
@@ -281,69 +442,30 @@ const DashboardPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {state.projects.map((project) => (
-              <div
+              <FamilyCard
                 key={project.id}
-                className="group relative flex items-center gap-3 rounded-xl border border-border bg-card hover:border-muted-foreground/40 hover:shadow-xs transition-all h-16 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  className="flex flex-1 items-center gap-3 min-w-0 text-left h-full"
-                  onClick={() => handleOpen(project)}
-                >
-                  <div className="self-stretch w-16 flex items-center justify-center shrink-0 bg-sky-50 dark:bg-sky-500/10">
-                    <ProjectColoredIcon colorTheme="sky" className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1 min-w-0 pr-2">
-                    <div className="text-[14px] font-semibold text-foreground truncate">
-                      {project.name}
-                    </div>
-                    <div className="text-[12px] font-medium text-muted-foreground tabular-nums">
-                      {STATUS_LABELS[project.status]} ·{' '}
-                      {new Date(project.updatedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                </button>
-                {(canCreate || canDelete) && (
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted"
-                    onClick={() => setMenuFor(menuFor === project.id ? null : project.id)}
-                    aria-label="家族操作"
-                  >
-                    <MoreVertical size={15} />
-                  </button>
-                )}
-                {menuFor === project.id && (
-                  <div className="absolute right-2 top-11 z-20 w-32 rounded-md border border-border bg-card py-1 shadow-lg">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-foreground hover:bg-muted"
-                      onClick={() => {
-                        setMenuFor(null);
-                        setFormDialog({ mode: 'edit', project });
-                      }}
-                    >
-                      <Pencil size={13} />
-                      编辑
-                    </button>
-                    {canDelete && (
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-destructive hover:bg-muted"
-                        onClick={() => {
-                          setMenuFor(null);
-                          setDeleteTarget(project);
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        删除
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                project={project}
+                isCurrent={project.id === currentProjectId}
+                metrics={
+                  metricsByProject[project.id] ?? {
+                    lineageCount: 0,
+                    personCount: 0,
+                    articleCount: 0,
+                    bookCount: 0,
+                  }
+                }
+                maintainerName={user?.name || '家族编委会'}
+                zibeiWords={zibeiByProject[project.id] ?? []}
+                canEdit={canCreate}
+                canDelete={canDelete}
+                onOpen={handleOpen}
+                onExport={handleExportFamily}
+                onEdit={(proj) => setFormDialog({ mode: 'edit', project: proj })}
+                onDelete={(proj) => setDeleteTarget(proj)}
+                onManageZibei={(proj) => setZibeiTarget(proj)}
+              />
             ))}
           </div>
         )}
@@ -391,6 +513,20 @@ const DashboardPage: React.FC = () => {
           onSubmit={(values) => void handleEditorSubmit(values)}
         />
       )}
+
+      <ZibeiSettingsModal
+        open={zibeiTarget !== null}
+        familyName={zibeiTarget?.name ?? ''}
+        surname={zibeiTarget?.surname}
+        initialWords={zibeiTarget ? (zibeiByProject[zibeiTarget.id] ?? []) : []}
+        onClose={() => setZibeiTarget(null)}
+        onSave={(words) => {
+          if (zibeiTarget) {
+            setProjectZibei(zibeiTarget.id, words);
+            setActionNotice(`已更新「${zibeiTarget.name}」字辈序列（共 ${words.length} 世）`);
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}

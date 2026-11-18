@@ -101,9 +101,9 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       {/* Sidebar Header (h-12 matching ProjectTopbar) */}
       <div
         data-testid="nc-sidebar-header"
-        className="relative h-12 px-3 flex items-center justify-between gap-2 border-b border-border shrink-0"
+        className="relative h-12 px-3.5 flex items-center justify-between gap-2 border-b border-border bg-[hsl(var(--surface-subtle))] shrink-0"
       >
-        <span className="text-[13px] font-semibold text-foreground truncate">
+        <span className="font-editorial text-[14px] font-semibold text-foreground truncate">
           {sidebarTitle}
         </span>
 
@@ -112,7 +112,8 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             type="button"
             onClick={() => openPalette()}
             title="快速搜索 (Ctrl K)"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            aria-label="快速搜索"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Search size={14} />
           </button>
@@ -120,8 +121,9 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             type="button"
             onClick={() => setCollapsed(true)}
             title="隐藏侧边栏"
+            aria-label="隐藏侧边栏"
             data-testid="nc-sidebar-collapse-btn"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronsLeft size={15} />
           </button>
@@ -131,25 +133,25 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       {/* Body Content */}
       {isSettingsMode ? (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="px-2 py-2.5 space-y-0.5 border-b border-border shrink-0">
-            <div className="px-2 pb-1 text-[12px] font-semibold text-muted-foreground">
+          <div className="px-2.5 py-3 space-y-1 border-b border-border shrink-0">
+            <div className="px-2 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
               家族配置
             </div>
             <button
               type="button"
               onClick={() => navigate(`/projects/${activeProjectId}/settings`)}
-              className={`w-full h-8 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-colors whitespace-nowrap ${
+              className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 activeView === ViewMode.PROJECT_SETTINGS
-                  ? 'bg-primary/[0.08] dark:bg-primary/15 text-foreground font-semibold'
-                  : 'text-foreground/85 font-medium hover:bg-muted/70'
+                  ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
+                  : 'text-foreground/80 font-medium border border-transparent hover:bg-[hsl(var(--surface-hover))]'
               }`}
             >
-              <Sliders size={14} className="shrink-0" />
+              <Sliders size={14} className="shrink-0 text-primary" />
               <span>基本设置</span>
             </button>
           </div>
-          <div className="p-3.5 text-[12px] text-muted-foreground leading-relaxed">
-            在此可维护当前家族的名称、主题名、所属地区、编修状态与重要等级。
+          <div className="p-4 text-[12px] text-muted-foreground leading-relaxed">
+            在此可维护当前家族的名称、堂号、所属地区、编修状态与重要等级。
           </div>
         </div>
       ) : activeView === ViewMode.LINEAGE ? (
@@ -159,10 +161,10 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       ) : activeView === ViewMode.BOOKS ? (
         <BookListPanel />
       ) : (
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto py-3 px-2 space-y-5">
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto py-3 px-2.5 space-y-5">
           {/* Core Modules Navigation */}
           <div className="space-y-1">
-            <div className="px-2.5 pb-1 text-[12px] font-semibold text-muted-foreground">
+            <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
               工作台模块
             </div>
             {moduleItems.map((item) => {
@@ -174,10 +176,10 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
                   type="button"
                   onClick={() => navigate(item.path)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-colors whitespace-nowrap cursor-pointer ${
+                  className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     isActive
-                      ? 'bg-primary/[0.08] dark:bg-primary/15 text-foreground font-semibold'
-                      : 'text-foreground/85 font-medium hover:bg-muted/70'
+                      ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
+                      : 'text-foreground/80 font-medium border border-transparent hover:bg-[hsl(var(--surface-hover))] hover:text-foreground'
                   }`}
                 >
                   <Icon
@@ -194,36 +196,34 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             })}
           </div>
 
-          {/* Contextual Placeholder Outline */}
+          {/* Contextual Module Outline */}
           {currentOutline.length > 0 && (
             <div className="space-y-1 pt-3 border-t border-border/70">
-              <div className="px-2.5 pb-1 text-[12px] font-semibold text-muted-foreground">
-                模块目录预览
+              <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
+                模块目录
               </div>
               {currentOutline.map((title, idx) => (
                 <div
                   key={title}
-                  className="px-2.5 py-1.5 rounded-md text-[12px] text-muted-foreground flex items-center justify-between gap-2"
+                  className="px-2.5 py-1.5 rounded-md text-[12px] text-muted-foreground flex items-center gap-2"
                 >
-                  <span className="truncate">
-                    0{idx + 1}. {title}
+                  <span className="font-mono tabular-nums text-[11px] text-muted-foreground/75">
+                    0{idx + 1}.
                   </span>
-                  <span className="text-[11px] text-muted-foreground/65 shrink-0">
-                    占位
-                  </span>
+                  <span className="truncate">{title}</span>
                 </div>
               ))}
             </div>
           )}
 
           {/* Quick Project Metadata Summary */}
-          <div className="mt-auto pt-3 border-t border-border/70 px-2.5 space-y-1.5">
-            <div className="text-[11px] font-semibold text-muted-foreground">
-              当前云谱信息
+          <div className="mt-auto pt-3 border-t border-border/70 px-2.5 space-y-2">
+            <div className="text-[11px] font-semibold tracking-wider text-muted-foreground">
+              云谱档案概要
             </div>
-            <div className="text-[12px] text-foreground/85 space-y-1">
+            <div className="text-[12px] text-foreground/85 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">主题名</span>
+                <span className="text-muted-foreground">堂号</span>
                 <span className="truncate font-medium">
                   {activeProject?.primaryName || '未设置'}
                 </span>
@@ -235,7 +235,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">状态</span>
+                <span className="text-muted-foreground">编修状态</span>
                 <span className="truncate font-medium">
                   {activeProject?.projectState === '1' ? '已完成' : '进行中'}
                 </span>

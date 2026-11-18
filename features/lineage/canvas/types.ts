@@ -6,6 +6,7 @@ export interface PersonNodeData extends Record<string, unknown> {
   generation: number;
   clanSurname?: string;
   isSelected?: boolean;
+  isEditingName?: boolean;
   hasChildren?: boolean;
   isCollapsed?: boolean;
   childrenCount?: number;
@@ -16,6 +17,8 @@ export interface PersonNodeData extends Record<string, unknown> {
   onAddSpouse?: (personId: string) => void;
   onDelete?: (personId: string) => void;
   onToggleCollapse?: (personId: string) => void;
+  onCommitName?: (personId: string, name: string, openDrawer: boolean) => void;
+  onCancelEditing?: (personId: string) => void;
 }
 
 export interface UnionNodeData extends Record<string, unknown> {
@@ -24,6 +27,13 @@ export interface UnionNodeData extends Record<string, unknown> {
   spouseName?: string;
   spouseId?: string;
   generation: number;
+}
+
+export interface QuickAddNodeData extends Record<string, unknown> {
+  kind: 'spouse' | 'sibling' | 'child';
+  label: string;
+  targetPersonId: string;
+  onAction?: () => void;
 }
 
 export interface GenHeaderNodeData extends Record<string, unknown> {
@@ -35,11 +45,21 @@ export interface GenHeaderNodeData extends Record<string, unknown> {
 
 export type PersonFlowNode = Node<PersonNodeData, 'person' | 'bookPerson'>;
 export type UnionFlowNode = Node<UnionNodeData, 'union'>;
+export type QuickAddFlowNode = Node<QuickAddNodeData, 'quickAdd'>;
 export type GenHeaderFlowNode = Node<GenHeaderNodeData, 'genHeader'>;
 
-export type GenealogyFlowNode = PersonFlowNode | UnionFlowNode | GenHeaderFlowNode;
+export type GenealogyFlowNode =
+  | PersonFlowNode
+  | UnionFlowNode
+  | QuickAddFlowNode
+  | GenHeaderFlowNode;
 
 export type GenealogyFlowEdge = Edge<{
-  relationship?: 'marriage' | 'bloodline' | 'adoption';
+  relationship?:
+    | 'marriage'
+    | 'bloodline'
+    | 'adoption'
+    | 'ghost_marriage'
+    | 'ghost_bloodline';
   color?: string;
 }>;

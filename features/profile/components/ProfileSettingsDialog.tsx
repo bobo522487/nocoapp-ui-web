@@ -7,13 +7,9 @@ import {
   Moon,
   Sun,
   Monitor,
-  Triangle,
-  Database,
-  MessageSquare,
-  Code,
   Check,
 } from 'lucide-react';
-import { AppTheme, ThemeMode } from '../../../types';
+import { ThemeMode } from '../../../types';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -34,8 +30,6 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
   const user = usePreferencesStore((s) => s.user);
   const updateUser = usePreferencesStore((s) => s.updateUser);
-  const theme = usePreferencesStore((s) => s.theme);
-  const setAppTheme = usePreferencesStore((s) => s.setAppTheme);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
 
@@ -53,6 +47,15 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
     }
   }, [isOpen, user]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isMounted || !isOpen) return null;
 
   const handleSave = () => {
@@ -62,64 +65,72 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
   const avatarInitial = (name || '用').trim().slice(0, 1).toUpperCase();
 
-  const themes: { id: AppTheme; label: string; icon: React.ElementType; color: string }[] = [
-    { id: 'vercel', label: 'Vercel', icon: Triangle, color: 'bg-black text-white' },
-    { id: 'supabase', label: 'Supabase', icon: Database, color: 'bg-emerald-500 text-white' },
-    { id: 'slack', label: 'Slack', icon: MessageSquare, color: 'bg-purple-800 text-white' },
-    { id: 'vscode', label: 'VS Code', icon: Code, color: 'bg-blue-500 text-white' },
-  ];
-
-  const modeOptions: { id: ThemeMode; label: string; icon: React.ElementType }[] = [
-    { id: 'system', label: '跟随系统', icon: Monitor },
-    { id: 'light', label: '浅色模式', icon: Sun },
-    { id: 'dark', label: '深色模式', icon: Moon },
+  const modeOptions: {
+    id: ThemeMode;
+    label: string;
+    desc: string;
+    icon: React.ElementType;
+  }[] = [
+    { id: 'light', label: '宣纸明韵', desc: '温润宣纸底色与朱砂印记', icon: Sun },
+    { id: 'dark', label: '墨石夜览', desc: '深松烟墨夜览低眩光护眼', icon: Moon },
+    { id: 'system', label: '跟随系统', desc: '依据设备明暗设置自动切换', icon: Monitor },
   ];
 
   const content = (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="账号设置"
+    >
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/45 backdrop-blur-xs"
         onClick={onClose}
       />
 
-      <div className="relative z-10 w-full max-w-[600px] h-[500px] bg-background rounded-xl shadow-2xl flex overflow-hidden border border-border">
-        <div className="w-[172px] bg-muted/30 border-r border-border p-4 flex flex-col gap-1 shrink-0">
-          <h2 className="text-sm font-semibold mb-3 px-2 text-foreground">账号设置</h2>
+      <div className="relative z-10 w-full max-w-[620px] h-[510px] bg-card rounded-xl shadow-[var(--shadow-popover)] flex overflow-hidden border border-border">
+        <div className="w-[176px] bg-[hsl(var(--surface-subtle))] border-r border-border p-4 flex flex-col gap-1 shrink-0">
+          <h2 className="font-editorial text-[15px] font-semibold mb-3 px-2 text-foreground">
+            账号设置
+          </h2>
 
           <button
             type="button"
             onClick={() => setActiveTab('general')}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex items-center gap-2 px-3 py-2 text-[13px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'general'
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                ? 'bg-[hsl(var(--surface-active))] text-foreground border border-primary/20 shadow-[var(--shadow-control)] font-semibold'
+                : 'text-muted-foreground border border-transparent hover:bg-[hsl(var(--surface-hover))] hover:text-foreground'
             }`}
           >
-            <User size={15} /> 个人资料
+            <User size={15} className={activeTab === 'general' ? 'text-primary' : ''} />
+            <span>个人资料</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('appearance')}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex items-center gap-2 px-3 py-2 text-[13px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'appearance'
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                ? 'bg-[hsl(var(--surface-active))] text-foreground border border-primary/20 shadow-[var(--shadow-control)] font-semibold'
+                : 'text-muted-foreground border border-transparent hover:bg-[hsl(var(--surface-hover))] hover:text-foreground'
             }`}
           >
-            <Palette size={15} /> 外观与主题
+            <Palette size={15} className={activeTab === 'appearance' ? 'text-primary' : ''} />
+            <span>外观与阅读</span>
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="h-14 px-6 border-b border-border flex items-center justify-between shrink-0">
-            <h3 className="text-base font-semibold text-foreground">
-              {activeTab === 'general' ? '个人资料' : '外观与主题'}
+        <div className="flex-1 flex flex-col min-w-0 bg-background">
+          <div className="h-14 px-6 border-b border-border flex items-center justify-between shrink-0 bg-card">
+            <h3 className="font-editorial text-base font-semibold text-foreground">
+              {activeTab === 'general' ? '个人资料' : '外观与阅读'}
             </h3>
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
               className="h-8 w-8 rounded-full"
+              aria-label="关闭"
             >
               <X size={16} />
             </Button>
@@ -129,15 +140,14 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div
-                    className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-semibold shadow-sm"
-                    style={{ backgroundColor: '#4B177B' }}
-                  >
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-primary text-primary-foreground text-xl font-editorial font-semibold shadow-sm">
                     {avatarInitial}
                   </div>
                   <div>
-                    <h4 className="font-medium text-foreground">{name}</h4>
-                    <p className="text-xs text-muted-foreground">{user.role || '工作区成员'}</p>
+                    <h4 className="font-medium text-foreground">{name || '未命名成员'}</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {user.role || '工作区成员'}
+                    </p>
                   </div>
                 </div>
 
@@ -180,9 +190,15 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
             {activeTab === 'appearance' && (
               <div className="space-y-6">
-                <div className="space-y-2.5">
-                  <Label>颜色模式</Label>
-                  <div className="grid grid-cols-3 gap-2.5">
+                <div className="space-y-3">
+                  <div>
+                    <Label>宣纸与墨石双态主题</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      专为长时间宗谱编修调校的低眩光宣纸亮色与松烟墨夜览配色。
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2.5">
                     {modeOptions.map((opt) => {
                       const Icon = opt.icon;
                       const active = themeMode === opt.id;
@@ -191,14 +207,39 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
                           key={opt.id}
                           type="button"
                           onClick={() => setThemeMode(opt.id)}
-                          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-xs font-medium transition-all ${
+                          className={`flex items-center gap-3.5 p-3 rounded-xl border text-left transition-all cursor-pointer ${
                             active
-                              ? 'border-primary bg-accent text-accent-foreground'
-                              : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                              ? 'border-primary bg-card shadow-[var(--shadow-control)]'
+                              : 'border-border bg-card/60 hover:bg-card hover:border-[hsl(var(--border-strong))]'
                           }`}
                         >
-                          <Icon size={14} />
-                          <span>{opt.label}</span>
+                          {/* Mini swatch preview */}
+                          <div
+                            className={`w-11 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
+                              opt.id === 'dark'
+                                ? 'bg-[#141210] border-[#2F2A24] text-[#DD725A]'
+                                : opt.id === 'light'
+                                  ? 'bg-[#FAF7F2] border-[#E5DFD3] text-[#8C2D19]'
+                                  : 'bg-gradient-to-br from-[#FAF7F2] via-[#FAF7F2] to-[#141210] border-border text-foreground'
+                            }`}
+                          >
+                            <Icon size={15} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13px] font-semibold text-foreground">
+                              {opt.label}
+                            </div>
+                            <div className="text-[12px] text-muted-foreground truncate">
+                              {opt.desc}
+                            </div>
+                          </div>
+
+                          {active && (
+                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                              <Check size={12} className="text-primary-foreground" />
+                            </div>
+                          )}
                         </button>
                       );
                     })}
@@ -207,44 +248,23 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
                 <Separator />
 
-                <div className="space-y-3">
-                  <Label>主题色风格</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {themes.map((t) => (
-                      <div
-                        key={t.id}
-                        onClick={() => setAppTheme(t.id)}
-                        className={`relative flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                          theme === t.id
-                            ? 'border-primary bg-accent/60'
-                            : 'border-border bg-card hover:bg-muted/50'
-                        }`}
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-md flex items-center justify-center ${t.color}`}
-                        >
-                          <t.icon size={15} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {t.label}
-                          </p>
-                        </div>
-                        {theme === t.id && (
-                          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                            <Check size={12} className="text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                <div className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+                  <div className="text-[11px] font-semibold tracking-wider text-muted-foreground">
+                    排版预览
                   </div>
+                  <div className="font-editorial text-[17px] font-semibold text-foreground">
+                    义门陈氏宗谱 · 世系流芳
+                  </div>
+                  <p className="text-[13px] text-muted-foreground leading-relaxed">
+                    标题采用衬线体营造书卷典藏感，菜单、表格与表单采用高清晰无衬线体与等宽对齐数字（2026 · 第 18 世）。
+                  </p>
                 </div>
               </div>
             )}
           </div>
 
           {activeTab === 'general' && (
-            <div className="p-4 border-t border-border flex justify-end gap-2 bg-muted/10">
+            <div className="p-4 border-t border-border flex justify-end gap-2 bg-card">
               <Button variant="ghost" onClick={onClose}>
                 取消
               </Button>

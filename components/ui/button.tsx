@@ -3,23 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap shrink-0 rounded-md text-sm font-medium ring-offset-background transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-[var(--shadow-control)] hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground shadow-[var(--shadow-control)] hover:bg-primary/90 active:translate-y-[0.5px]",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-[var(--shadow-control)] hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground shadow-[var(--shadow-control)] hover:bg-destructive/90 active:translate-y-[0.5px]",
         outline:
-          "border border-input bg-background shadow-[var(--shadow-control)] hover:bg-[hsl(var(--surface-hover))] hover:border-[hsl(var(--border-strong))] text-foreground",
+          "border border-input bg-card shadow-[var(--shadow-control)] hover:bg-[hsl(var(--surface-hover))] hover:border-[hsl(var(--border-strong))] text-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground border border-transparent hover:border-border/70 hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground border border-border/60 hover:border-[hsl(var(--border-strong))] hover:bg-[hsl(var(--surface-hover))]",
         ghost: "hover:bg-[hsl(var(--surface-hover))] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2 text-[14px]",
-        sm: "h-8 rounded-md px-3 text-[13px] font-medium",
+        sm: "h-8 rounded-md px-3.5 text-[13px] font-medium",
         lg: "h-10 rounded-md px-8 text-[14px]",
         icon: "h-8 w-8",
       },

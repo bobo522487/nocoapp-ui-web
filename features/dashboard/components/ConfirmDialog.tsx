@@ -23,26 +23,35 @@ const ConfirmDialog: React.FC<Props> = ({
   onConfirm,
   onCancel,
 }) => {
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4"
       onClick={onCancel}
       role="presentation"
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-popover)]"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
       >
-        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+        <h2 className="font-editorial text-[17px] font-semibold text-foreground">{title}</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
           {description}
         </p>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onCancel}>
             取消
           </Button>

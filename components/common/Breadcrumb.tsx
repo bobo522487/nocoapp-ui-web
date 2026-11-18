@@ -176,8 +176,9 @@ const Breadcrumb: React.FC = () => {
               setProjSearch('');
               setIsProjMenuOpen((v) => !v);
             }}
+            aria-expanded={isProjMenuOpen}
             data-testid="nc-sidebar-project-selector"
-            className="flex items-center gap-2 px-1.5 py-1 rounded-lg hover:bg-muted/80 transition-colors min-w-0 max-w-[240px] text-left cursor-pointer"
+            className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[hsl(var(--surface-hover))] transition-colors duration-150 min-w-0 max-w-[260px] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ProjectColoredIcon
               colorTheme={
@@ -187,7 +188,7 @@ const Breadcrumb: React.FC = () => {
               }
               className="w-5 h-5 shrink-0"
             />
-            <span className="flex-1 truncate text-[14px] font-semibold text-foreground">
+            <span className="flex-1 truncate text-[14px] font-semibold text-foreground whitespace-nowrap">
               {isWorkspaceShell ? '所有家族' : activeProject?.name || '家族'}
             </span>
             <ChevronsUpDown
@@ -197,7 +198,7 @@ const Breadcrumb: React.FC = () => {
           </button>
 
           {isProjMenuOpen && (
-            <div className="absolute top-10 left-0 w-[260px] rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[85] p-1.5">
+            <div className="absolute top-10 left-0 w-[268px] rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[85] p-1.5">
               {/* Active Project Identity + ID Copy (only inside a specific project) */}
               {!isWorkspaceShell && activeProject && (
                 <div className="px-2 py-1.5 mb-1 border-b border-border/70">
@@ -212,12 +213,12 @@ const Breadcrumb: React.FC = () => {
                         setCopiedId(true);
                         setTimeout(() => setCopiedId(false), 1500);
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded bg-muted/60 cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded bg-[hsl(var(--surface-subtle))] border border-border/70 cursor-pointer shrink-0 whitespace-nowrap"
                       title="复制家族 ID"
                     >
-                      <span>ID</span>
+                      <span>{copiedId ? '已复制' : 'ID'}</span>
                       {copiedId ? (
-                        <Check size={11} className="text-emerald-500" />
+                        <Check size={11} className="text-primary" />
                       ) : (
                         <Copy size={11} />
                       )}
@@ -237,7 +238,7 @@ const Breadcrumb: React.FC = () => {
                   value={projSearch}
                   onChange={(e) => setProjSearch(e.target.value)}
                   placeholder="切换家族..."
-                  className="w-full h-7.5 pl-7 pr-2 text-xs rounded-md border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   autoFocus
                 />
               </div>
@@ -252,7 +253,7 @@ const Breadcrumb: React.FC = () => {
                 className={`w-full flex items-center gap-2 px-2 py-1.5 mb-1 rounded-md text-left text-[13px] transition-colors cursor-pointer ${
                   isWorkspaceShell
                     ? 'bg-accent text-accent-foreground font-semibold'
-                    : 'text-foreground hover:bg-muted font-medium'
+                    : 'text-foreground hover:bg-[hsl(var(--surface-hover))] font-medium'
                 }`}
               >
                 <Layers size={14} className="text-primary shrink-0" />
@@ -280,7 +281,7 @@ const Breadcrumb: React.FC = () => {
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-[13px] transition-colors cursor-pointer ${
                         isCurrent
                           ? 'bg-accent text-accent-foreground font-semibold'
-                          : 'text-foreground hover:bg-muted font-medium'
+                          : 'text-foreground hover:bg-[hsl(var(--surface-hover))] font-medium'
                       }`}
                     >
                       <ProjectColoredIcon
@@ -310,7 +311,7 @@ const Breadcrumb: React.FC = () => {
                         setIsProjMenuOpen(false);
                         navigate(`/projects/${activeProjectId}/settings`);
                       }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >
                       <Settings size={13} className="text-muted-foreground" />
                       <span>家族设置</span>
@@ -322,7 +323,7 @@ const Breadcrumb: React.FC = () => {
                         setIsProjMenuOpen(false);
                         if (copy) navigate(`/projects/${copy.id}`);
                       }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >
                       <Copy size={13} className="text-muted-foreground" />
                       <span>复制当前家族</span>
@@ -335,7 +336,7 @@ const Breadcrumb: React.FC = () => {
                     setIsProjMenuOpen(false);
                     setIsCreateProjectOpen(true);
                   }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-primary hover:bg-accent/70 transition-colors cursor-pointer"
                 >
                   <Plus size={13} />
                   <span>新建家族</span>
@@ -348,7 +349,7 @@ const Breadcrumb: React.FC = () => {
         {viewBadge && (
           <>
             <Separator />
-            <div className="flex items-center gap-1.5 px-1.5 py-1 text-[14px] font-semibold text-foreground whitespace-nowrap">
+            <div className="flex items-center gap-1.5 px-1.5 py-1 text-[14px] font-semibold text-foreground whitespace-nowrap shrink-0">
               <viewBadge.icon
                 size={14}
                 className={

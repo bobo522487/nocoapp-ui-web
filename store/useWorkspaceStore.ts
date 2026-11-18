@@ -19,46 +19,46 @@ export const ASSET_COLOR_PALETTES: Record<
   { tileBg: string; darkTileBg: string; fillDark: string; fillLight: string; label: string }
 > = {
   sky: {
-    tileBg: '#E0F5FF',
-    darkTileBg: 'rgba(54, 191, 255, 0.14)',
-    fillDark: '#004869',
-    fillLight: '#36BFFF',
-    label: '天蓝',
+    tileBg: '#EAF1F4',
+    darkTileBg: 'rgba(91, 138, 160, 0.16)',
+    fillDark: '#26495C',
+    fillLight: '#5B8AA0',
+    label: '霁青',
   },
   pink: {
-    tileBg: '#FFE1F6',
-    darkTileBg: 'rgba(252, 58, 198, 0.14)',
-    fillDark: '#68024C',
-    fillLight: '#FC3AC6',
-    label: '洋红',
+    tileBg: '#F6EAE8',
+    darkTileBg: 'rgba(176, 86, 75, 0.16)',
+    fillDark: '#7B281E',
+    fillLight: '#C05A4C',
+    label: '朱砂',
   },
   orange: {
-    tileBg: '#FEEDE1',
-    darkTileBg: 'rgba(250, 130, 49, 0.14)',
-    fillDark: '#5D2702',
-    fillLight: '#FA8231',
-    label: '暖橙',
+    tileBg: '#F7EFE2',
+    darkTileBg: 'rgba(181, 125, 58, 0.16)',
+    fillDark: '#734A1A',
+    fillLight: '#B8823D',
+    label: '琥珀',
   },
   indigo: {
-    tileBg: '#E7EDFF',
-    darkTileBg: 'rgba(51, 102, 255, 0.16)',
-    fillDark: '#1E3A8A',
-    fillLight: '#3366FF',
-    label: '钴蓝',
+    tileBg: '#EAEDF5',
+    darkTileBg: 'rgba(79, 102, 155, 0.18)',
+    fillDark: '#2A3B66',
+    fillLight: '#5770A8',
+    label: '靛蓝',
   },
   emerald: {
-    tileBg: '#E2F8EF',
-    darkTileBg: 'rgba(16, 185, 129, 0.15)',
-    fillDark: '#065F46',
-    fillLight: '#10B981',
-    label: '翠绿',
+    tileBg: '#E9F2EC',
+    darkTileBg: 'rgba(69, 128, 96, 0.16)',
+    fillDark: '#234D38',
+    fillLight: '#4D8B6B',
+    label: '竹青',
   },
   violet: {
-    tileBg: '#F1E8FF',
-    darkTileBg: 'rgba(139, 92, 246, 0.16)',
-    fillDark: '#4C1D95',
-    fillLight: '#8B5CF6',
-    label: '紫罗兰',
+    tileBg: '#EFEBE7',
+    darkTileBg: 'rgba(130, 107, 94, 0.18)',
+    fillDark: '#4D3B32',
+    fillLight: '#8B7263',
+    label: '紫檀',
   },
 };
 
@@ -67,7 +67,7 @@ const INITIAL_WORKSPACES: Workspace[] = [
     id: 'ws-personal',
     name: '个人空间',
     kind: 'personal',
-    color: '#3B5BDB',
+    color: '#8C2D19',
     plan: '免费版',
     createdAt: '2026-01-12',
   },
@@ -75,7 +75,7 @@ const INITIAL_WORKSPACES: Workspace[] = [
     id: 'ws-team',
     name: '宗亲修谱空间',
     kind: 'team',
-    color: '#0CA678',
+    color: '#2D5A4A',
     plan: '团队版',
     createdAt: '2026-03-04',
   },
@@ -151,7 +151,7 @@ const INITIAL_MEMBERS: WorkspaceMember[] = [
     email: 'bobo522487@gmail.com',
     role: '所有者',
     joinedAt: '2026-01-12',
-    avatarColor: '#4B177B',
+    avatarColor: '#8C2D19',
   },
   {
     id: 'mem-2',
@@ -169,7 +169,7 @@ const INITIAL_MEMBERS: WorkspaceMember[] = [
     email: 'bobo522487@gmail.com',
     role: '所有者',
     joinedAt: '2026-03-04',
-    avatarColor: '#4B177B',
+    avatarColor: '#8C2D19',
   },
   {
     id: 'mem-4',
@@ -208,8 +208,10 @@ interface WorkspaceState {
   members: WorkspaceMember[];
   notifications: WorkspaceNotification[];
   searchQuery: string;
+  zibeiByProject: Record<string, string[]>;
 
   setSearchQuery: (query: string) => void;
+  setProjectZibei: (projectId: string, words: string[]) => void;
   switchWorkspace: (workspaceId: string) => void;
   /** 从后端拉取我的组织列表并灌入 workspaces（API 为唯一事实源）。 */
   hydrateFromApi: () => Promise<void>;
@@ -296,7 +298,7 @@ interface WorkspaceState {
   markAllNotificationsRead: () => void;
 }
 
-const AVATAR_COLORS = ['#4B177B', '#1E40AF', '#047857', '#B45309', '#9D174D'];
+const AVATAR_COLORS = ['#8C2D19', '#1E40AF', '#047857', '#B45309', '#9D174D'];
 
 const ORG_COLORS = ['#3B5BDB', '#0CA678', '#F76707', '#7048E8', '#E64980'];
 
@@ -311,8 +313,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       members: INITIAL_MEMBERS,
       notifications: INITIAL_NOTIFICATIONS,
       searchQuery: '',
+      zibeiByProject: {
+        'proj-chen-yimen': ['旺', '崇', '仲', '伯', '叔', '季', '文', '明', '昌', '盛'],
+      },
 
       setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+      setProjectZibei: (projectId, words) =>
+        set((state) => ({
+          zibeiByProject: {
+            ...(state.zibeiByProject || {}),
+            [projectId]: words,
+          },
+        })),
 
       switchWorkspace: (activeWorkspaceId) =>
         set((state) => {

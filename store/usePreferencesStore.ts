@@ -53,7 +53,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set, get) => ({
       themeMode: 'light',
       isDarkMode: false,
-      theme: 'vscode',
+      theme: 'archival',
       isProjectSidebarCollapsed: false,
       lineageDrawerMode: 'narrow',
       biographyPreviewPrefs: DEFAULT_BIOGRAPHY_PREVIEW_PREFS,
@@ -95,13 +95,16 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: 'nocoapp:preferences',
-      version: 3,
+      version: 4,
       storage: createAppStorage(),
       migrate: (persistedState: unknown, version: number) => {
         const state = (persistedState ?? {}) as Record<string, unknown>;
-        if (version < 3) {
+        if (version < 4) {
           const { isAuthenticated: _removed, ...rest } = state;
-          return rest as unknown as PreferencesState;
+          return {
+            ...rest,
+            theme: 'archival',
+          } as unknown as PreferencesState;
         }
         return state as unknown as PreferencesState;
       },

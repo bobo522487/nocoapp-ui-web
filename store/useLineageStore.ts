@@ -173,9 +173,20 @@ function collectDescendantIds(persons: PersonRecord[], rootId: string): Set<stri
         toDelete.add(p.id);
         changed = true;
       }
+      if (p.spouseOfId && toDelete.has(p.spouseOfId) && !toDelete.has(p.id)) {
+        toDelete.add(p.id);
+        changed = true;
+      }
     }
   }
   return toDelete;
+}
+
+function formatSpouseDisplayName(p: PersonRecord): string {
+  const s = p.surname?.trim() || '';
+  const n = p.name?.trim() || '';
+  if (s && n && !n.startsWith(s)) return `${s}${n}`;
+  return n || s || '配偶';
 }
 
 export interface LineageChartMeta {
@@ -221,7 +232,8 @@ interface LineageState {
     chartId: string,
     person: PersonRecord,
     chartName?: string,
-    surname?: string
+    surname?: string,
+    options?: { select?: boolean }
   ) => void;
   updatePerson: (
     projectId: string,
@@ -625,20 +637,41 @@ export const useLineageStore = create<LineageState>()(
           },
         })),
 
-      addPerson: (projectId, chartId, person, chartName, surname) =>
+      addPerson: (projectId, chartId, person, chartName, surname, options) =>
         set((state) => {
           const key = makeChartStorageKey(projectId, chartId);
           const currentPersons =
             state.personsByChart[key] ||
             createSeedPersonsForChart(chartId, chartName, surname);
+
+          let nextPersons = [...currentPersons, person];
+          if (person.spouseOfId) {
+            const partnerId = person.spouseOfId;
+            const spouseEntry = {
+              id: person.id,
+              relationLabel: person.spouseRelationLabel || '配偶',
+              name: formatSpouseDisplayName(person),
+            };
+            nextPersons = nextPersons.map((p) =>
+              p.id === partnerId
+                ? {
+                    ...p,
+                    spouses: [...(p.spouses || []), spouseEntry],
+                  }
+                : p
+            );
+          }
+
+          const shouldSelect = options?.select !== false;
+
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: [...currentPersons, person],
+              [key]: nextPersons,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
-              [key]: person.id,
+              [key]: shouldSelect ? person.id : null,
             },
           };
         }),
@@ -649,12 +682,113 @@ export const useLineageStore = create<LineageState>()(
           const currentPersons =
             state.personsByChart[key] ||
             createSeedPersonsForChart(chartId, chartName, surname);
+
+          let updatedList = currentPersons.map((p) =>
+            p.id === personId ? { ...p, ...updates } : p
+          );
+          let target = updatedList.find((p) => p.id === personId);
+
+          // When updating a spouse's sequence order, normalize all spouses of the same partner into 1..N
+          if (target?.spouseOfId && updates.siblingOrder !== undefined) {
+            const partnerId = target.spouseOfId;
+            const otherSpouses = updatedList
+              .filter((p) => p.spouseOfId === partnerId && p.id !== target!.id)
+              .sort((a, b) => {
+                const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
+                const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
+                return orderA - orderB;
+              });
+            const desiredIdx = Math.max(
+              0,
+              Math.min(
+                otherSpouses.length,
+                Math.round(Number(updates.siblingOrder) || 1) - 1
+              )
+            );
+            const orderedSpouses = [...otherSpouses];
+            orderedSpouses.splice(desiredIdx, 0, target);
+            const spouseOrderMap = new Map<string, number>();
+            orderedSpouses.forEach((sp, idx) => {
+              spouseOrderMap.set(sp.id, idx + 1);
+            });
+            updatedList = updatedList.map((p) => {
+              const newOrder = spouseOrderMap.get(p.id);
+              return newOrder !== undefined ? { ...p, siblingOrder: newOrder } : p;
+            });
+            target = updatedList.find((p) => p.id === personId);
+          }
+
+          const syncedList =
+            target && target.spouseOfId
+              ? updatedList.map((p) => {
+                  if (p.id !== target!.spouseOfId) return p;
+                  const existing = p.spouses || [];
+                  const hasEntry = existing.some((s) => s.id === target!.id);
+                  const nextSpouses = hasEntry
+                    ? existing.map((s) =>
+                        s.id === target!.id
+                          ? {
+                              ...s,
+                              relationLabel:
+                                target!.spouseRelationLabel ||
+                                s.relationLabel ||
+                                '配偶',
+                              name: formatSpouseDisplayName(target!),
+                            }
+                          : s
+                      )
+                    : [
+                        ...existing,
+                        {
+                          id: target!.id,
+                          relationLabel: target!.spouseRelationLabel || '配偶',
+                          name: formatSpouseDisplayName(target!),
+                        },
+                      ];
+
+                  const spouseRankOrder: Record<string, number> = {
+                    原配: 1,
+                    元配: 1,
+                    正室: 1,
+                    继配: 2,
+                    次配: 2,
+                    再配: 2,
+                    三配: 3,
+                    四配: 4,
+                    五配: 5,
+                    六配: 6,
+                  };
+                  const orderLookup = new Map<string, number>();
+                  updatedList.forEach((sp) => {
+                    if (sp.spouseOfId === p.id) {
+                      const rankOrder = sp.spouseRelationLabel
+                        ? spouseRankOrder[sp.spouseRelationLabel.trim()]
+                        : undefined;
+                      orderLookup.set(
+                        sp.id,
+                        rankOrder ?? sp.siblingOrder ?? sp.biographyOrder ?? 50
+                      );
+                    }
+                  });
+                  const sortedSpouses = [...nextSpouses].sort((a, b) => {
+                    const orderA =
+                      (a.id ? orderLookup.get(a.id) : undefined) ??
+                      spouseRankOrder[a.relationLabel || ''] ??
+                      999;
+                    const orderB =
+                      (b.id ? orderLookup.get(b.id) : undefined) ??
+                      spouseRankOrder[b.relationLabel || ''] ??
+                      999;
+                    return orderA - orderB;
+                  });
+                  return { ...p, spouses: sortedSpouses };
+                })
+              : updatedList;
+
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: currentPersons.map((p) =>
-                p.id === personId ? { ...p, ...updates } : p
-              ),
+              [key]: syncedList,
             },
           };
         }),
@@ -666,7 +800,19 @@ export const useLineageStore = create<LineageState>()(
             state.personsByChart[key] ||
             createSeedPersonsForChart(chartId, chartName, surname);
           const toDelete = collectDescendantIds(currentPersons, personId);
-          const remaining = currentPersons.filter((p) => !toDelete.has(p.id));
+          const remaining = currentPersons
+            .filter((p) => !toDelete.has(p.id))
+            .map((p) => {
+              if (!p.spouses?.some((s) => s.id && toDelete.has(s.id))) {
+                return p;
+              }
+              return {
+                ...p,
+                spouses: p.spouses.filter(
+                  (s) => !(s.id && toDelete.has(s.id))
+                ),
+              };
+            });
           const currentSel = state.selectedPersonIdByChart[key];
           return {
             personsByChart: {

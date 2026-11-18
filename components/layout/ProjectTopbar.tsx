@@ -18,7 +18,7 @@ const ProjectTopbar: React.FC = () => {
     <>
       <header
         data-testid="nc-table-topbar"
-        className="h-12 w-full border-b border-border bg-background flex items-center justify-between gap-3 px-3 shrink-0 z-20"
+        className="h-12 w-full border-b border-border bg-background/95 backdrop-blur-xs flex items-center justify-between gap-3 px-4 shrink-0 z-20"
       >
         {/* Left: Sidebar Expand Toggle (when collapsed) + Unified Project Breadcrumb */}
         <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -27,8 +27,9 @@ const ProjectTopbar: React.FC = () => {
               type="button"
               onClick={() => setCollapsed(false)}
               title="展开侧边栏"
+              aria-label="展开侧边栏"
               data-testid="nc-topbar-expand-sidebar"
-              className="w-8 h-8 mr-1 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
+              className="w-8 h-8 mr-1 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PanelLeftOpen size={16} />
             </button>
@@ -38,7 +39,7 @@ const ProjectTopbar: React.FC = () => {
         </div>
 
         {/* Right: Statistics button */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Button
             variant="ghost"
             size="sm"
@@ -46,7 +47,7 @@ const ProjectTopbar: React.FC = () => {
             data-testid="nc-topbar-stats-btn"
             className="h-8 gap-1.5 px-2.5 text-[12px] font-medium whitespace-nowrap shrink-0"
           >
-            <BarChart3 size={14} />
+            <BarChart3 size={14} className="text-muted-foreground" />
             <span>统计</span>
           </Button>
         </div>

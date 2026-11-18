@@ -173,8 +173,8 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
         <div 
             className={cn(
                 "group relative flex items-center h-8 px-2 rounded-md transition-colors border border-transparent",
-                isSelected && !isClone ? "bg-accent text-accent-foreground font-semibold" : "hover:bg-muted/50 text-foreground/85 font-medium hover:text-foreground",
-                isClone && "bg-background border-border shadow-xl opacity-90"
+                isSelected && !isClone ? "bg-[hsl(var(--surface-active))] text-accent-foreground border-primary/20 font-semibold" : "hover:bg-[hsl(var(--surface-hover))] text-foreground/85 font-medium hover:text-foreground",
+                isClone && "bg-card border-border shadow-xl opacity-90"
             )}
             onClick={(e) => {
                 onClick?.(item);

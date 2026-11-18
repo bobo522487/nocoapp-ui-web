@@ -29,7 +29,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
       {/* Intro Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-lg font-bold tracking-tight text-foreground font-serif">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
             欧式五世一表 · 世系大表
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
@@ -50,7 +50,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
               key={gen}
               className="flex flex-col border border-border rounded-xl bg-card overflow-hidden shadow-sm"
             >
-              <div className="px-4 py-3 bg-muted/40 border-b border-border flex items-center justify-between">
+              <div className="px-4 py-3 bg-[hsl(var(--surface-subtle))] border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-foreground tabular-nums">
                   {gen === 1 && <Crown size={15} className="text-amber-500" />}
                   <span>第 {gen} 世</span>
@@ -75,14 +75,14 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                         onClick={() => onSelectPerson(p.id)}
                         className={`p-3 rounded-lg border transition-all duration-150 cursor-pointer ${
                           isSelected
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
-                            : 'border-border/80 bg-background hover:border-primary/40 hover:bg-muted/30'
+                            ? 'border-primary bg-[hsl(var(--surface-active))] ring-1 ring-primary shadow-sm'
+                            : 'border-border/80 bg-background/85 hover:border-primary/40 hover:bg-[hsl(var(--surface-hover))/0.45]'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-sm text-foreground font-serif">
+                              <span className="font-semibold text-sm text-foreground">
                                 {formatGivenName(p.name, clanSurname)}
                               </span>
                               {p.courtesyName && (

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PersonRecord } from '../types';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { Select } from '../../../components/ui/select';
+import { Textarea } from '../../../components/ui/textarea';
 import { X, UserPlus, Heart } from 'lucide-react';
 import { formatGivenName } from '../utils/nameUtils';
 
@@ -124,11 +126,12 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
           className="p-5 overflow-y-auto space-y-4 text-xs flex-1"
         >
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1">
+            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
               承祧父祖
             </label>
-            <select
+            <Select
               value={fatherId || ''}
+              isPlaceholder={false}
               onChange={(e) => {
                 const val = e.target.value;
                 setFatherId(val || null);
@@ -139,27 +142,28 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
                   setGeneration(selectedFather.generation + 1);
                 }
               }}
-              className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background text-foreground"
             >
-              <option value="">-- 始祖 / 无父节点 (第一世) --</option>
+              <option value="" className="bg-card text-foreground">
+                -- 始祖 / 无父节点 (第一世) --
+              </option>
               {existingPersons.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={p.id} value={p.id} className="bg-card text-foreground">
                   第{p.generation}世：{formatGivenName(p.name, clanSurname)}{' '}
                   {p.courtesyName ? `(字${p.courtesyName})` : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-foreground mb-1">
-                族人姓名 *
+              <label className="block text-[11px] font-medium text-foreground mb-1.5">
+                族人姓名 <span className="text-primary">*</span>
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="如: 伯康"
+                placeholder="例如：伯康"
                 required
                 className="h-8 text-xs font-semibold"
               />
@@ -203,34 +207,40 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
                 性别
               </label>
-              <select
+              <Select
                 value={gender}
                 onChange={(e) =>
                   setGender(e.target.value as 'male' | 'female')
                 }
-                className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background text-foreground"
               >
-                <option value="male">男</option>
-                <option value="female">女</option>
-              </select>
+                <option value="male" className="bg-card text-foreground">
+                  男
+                </option>
+                <option value="female" className="bg-card text-foreground">
+                  女
+                </option>
+              </Select>
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
+              <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
                 生存状态
               </label>
-              <select
+              <Select
                 value={status}
                 onChange={(e) =>
                   setStatus(e.target.value as 'living' | 'deceased')
                 }
-                className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background text-foreground"
               >
-                <option value="deceased">已故</option>
-                <option value="living">健在</option>
-              </select>
+                <option value="deceased" className="bg-card text-foreground">
+                  已故
+                </option>
+                <option value="living" className="bg-card text-foreground">
+                  健在
+                </option>
+              </Select>
             </div>
           </div>
 
@@ -297,15 +307,15 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-muted-foreground mb-1">
+            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
               行状事略记述
             </label>
-            <textarea
+            <Textarea
               value={biography}
               onChange={(e) => setBiography(e.target.value)}
               rows={3}
-              placeholder="生平事略、行状传记..."
-              className="w-full p-2 text-xs rounded-md border border-input bg-background resize-none leading-relaxed text-foreground"
+              placeholder="例如：平生耕读传家，乐善好施..."
+              className="min-h-[72px] p-2.5 text-xs resize-none leading-relaxed"
             />
           </div>
 

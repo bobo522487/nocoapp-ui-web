@@ -1,10 +1,10 @@
 import { formatGenealogyDate, getPersonDateDisplay } from '../../date-input';
 import type { GenealogyDate } from '../../date-input/date.types';
-import { formatGenealogyPlace } from '../../place-input';
+import { formatGenealogyPlace, getPersonPlaceDisplay } from '../../place-input';
 import {
   BiographyPreviewPreferences,
-  PersonCareerEntry,
-  PersonEducationEntry,
+  PersonEventType,
+  PersonLifeEvent,
   PersonRecord,
   RelationKind,
 } from '../types';
@@ -52,48 +52,65 @@ export const SPOUSE_RANK_ORDER: Record<string, number> = {
   六配: 6,
 };
 
-export const EDUCATION_LEVEL_OPTIONS = [
-  '小学',
-  '初中',
-  '高中',
-  '技工',
-  '中技',
-  '中专',
-  '专科',
-  '大学专科',
-  '大学本科',
-  '研究生',
-  '博士',
-];
-
-export const GRADUATION_STATUS_OPTIONS = ['毕业', '在读', '肄业'];
-
-const RANK_SCORE: Record<string, number> = {
-  始祖: 0,
-  长子: 1,
-  长女: 1,
-  长: 1,
-  次子: 2,
-  次女: 2,
-  二子: 2,
-  二女: 2,
-  三子: 3,
-  三女: 3,
-  四子: 4,
-  四女: 4,
-  五子: 5,
-  五女: 5,
-  六子: 6,
-  六女: 6,
-  幼子: 99,
-  幼女: 99,
-};
 
 function getRankScore(p: PersonRecord): number {
   if (p.siblingOrder !== undefined) return p.siblingOrder;
   if (p.biographyOrder !== undefined) return p.biographyOrder;
-  if (p.rank && RANK_SCORE[p.rank] !== undefined) return RANK_SCORE[p.rank];
   return 50;
+}
+
+export function getSpouseSortScore(person: PersonRecord): number {
+  if (person.siblingOrder !== undefined) return person.siblingOrder;
+  if (person.biographyOrder !== undefined) return person.biographyOrder;
+  return 50;
+}
+
+export interface LineageGraphIndex {
+  personById: Map<string, PersonRecord>;
+  childrenByFatherId: Map<string, PersonRecord[]>;
+  spousesByPartnerId: Map<string, PersonRecord[]>;
+}
+
+/**
+ * Build O(N) adjacency index over PersonRecord[] for fast lookups across tables,
+ * grids, stats, book compilation, and canvas layout.
+ */
+export function buildLineageGraphIndex(
+  persons: PersonRecord[]
+): LineageGraphIndex {
+  const personById = new Map<string, PersonRecord>();
+  const childrenByFatherId = new Map<string, PersonRecord[]>();
+  const spousesByPartnerId = new Map<string, PersonRecord[]>();
+
+  for (const p of persons) {
+    personById.set(p.id, p);
+  }
+
+  for (const p of persons) {
+    if (p.spouseOfId) {
+      const list = spousesByPartnerId.get(p.spouseOfId);
+      if (list) list.push(p);
+      else spousesByPartnerId.set(p.spouseOfId, [p]);
+    } else if (p.fatherId) {
+      const list = childrenByFatherId.get(p.fatherId);
+      if (list) list.push(p);
+      else childrenByFatherId.set(p.fatherId, [p]);
+    }
+  }
+
+  for (const list of childrenByFatherId.values()) {
+    list.sort((a, b) => getRankScore(a) - getRankScore(b));
+  }
+
+  for (const list of spousesByPartnerId.values()) {
+    list.sort((a, b) => getSpouseSortScore(a) - getSpouseSortScore(b));
+  }
+
+  return {
+    personById,
+    childrenByFatherId,
+    spousesByPartnerId,
+  };
 }
 
 /**
@@ -108,18 +125,8 @@ export function getDerivedChildren(
     .sort((a, b) => getRankScore(a) - getRankScore(b));
 }
 
-export function getSpouseSortScore(person: PersonRecord): number {
-  const rankOrder = person.spouseRelationLabel
-    ? SPOUSE_RANK_ORDER[person.spouseRelationLabel.trim()]
-    : undefined;
-  if (rankOrder !== undefined) return rankOrder;
-  if (person.siblingOrder !== undefined) return person.siblingOrder;
-  if (person.biographyOrder !== undefined) return person.biographyOrder;
-  return 50;
-}
-
 /**
- * Derive ordered spouse nodes for a partner, sorted by spouse rank / siblingOrder / biographyOrder.
+ * Derive ordered spouse nodes for a partner, sorted by siblingOrder / biographyOrder.
  */
 export function getDerivedSpouses(
   allPersons: PersonRecord[],
@@ -127,13 +134,7 @@ export function getDerivedSpouses(
 ): PersonRecord[] {
   return allPersons
     .filter((p) => p.spouseOfId === partnerId)
-    .sort((a, b) => {
-      const scoreDiff = getSpouseSortScore(a) - getSpouseSortScore(b);
-      if (scoreDiff !== 0) return scoreDiff;
-      const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
-      const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
-      return orderA - orderB;
-    });
+    .sort((a, b) => getSpouseSortScore(a) - getSpouseSortScore(b));
 }
 
 /**
@@ -226,7 +227,7 @@ export function getExtraRelationBadge(
 }
 
 /**
- * Compute automatic rank label:
+ * Compute automatic rank label from topology:
  * - Spouses: 原配 / 继配 / 三配 / 四配...
  * - Root: 始祖 / 首节点
  * - Children (split into male and female groups):
@@ -259,9 +260,6 @@ export function computeAutoRankLabel(
   return `${toChineseOrderPrefix(orderNum)}${isFemale ? '女' : '子'}`;
 }
 
-/**
- * Compute read-only pure Chinese rank display (e.g. "之男", "长子", "次女", "原配", "始祖").
- */
 export function computeRankDisplay(
   person: PersonRecord,
   allPersons: PersonRecord[]
@@ -269,184 +267,83 @@ export function computeRankDisplay(
   return computeAutoRankLabel(person, allPersons);
 }
 
-/**
- * Synchronize persisted rank & spouseRelationLabel snapshots across all persons.
- */
-export function syncDerivedRankSnapshots(
-  persons: PersonRecord[]
-): PersonRecord[] {
-  const spouseLabelById = new Map<string, string>();
-  const spouseNameById = new Map<string, string>();
-
-  persons.forEach((p) => {
-    if (p.spouseOfId) {
-      spouseLabelById.set(p.id, computeAutoRankLabel(p, persons));
-      const ms = p.surname?.trim() || '';
-      const mn = p.name?.trim() || '';
-      spouseNameById.set(
-        p.id,
-        ms && mn && !mn.startsWith(ms) ? `${ms}${mn}` : mn || '配偶'
-      );
-    }
-  });
-
-  return persons.map((p) => {
-    if (p.spouseOfId) {
-      const nextLabel = spouseLabelById.get(p.id) || '配偶';
-      if (p.spouseRelationLabel === nextLabel) return p;
-      return { ...p, spouseRelationLabel: nextLabel };
-    }
-
-    const nextRank = computeAutoRankLabel(p, persons);
-    let nextSpouses = p.spouses;
-    let spousesChanged = false;
-
-    if (p.spouses && p.spouses.length > 0) {
-      const mapped = p.spouses.map((sp) => {
-        if (!sp.id || !spouseLabelById.has(sp.id)) return sp;
-        const nextRelLabel = spouseLabelById.get(sp.id)!;
-        const nextName = spouseNameById.get(sp.id) || sp.name;
-        if (sp.relationLabel === nextRelLabel && sp.name === nextName) {
-          return sp;
-        }
-        spousesChanged = true;
-        return {
-          ...sp,
-          relationLabel: nextRelLabel,
-          name: nextName,
-        };
-      });
-      if (spousesChanged) {
-        nextSpouses = mapped;
-      }
-    }
-
-    if (p.rank === nextRank && !spousesChanged) {
-      return p;
-    }
-
-    return {
-      ...p,
-      rank: nextRank,
-      ...(spousesChanged ? { spouses: nextSpouses } : {}),
-    };
-  });
-}
-
-export function parseAliasList(
-  aliases?: string[],
-  courtesyName?: string
+export function getPersonAliases(
+  person: Pick<PersonRecord, 'aliases'> | null | undefined
 ): string[] {
-  if (aliases && aliases.length > 0) {
-    return Array.from(
-      new Set(aliases.map((item) => item.trim()).filter(Boolean))
-    );
-  }
-  if (courtesyName?.trim()) {
-    return Array.from(
-      new Set(
-        courtesyName
-          .split(/[、,，;；\s]+/)
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    );
-  }
-  return [];
+  if (!person?.aliases?.length) return [];
+  return Array.from(
+    new Set(person.aliases.map((item) => item.trim()).filter(Boolean))
+  );
 }
 
-export function readEntryGenealogyDate(entry: {
-  period?: string;
-  structuredPeriod?: GenealogyDate | null;
-}): GenealogyDate | null {
-  if (entry.structuredPeriod) {
-    return entry.structuredPeriod;
-  }
-  const legacyText = entry.period?.trim();
-  if (legacyText) {
-    return {
-      schemaVersion: 1,
-      kind: 'phrase',
-      originalText: legacyText,
-    };
-  }
-  return null;
+export function formatPersonAliases(
+  person: Pick<PersonRecord, 'aliases'> | null | undefined
+): string {
+  return getPersonAliases(person).join('、');
 }
 
-export function writeEntryGenealogyDate<
-  T extends { period?: string; structuredPeriod?: GenealogyDate | null },
->(entry: T, value: GenealogyDate | null): T {
-  const formatted = value ? formatGenealogyDate(value).trim() : '';
-  return {
-    ...entry,
-    period: formatted,
-    structuredPeriod: value ?? undefined,
-  };
+export function parseAliasInput(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[、,，;；\s]+/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+const VALID_EVENT_TYPES: ReadonlySet<PersonEventType> = new Set([
+  'birth',
+  'education',
+  'career',
+  'marriage',
+  'residence',
+  'death',
+  'other',
+]);
+
+const EVENT_TYPE_TEXT_MAP: Record<PersonEventType, string> = {
+  birth: '出生',
+  education: '求学',
+  career: '任职',
+  marriage: '婚姻',
+  residence: '迁居',
+  death: '卒葬',
+  other: '其他',
+};
+
+export function normalizeEventType(rawType: unknown): PersonEventType {
+  if (rawType === 'burial') return 'death';
+  if (rawType === 'honor') return 'career';
+  if (typeof rawType === 'string' && VALID_EVENT_TYPES.has(rawType as PersonEventType)) {
+    return rawType as PersonEventType;
+  }
+  return 'other';
+}
+
+export function getPersonPrimaryTitle(
+  person: Pick<PersonRecord, 'events'> | null | undefined
+): string {
+  const firstCareer = person?.events?.find((ev) => ev.type === 'career');
+  return firstCareer?.description?.trim() || '';
 }
 
 /**
- * Hydrate draft form data from PersonRecord, seamlessly bridging legacy top-level fields.
+ * Hydrate draft form data cleanly from canonical PersonRecord.
  */
 export function hydratePersonDraft(
   person: PersonRecord,
   clanSurname: string = ''
 ): PersonRecord {
-  const career = person.career || {};
-  const fallbackEduSummary =
-    career.educationSummary ||
-    [career.school, career.major, career.educationLevel, career.graduationStatus]
-      .filter(Boolean)
-      .join(' ');
-
-  const resolvedAliases = parseAliasList(person.aliases, person.courtesyName);
-
-  const hydratedEducationHistory: PersonEducationEntry[] =
-    career.educationHistory && career.educationHistory.length > 0
-      ? career.educationHistory.map((item, idx) => ({
-          id: item.id || `edu-${idx + 1}`,
-          period: item.structuredPeriod
-            ? formatGenealogyDate(item.structuredPeriod)
-            : (item.period ?? ''),
-          structuredPeriod: item.structuredPeriod ?? undefined,
-          level: item.level ?? '',
-          school: item.school ?? '',
-        }))
-      : career.educationLevel || career.school || career.educationPeriod
-        ? [
-            {
-              id: 'edu-1',
-              period: career.educationPeriod ?? '',
-              structuredPeriod: undefined,
-              level: career.educationLevel ?? '',
-              school: career.school ?? '',
-            },
-          ]
-        : [];
-
-  const hydratedCareerHistory: PersonCareerEntry[] =
-    career.careerHistory && career.careerHistory.length > 0
-      ? career.careerHistory.map((item, idx) => ({
-          id: item.id || `career-${idx + 1}`,
-          period: item.structuredPeriod
-            ? formatGenealogyDate(item.structuredPeriod)
-            : (item.period ?? ''),
-          structuredPeriod: item.structuredPeriod ?? undefined,
-          location: item.location ?? '',
-          organization: item.organization ?? '',
-          position: item.position ?? '',
-        }))
-      : career.profession || career.title || person.officialTitle
-        ? [
-            {
-              id: 'career-1',
-              period: '',
-              structuredPeriod: undefined,
-              location: '',
-              organization: career.profession ?? '',
-              position: career.title ?? person.officialTitle ?? '',
-            },
-          ]
-        : [];
+  const resolvedAliases = getPersonAliases(person);
+  const hydratedEvents: PersonLifeEvent[] = (person.events || []).map((ev, idx) => ({
+    id: ev.id || `ev-${idx + 1}`,
+    type: normalizeEventType(ev.type),
+    structuredDate: ev.structuredDate ?? undefined,
+    structuredPlace: ev.structuredPlace ?? undefined,
+    description: ev.description ?? '',
+  }));
 
   return {
     ...person,
@@ -454,7 +351,6 @@ export function hydratePersonDraft(
       ? (person.surname ?? '')
       : (person.surname ?? clanSurname),
     aliases: resolvedAliases,
-    courtesyName: resolvedAliases.join('、') || person.courtesyName || '',
     nameSuffix: person.nameSuffix ?? '',
     romanizedName: {
       surname: person.romanizedName?.surname ?? '',
@@ -470,62 +366,29 @@ export function hydratePersonDraft(
         : person.gender === 'female'
           ? '生女'
           : '生子'),
-    spouses: (person.spouses || []).map((s) => ({ ...s })),
     birth: {
-      date: person.birth?.structuredDate
-        ? formatGenealogyDate(person.birth.structuredDate)
-        : (person.birth?.date ?? person.birthDate ?? ''),
       structuredDate: person.birth?.structuredDate ?? undefined,
-      place: person.birth?.structuredPlace
-        ? formatGenealogyPlace(person.birth.structuredPlace)
-        : (person.birth?.place ?? ''),
       structuredPlace: person.birth?.structuredPlace ?? undefined,
       summary: person.birth?.summary ?? '',
     },
-    career: {
-      educationPeriod: career.educationPeriod ?? '',
-      educationLevel: career.educationLevel ?? '',
-      graduationStatus: career.graduationStatus ?? '',
-      school: career.school ?? '',
-      major: career.major ?? '',
-      educationSummary: fallbackEduSummary,
-      educationHistory: hydratedEducationHistory,
-      profession: career.profession ?? '',
-      title: career.title ?? person.officialTitle ?? '',
-      resume: career.resume ?? '',
-      lifeSummary: career.lifeSummary ?? '',
-      careerHistory: hydratedCareerHistory,
-    },
     death: {
-      date: person.death?.structuredDate
-        ? formatGenealogyDate(person.death.structuredDate)
-        : (person.death?.date ?? person.deathDate ?? ''),
       structuredDate: person.death?.structuredDate ?? undefined,
-      place: person.death?.structuredPlace
-        ? formatGenealogyPlace(person.death.structuredPlace)
-        : (person.death?.place ?? ''),
       structuredPlace: person.death?.structuredPlace ?? undefined,
-      burialDate: person.death?.structuredBurialDate
-        ? formatGenealogyDate(person.death.structuredBurialDate)
-        : (person.death?.burialDate ?? ''),
       structuredBurialDate: person.death?.structuredBurialDate ?? undefined,
-      burialPlace: person.death?.structuredBurialPlace
-        ? formatGenealogyPlace(person.death.structuredBurialPlace)
-        : (person.death?.burialPlace ?? person.burialPlace ?? ''),
       structuredBurialPlace: person.death?.structuredBurialPlace ?? undefined,
       cause: person.death?.cause ?? '',
       summary: person.death?.summary ?? '',
-      age: person.death?.age ?? person.age,
+      manualAge: person.death?.manualAge,
     },
+    events: hydratedEvents,
     sequenceMeta: {
       mainLabel: person.sequenceMeta?.mainLabel ?? '',
       mainNumber: person.sequenceMeta?.mainNumber,
       subLabel: person.sequenceMeta?.subLabel ?? '',
       subNumber: person.sequenceMeta?.subNumber,
-      originalPage: person.sequenceMeta?.originalPage ?? person.biographyPage,
+      originalPage: person.sequenceMeta?.originalPage,
     },
     privateInfo: {
-      idCardName: person.privateInfo?.idCardName ?? '',
       idCardNum: person.privateInfo?.idCardNum ?? '',
       mobile: person.privateInfo?.mobile ?? '',
       address: person.privateInfo?.address ?? '',
@@ -534,7 +397,7 @@ export function hydratePersonDraft(
 }
 
 /**
- * Normalize draft before committing to the lineage store so top-level fields stay in sync.
+ * Normalize draft before committing to the lineage store using canonical SSOT fields only.
  */
 export function normalizePersonForSave(
   draft: PersonRecord,
@@ -544,118 +407,22 @@ export function normalizePersonForSave(
     ? allPersons.find((p) => p.id === draft.fatherId)
     : null;
 
-  const birthStructured = draft.birth?.structuredDate ?? undefined;
-  const deathStructured = draft.death?.structuredDate ?? undefined;
-  const burialDateStructured = draft.death?.structuredBurialDate ?? undefined;
-  const birthDate = birthStructured
-    ? formatGenealogyDate(birthStructured).trim() || undefined
-    : draft.birth?.date?.trim() || undefined;
-  const deathDate = deathStructured
-    ? formatGenealogyDate(deathStructured).trim() || undefined
-    : draft.death?.date?.trim() || undefined;
-  const burialDate = burialDateStructured
-    ? formatGenealogyDate(burialDateStructured).trim() || undefined
-    : draft.death?.burialDate?.trim() || undefined;
+  const cleanedAliases = getPersonAliases(draft);
 
-  const birthStructuredPlace = draft.birth?.structuredPlace ?? undefined;
-  const deathStructuredPlace = draft.death?.structuredPlace ?? undefined;
-  const burialStructuredPlace = draft.death?.structuredBurialPlace ?? undefined;
-  const birthPlace = birthStructuredPlace
-    ? formatGenealogyPlace(birthStructuredPlace).trim() || undefined
-    : draft.birth?.place?.trim() || undefined;
-  const deathPlace = deathStructuredPlace
-    ? formatGenealogyPlace(deathStructuredPlace).trim() || undefined
-    : draft.death?.place?.trim() || undefined;
-  const burialPlace = burialStructuredPlace
-    ? formatGenealogyPlace(burialStructuredPlace).trim() || undefined
-    : draft.death?.burialPlace?.trim() || undefined;
-
-  const age = draft.death?.age || undefined;
-
-  const cleanedAliases = Array.from(
-    new Set((draft.aliases || []).map((a) => a.trim()).filter(Boolean))
-  );
-  const courtesyName =
-    cleanedAliases.length > 0
-      ? cleanedAliases.join('、')
-      : draft.courtesyName?.trim() || undefined;
-
-  const cleanedEducationHistory: PersonEducationEntry[] = (
-    draft.career?.educationHistory || []
-  )
-    .map((entry, idx) => {
-      const structuredPeriod = entry.structuredPeriod ?? undefined;
-      const period = structuredPeriod
-        ? formatGenealogyDate(structuredPeriod).trim() || undefined
-        : entry.period?.trim() || undefined;
+  const cleanedEvents: PersonLifeEvent[] = (draft.events || [])
+    .map((ev, idx) => {
+      const desc = ev.description?.trim() || undefined;
       return {
-        id: entry.id || `edu-${idx + 1}`,
-        period,
-        structuredPeriod,
-        level: entry.level?.trim() || undefined,
-        school: entry.school?.trim() || undefined,
+        id: ev.id || `ev-${idx + 1}`,
+        type: normalizeEventType(ev.type),
+        ...(ev.structuredDate ? { structuredDate: ev.structuredDate } : {}),
+        ...(ev.structuredPlace ? { structuredPlace: ev.structuredPlace } : {}),
+        ...(desc ? { description: desc } : {}),
       };
     })
-    .filter((entry) =>
-      Boolean(entry.period || entry.structuredPeriod || entry.level || entry.school)
+    .filter((ev) =>
+      Boolean(ev.structuredDate || ev.structuredPlace || ev.description)
     );
-
-  const primaryEdu = cleanedEducationHistory[0];
-  const educationPeriod =
-    primaryEdu?.period || draft.career?.educationPeriod?.trim() || undefined;
-  const educationLevel =
-    primaryEdu?.level || draft.career?.educationLevel?.trim() || undefined;
-  const school =
-    primaryEdu?.school || draft.career?.school?.trim() || undefined;
-
-  const cleanedCareerHistory: PersonCareerEntry[] = (
-    draft.career?.careerHistory || []
-  )
-    .map((entry, idx) => {
-      const structuredPeriod = entry.structuredPeriod ?? undefined;
-      const period = structuredPeriod
-        ? formatGenealogyDate(structuredPeriod).trim() || undefined
-        : entry.period?.trim() || undefined;
-      return {
-        id: entry.id || `career-${idx + 1}`,
-        period,
-        structuredPeriod,
-        location: entry.location?.trim() || undefined,
-        organization: entry.organization?.trim() || undefined,
-        position: entry.position?.trim() || undefined,
-      };
-    })
-    .filter(
-      (entry) =>
-        Boolean(
-          entry.period ||
-            entry.structuredPeriod ||
-            entry.location ||
-            entry.organization ||
-            entry.position
-        )
-    );
-
-  const primaryCareer = cleanedCareerHistory[0];
-  const educationSummary =
-    [
-      educationPeriod,
-      school,
-      draft.career?.major?.trim(),
-      educationLevel,
-      draft.career?.graduationStatus?.trim(),
-    ]
-      .filter(Boolean)
-      .join(' ') ||
-    draft.career?.educationSummary?.trim() ||
-    undefined;
-
-  const profession =
-    primaryCareer?.organization || draft.career?.profession?.trim() || undefined;
-  const careerTitle =
-    primaryCareer?.position || draft.career?.title?.trim() || undefined;
-
-  const officialTitle = careerTitle || profession || undefined;
 
   const romSurname = draft.romanizedName?.surname?.trim() || undefined;
   const romName = draft.romanizedName?.name?.trim() || undefined;
@@ -669,110 +436,147 @@ export function normalizePersonForSave(
         }
       : undefined;
 
-  const cleanedSpouses = (draft.spouses || []).filter(
-    (s) => s.name?.trim() || s.clanOrigin?.trim() || s.remarks?.trim()
-  );
+  const birthObj =
+    draft.birth?.structuredDate ||
+    draft.birth?.structuredPlace ||
+    draft.birth?.summary?.trim()
+      ? {
+          structuredDate: draft.birth.structuredDate ?? undefined,
+          structuredPlace: draft.birth.structuredPlace ?? undefined,
+          summary: draft.birth.summary?.trim() || undefined,
+        }
+      : undefined;
 
-  const mergedForRank = allPersons.some((p) => p.id === draft.id)
-    ? allPersons.map((p) => (p.id === draft.id ? draft : p))
-    : [...allPersons, draft];
-  const derivedRankSnapshot = computeAutoRankLabel(draft, mergedForRank);
+  const manualAge =
+    typeof draft.death?.manualAge === 'number' &&
+    Number.isFinite(draft.death.manualAge) &&
+    draft.death.manualAge >= 0
+      ? Math.round(draft.death.manualAge)
+      : undefined;
+
+  const deathObj =
+    draft.death?.structuredDate ||
+    draft.death?.structuredPlace ||
+    draft.death?.structuredBurialDate ||
+    draft.death?.structuredBurialPlace ||
+    draft.death?.cause?.trim() ||
+    draft.death?.summary?.trim() ||
+    manualAge !== undefined
+      ? {
+          structuredDate: draft.death?.structuredDate ?? undefined,
+          structuredPlace: draft.death?.structuredPlace ?? undefined,
+          structuredBurialDate: draft.death?.structuredBurialDate ?? undefined,
+          structuredBurialPlace: draft.death?.structuredBurialPlace ?? undefined,
+          cause: draft.death?.cause?.trim() || undefined,
+          summary: draft.death?.summary?.trim() || undefined,
+          manualAge,
+        }
+      : undefined;
+
+  const seqObj =
+    draft.sequenceMeta?.mainLabel?.trim() ||
+    draft.sequenceMeta?.mainNumber !== undefined ||
+    draft.sequenceMeta?.subLabel?.trim() ||
+    draft.sequenceMeta?.subNumber !== undefined ||
+    draft.sequenceMeta?.originalPage !== undefined
+      ? {
+          mainLabel: draft.sequenceMeta?.mainLabel?.trim() || undefined,
+          mainNumber: draft.sequenceMeta?.mainNumber,
+          subLabel: draft.sequenceMeta?.subLabel?.trim() || undefined,
+          subNumber: draft.sequenceMeta?.subNumber,
+          originalPage: draft.sequenceMeta?.originalPage,
+        }
+      : undefined;
+
+  const privObj =
+    draft.privateInfo?.idCardNum?.trim() ||
+    draft.privateInfo?.mobile?.trim() ||
+    draft.privateInfo?.address?.trim()
+      ? {
+          idCardNum: draft.privateInfo?.idCardNum?.trim() || undefined,
+          mobile: draft.privateInfo?.mobile?.trim() || undefined,
+          address: draft.privateInfo?.address?.trim() || undefined,
+        }
+      : undefined;
 
   return {
-    ...draft,
-    name: draft.name.trim() || '未命名',
+    id: draft.id,
+    branchId: draft.branchId,
+    avatarUrl: draft.avatarUrl,
     surname: draft.surname?.trim() || undefined,
+    name: draft.name.trim() || '未命名',
     nameSuffix: draft.nameSuffix?.trim() || undefined,
     romanizedName,
     legalName: draft.legalName?.trim() || undefined,
     aliases: cleanedAliases.length > 0 ? cleanedAliases : undefined,
-    courtesyName,
-    hangOrder: draft.hangOrder?.trim() || undefined,
-    rank: draft.spouseOfId ? draft.rank?.trim() || undefined : derivedRankSnapshot,
-    spouseRelationLabel: draft.spouseOfId
-      ? derivedRankSnapshot
-      : draft.spouseRelationLabel,
-    fatherId: draft.fatherId ?? null,
-    fatherName: father ? father.name : draft.fatherId ? draft.fatherName : undefined,
+    childhoodName: draft.childhoodName?.trim() || undefined,
+    gender: draft.gender,
+    status: draft.status,
     generation: draft.spouseOfId
       ? draft.generation
       : father
         ? father.generation + 1
-        : 1,
-    motherId: draft.motherId?.trim() || undefined,
-    motherName: (() => {
-      const mId = draft.motherId?.trim();
-      if (mId) {
-        const motherNode = allPersons.find((p) => p.id === mId);
-        if (motherNode) {
-          const ms = motherNode.surname?.trim() || '';
-          const mn = motherNode.name?.trim() || '';
-          return ms && mn && !mn.startsWith(ms) ? `${ms}${mn}` : mn || draft.motherName?.trim() || undefined;
-        }
-      }
-      return draft.motherName?.trim() || undefined;
-    })(),
+        : draft.generation || 1,
     generationWord: draft.generationWord?.trim() || undefined,
+    hangOrder: draft.hangOrder?.trim() || undefined,
+    siblingOrder: draft.siblingOrder,
+    fatherId: draft.fatherId ?? null,
+    motherId: draft.motherId?.trim() || undefined,
+    spouseOfId: draft.spouseOfId,
     relationType:
       draft.relationType !== undefined ? draft.relationType : undefined,
+    fatherRelationType: draft.fatherRelationType,
+    motherRelationType: draft.motherRelationType,
     relationTitle: draft.relationTitle?.trim() || undefined,
     relationPrefix: draft.relationPrefix?.trim() || undefined,
     relationNotes: draft.relationNotes?.trim() || undefined,
     lineageRemarks: draft.lineageRemarks?.trim() || undefined,
     branchLabel: draft.branchLabel?.trim() || undefined,
     headingLine: draft.headingLine?.trim() || undefined,
+    birth: birthObj,
+    death: deathObj,
+    events: cleanedEvents.length > 0 ? cleanedEvents : undefined,
+    sequenceMeta: seqObj,
+    privateInfo: privObj,
     biography: draft.biography?.trim() || undefined,
+    biographyOrder: draft.biographyOrder,
     notes: draft.notes?.trim() || undefined,
-    spouses: cleanedSpouses,
-    career: draft.career
-      ? {
-          ...draft.career,
-          educationPeriod,
-          educationLevel,
-          graduationStatus: draft.career.graduationStatus?.trim() || undefined,
-          school,
-          major: draft.career.major?.trim() || undefined,
-          educationSummary,
-          educationHistory:
-            cleanedEducationHistory.length > 0
-              ? cleanedEducationHistory
-              : undefined,
-          profession,
-          title: careerTitle,
-          careerHistory:
-            cleanedCareerHistory.length > 0 ? cleanedCareerHistory : undefined,
-        }
-      : undefined,
-    birth: draft.birth
-      ? {
-          ...draft.birth,
-          date: birthDate || '',
-          structuredDate: birthStructured,
-          place: birthPlace || '',
-          structuredPlace: birthStructuredPlace,
-        }
-      : undefined,
-    death: draft.death
-      ? {
-          ...draft.death,
-          date: deathDate || '',
-          structuredDate: deathStructured,
-          place: deathPlace || '',
-          structuredPlace: deathStructuredPlace,
-          burialDate: burialDate || '',
-          structuredBurialDate: burialDateStructured,
-          burialPlace: burialPlace || '',
-          structuredBurialPlace: burialStructuredPlace,
-          cause: draft.death.cause?.trim() || undefined,
-        }
-      : undefined,
-    birthDate,
-    deathDate,
-    burialPlace,
-    age,
-    officialTitle,
-    biographyPage: draft.sequenceMeta?.originalPage ?? draft.biographyPage,
   };
+}
+
+function extractYearFromStructuredDate(
+  structuredDate?: GenealogyDate | null
+): number | null {
+  if (!structuredDate) return null;
+  if (structuredDate.kind === 'date') {
+    if (
+      structuredDate.calendar === 'gregorian' ||
+      structuredDate.calendar === 'chinese_lunisolar'
+    ) {
+      const parts = structuredDate.parts as { year?: number };
+      if (typeof parts.year === 'number' && Number.isFinite(parts.year)) {
+        return parts.year;
+      }
+    }
+    if (structuredDate.normalized?.start) {
+      const m = structuredDate.normalized.start.match(/^(-?\d{4})/);
+      if (m) return parseInt(m[1], 10);
+    }
+  } else if (structuredDate.kind === 'range') {
+    if (
+      structuredDate.start.calendar === 'gregorian' ||
+      structuredDate.start.calendar === 'chinese_lunisolar'
+    ) {
+      const parts = structuredDate.start.parts as { year?: number };
+      if (typeof parts.year === 'number' && Number.isFinite(parts.year)) {
+        return parts.year;
+      }
+    }
+  } else if (structuredDate.kind === 'phrase') {
+    const m = structuredDate.originalText.match(/(1\d{3}|20\d{2})/);
+    if (m) return parseInt(m[1], 10);
+  }
+  return null;
 }
 
 export interface LiveBiographySummary {
@@ -796,9 +600,20 @@ export function buildBiographyPreviewData(
   prefs: BiographyPreviewPreferences,
   clanSurname: string = ''
 ): LiveBiographySummary {
-  const effectiveSurname = draft.surname?.trim() || clanSurname;
-  const givenName = formatGivenName(draft.name, effectiveSurname);
-  const nameWithSuffix = [givenName, draft.nameSuffix?.trim() || ''].join('');
+  const effectiveSurname = draft.spouseOfId
+    ? draft.surname?.trim() || ''
+    : draft.surname?.trim() || clanSurname;
+  const givenName = draft.spouseOfId
+    ? draft.name.trim()
+    : formatGivenName(draft.name, effectiveSurname);
+  const fullNameBase =
+    draft.spouseOfId &&
+    effectiveSurname &&
+    givenName &&
+    !givenName.startsWith(effectiveSurname)
+      ? `${effectiveSurname}${givenName}`
+      : givenName;
+  const nameWithSuffix = [fullNameBase, draft.nameSuffix?.trim() || ''].join('');
   const displayName = [draft.relationPrefix, nameWithSuffix]
     .filter(Boolean)
     .join(' ');
@@ -808,14 +623,10 @@ export function buildBiographyPreviewData(
   const father = draft.fatherId
     ? allPersons.find((p) => p.id === draft.fatherId)
     : null;
-  const fatherLabel = father
-    ? formatGivenName(father.name, effectiveSurname)
-    : draft.fatherName
-    ? formatGivenName(draft.fatherName, effectiveSurname)
-    : '';
+  const fatherLabel = father ? formatGivenName(father.name, effectiveSurname) : '';
 
   const kinshipParts: string[] = [];
-  const resolvedRank = draft.rank?.trim() || computeAutoRankLabel(draft, allPersons);
+  const resolvedRank = computeAutoRankLabel(draft, allPersons);
   if (draft.relationTitle) {
     kinshipParts.push(draft.relationTitle);
   } else if (fatherLabel) {
@@ -834,26 +645,38 @@ export function buildBiographyPreviewData(
         ? `${fatherLabel}${displayRank}`
         : `${fatherLabel}之${displayRank}`
     );
-  } else if (draft.generation === 1) {
+  } else if (draft.generation === 1 && !draft.spouseOfId) {
     kinshipParts.push('开基始祖');
   }
-  if (draft.courtesyName) kinshipParts.push(`别名 ${draft.courtesyName}`);
+
+  const aliasText = formatPersonAliases(draft);
+  if (aliasText) kinshipParts.push(`别名 ${aliasText}`);
   if (draft.hangOrder) kinshipParts.push(draft.hangOrder);
   if (draft.lineageRemarks) kinshipParts.push(draft.lineageRemarks);
   if (draft.branchLabel) kinshipParts.push(`分房：${draft.branchLabel}`);
   if (draft.headingLine) kinshipParts.push(`题行：${draft.headingLine}`);
 
+  const spouseNodes = draft.spouseOfId
+    ? []
+    : getDerivedSpouses(allPersons, draft.id);
   const spouseLine =
-    draft.spouses && draft.spouses.length > 0
-      ? draft.spouses
-          .filter((s) => s.name?.trim())
-          .map((s) => {
-            const rel = s.relationLabel || '配';
-            const pre = s.prefix ? `${s.prefix} ` : '';
-            const origin = s.clanOrigin ? `（${s.clanOrigin}）` : '';
-            const burial = s.burialPlace ? `，${s.burialPlace}` : '';
-            const rem = s.remarks ? `，${s.remarks}` : '';
-            return `${rel} ${pre}${s.name}${origin}${burial}${rem}`;
+    spouseNodes.length > 0
+      ? spouseNodes
+          .map((sp) => {
+            const rel = computeAutoRankLabel(sp, allPersons) || '配';
+            const pre = sp.relationPrefix ? `${sp.relationPrefix} ` : '';
+            const sSurname = sp.surname?.trim() || '';
+            const sName =
+              sSurname && sp.name && !sp.name.startsWith(sSurname)
+                ? `${sSurname}${sp.name}`
+                : sp.name || '配偶';
+            const origin = sp.notes?.trim() ? `（${sp.notes.trim()}）` : '';
+            const burialText = getPersonPlaceDisplay(sp, 'burial').trim();
+            const burial = burialText ? `，${burialText}` : '';
+            const rem = sp.lineageRemarks?.trim()
+              ? `，${sp.lineageRemarks.trim()}`
+              : '';
+            return `${rel} ${pre}${sName}${origin}${burial}${rem}`;
           })
           .join('；')
       : '';
@@ -863,33 +686,32 @@ export function buildBiographyPreviewData(
   if (prefs.showBirth && birthDisplay) {
     birthParts.push(`生于 ${birthDisplay}`);
   }
+  const birthPlaceText = getPersonPlaceDisplay(draft, 'birth').trim();
   if (prefs.showBirthDetail) {
-    if (draft.birth?.place) {
+    if (birthPlaceText) {
       birthParts.push(
-        `${birthParts.length ? '生地 ' : '生于 '}${draft.birth.place}`
+        `${birthParts.length ? '生地 ' : '生于 '}${birthPlaceText}`
       );
     }
     if (draft.birth?.summary) birthParts.push(draft.birth.summary);
   }
 
-  const eduText =
-    draft.career?.educationSummary ||
-    [
-      draft.career?.school,
-      draft.career?.major,
-      draft.career?.educationLevel,
-      draft.career?.graduationStatus,
-    ]
-      .filter(Boolean)
-      .join(' ');
   const lifeParts = prefs.showLife
-    ? [
-        eduText,
-        draft.career?.profession,
-        draft.career?.title || draft.officialTitle,
-        draft.career?.resume,
-        draft.career?.lifeSummary,
-      ].filter(Boolean)
+    ? (draft.events || [])
+        .map((ev) => {
+          const dText = ev.structuredDate
+            ? formatGenealogyDate(ev.structuredDate).trim()
+            : '';
+          const pText = ev.structuredPlace
+            ? formatGenealogyPlace(ev.structuredPlace).trim()
+            : '';
+          const descText = ev.description?.trim() || '';
+          if (!dText && !pText && !descText) return '';
+          const typeLabel = EVENT_TYPE_TEXT_MAP[normalizeEventType(ev.type)];
+          const body = [dText, pText, descText].filter(Boolean).join(' ');
+          return typeLabel && !descText ? `${typeLabel} ${body}`.trim() : body;
+        })
+        .filter(Boolean)
     : [];
 
   const deathParts: string[] = [];
@@ -898,20 +720,29 @@ export function buildBiographyPreviewData(
     if (prefs.showDeath && deathDisplay) {
       deathParts.push(`卒于 ${deathDisplay}`);
     }
-    if (prefs.showDeathDetail && draft.death?.place?.trim()) {
-      deathParts.push(`卒地 ${draft.death.place.trim()}`);
+    const deathPlaceText = getPersonPlaceDisplay(draft, 'death').trim();
+    if (prefs.showDeathDetail && deathPlaceText) {
+      deathParts.push(`卒地 ${deathPlaceText}`);
     }
     if (prefs.showDeathDetail && draft.death?.cause?.trim()) {
       deathParts.push(`死因 ${draft.death.cause.trim()}`);
     }
-    const ageVal = draft.death?.age ?? draft.age;
-    if (prefs.showDeath && ageVal) {
+    const birthYear = extractYearFromStructuredDate(draft.birth?.structuredDate);
+    const deathYear = extractYearFromStructuredDate(draft.death?.structuredDate);
+    const computedAge =
+      birthYear !== null && deathYear !== null && deathYear >= birthYear
+        ? deathYear - birthYear
+        : null;
+    const ageVal = draft.death?.manualAge ?? computedAge;
+    if (prefs.showDeath && ageVal !== null && ageVal !== undefined) {
       deathParts.push(`享寿 ${ageVal} 龄`);
     }
     const burialDateDisplay = getPersonDateDisplay(draft, 'burial');
-    const burial = draft.death?.burialPlace || draft.burialPlace;
-    if (prefs.showDeathDetail && (burialDateDisplay || burial)) {
-      const burialJoin = [burialDateDisplay, burial].filter(Boolean).join(' ');
+    const burialPlaceText = getPersonPlaceDisplay(draft, 'burial').trim();
+    if (prefs.showDeathDetail && (burialDateDisplay || burialPlaceText)) {
+      const burialJoin = [burialDateDisplay, burialPlaceText]
+        .filter(Boolean)
+        .join(' ');
       deathParts.push(`葬 ${burialJoin}`);
     }
     if (prefs.showDeathDetail && draft.death?.summary) {
@@ -940,9 +771,6 @@ export function buildBiographyPreviewData(
 
   const privateRows: { label: string; value: string }[] = [];
   if (prefs.showPrivateInfo && draft.privateInfo) {
-    if (draft.privateInfo.idCardName) {
-      privateRows.push({ label: '实名', value: draft.privateInfo.idCardName });
-    }
     if (draft.privateInfo.mobile) {
       privateRows.push({ label: '电话', value: draft.privateInfo.mobile });
     }

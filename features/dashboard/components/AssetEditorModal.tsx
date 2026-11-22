@@ -14,7 +14,6 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import {
-  formatGenealogyPlace,
   parsePlaceText,
   type GenealogyPlace,
 } from '../../place-input';
@@ -31,7 +30,7 @@ export interface AssetEditorSubmitValues {
   colorTheme: AssetColorTheme;
   primarySurname?: string;
   ancestor?: string;
-  region?: string;
+  region?: GenealogyPlace | null;
   primaryName?: string;
   projectState?: '0' | '1';
   projectLevel?: number;
@@ -47,7 +46,7 @@ export interface AssetEditorModalProps {
     colorTheme: AssetColorTheme;
     primarySurname?: string;
     ancestor?: string;
-    region?: string;
+    region?: GenealogyPlace | string | null;
     primaryName?: string;
     projectState?: '0' | '1';
     projectLevel?: number;
@@ -265,15 +264,13 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       return;
     }
 
-    const regionStr = formatGenealogyPlace(regionPlace).trim();
-
     onSubmit({
       name: familyName.trim(),
       description: description.trim(),
       colorTheme: projectColorTheme,
       primarySurname: familySurname.trim(),
       ancestor: ancestor.trim(),
-      region: regionStr,
+      region: regionPlace,
       primaryName: hallName.trim(),
       projectState: initialValue?.projectState ?? '0',
       projectLevel: initialValue?.projectLevel ?? 1,

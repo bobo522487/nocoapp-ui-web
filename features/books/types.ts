@@ -93,7 +93,7 @@ export interface CompiledLineageEntry {
   id: string;
   name: string;
   surname?: string;
-  courtesyName?: string;
+  aliasesText?: string;
   generation: number;
   rank?: string;
   fatherName?: string;

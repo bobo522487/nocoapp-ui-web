@@ -10,7 +10,7 @@ import {
   createEmptyStructuredPlace,
   finalizeGenealogyPlace,
   formatGenealogyPlace,
-  getChinaProvinces,
+  getAllPlaceCountries,
   isPlaceholderCityName,
 } from '../place-core';
 import type { GenealogyPlace } from '../place.types';
@@ -35,8 +35,13 @@ function hydrateDialogDraft(value: GenealogyPlace | null): GenealogyPlace {
     ...createEmptyStructuredPlace(),
     ...cloneGenealogyPlace(value),
     kind: 'structured',
+    countryCode: value.countryCode || 'CN',
+    country: value.country || '中国',
+    provinceCode: value.provinceCode || undefined,
     province: value.province || '',
+    cityCode: value.cityCode || undefined,
     city: value.city || '',
+    districtCode: value.districtCode || undefined,
     district: value.district || '',
     originalText: value.originalText ?? '',
   };
@@ -49,7 +54,7 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const provinces = useMemo(() => getChinaProvinces(), []);
+  const countries = useMemo(() => getAllPlaceCountries(), []);
 
   const [draft, setDraft] = useState<GenealogyPlace>(() =>
     hydrateDialogDraft(value)
@@ -73,9 +78,26 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [isOpen, onClose]);
 
+  const activeCountry = useMemo(
+    () =>
+      countries.find(
+        (c) =>
+          (draft.countryCode && c.code === draft.countryCode) ||
+          c.name === (draft.country || '中国')
+      ) || countries[0],
+    [countries, draft.countryCode, draft.country]
+  );
+
+  const provinces = useMemo(() => activeCountry?.provinces ?? [], [activeCountry]);
+
   const activeProvince = useMemo(
-    () => provinces.find((p) => p.name === draft.province) || null,
-    [provinces, draft.province]
+    () =>
+      provinces.find(
+        (p) =>
+          (draft.provinceCode && p.code === draft.provinceCode) ||
+          p.name === draft.province
+      ) || null,
+    [provinces, draft.provinceCode, draft.province]
   );
 
   const cities = useMemo(() => activeProvince?.cities ?? [], [activeProvince]);
@@ -98,8 +120,13 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
   );
 
   const activeCity = useMemo(
-    () => selectableCities.find((c) => c.name === draft.city) || null,
-    [selectableCities, draft.city]
+    () =>
+      selectableCities.find(
+        (c) =>
+          (draft.cityCode && c.code === draft.cityCode) ||
+          c.name === draft.city
+      ) || null,
+    [selectableCities, draft.cityCode, draft.city]
   );
 
   const districts = useMemo(() => {
@@ -112,37 +139,68 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
 
   if (!isOpen) return null;
 
+  const isOverseas = Boolean(activeCountry && activeCountry.code !== 'CN');
   const hasStructuredSelection = Boolean(
-    draft.province?.trim() || draft.city?.trim() || draft.district?.trim()
+    isOverseas ||
+      draft.province?.trim() ||
+      draft.city?.trim() ||
+      draft.district?.trim()
   );
 
   const finalizedPreview = finalizeGenealogyPlace(draft);
   const previewText = formatGenealogyPlace(finalizedPreview);
   const canConfirm = Boolean(finalizedPreview);
 
-  const handleProvinceChange = (provinceName: string) => {
+  const handleCountryChange = (countryCode: string) => {
+    const matched = countries.find((c) => c.code === countryCode);
     setDraft((prev) => ({
       ...prev,
       kind: 'structured',
-      province: provinceName,
+      countryCode: matched?.code || countryCode,
+      country: matched?.name || '',
+      provinceCode: undefined,
+      province: '',
+      cityCode: undefined,
       city: '',
+      districtCode: undefined,
+      district: '',
+    }));
+  };
+
+  const handleProvinceChange = (provinceName: string) => {
+    const matched = provinces.find((p) => p.name === provinceName);
+    setDraft((prev) => ({
+      ...prev,
+      kind: 'structured',
+      countryCode: activeCountry?.code || 'CN',
+      country: activeCountry?.name || '中国',
+      provinceCode: matched?.code,
+      province: provinceName,
+      cityCode: undefined,
+      city: '',
+      districtCode: undefined,
       district: '',
     }));
   };
 
   const handleCityChange = (cityName: string) => {
+    const matched = selectableCities.find((c) => c.name === cityName);
     setDraft((prev) => ({
       ...prev,
       kind: 'structured',
+      cityCode: matched?.code,
       city: cityName,
+      districtCode: undefined,
       district: '',
     }));
   };
 
   const handleDistrictChange = (districtName: string) => {
+    const matched = districts.find((d) => d.name === districtName);
     setDraft((prev) => ({
       ...prev,
       kind: 'structured',
+      districtCode: matched?.code,
       district: districtName,
     }));
   };
@@ -151,8 +209,13 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
     setDraft((prev) => ({
       ...prev,
       kind: 'structured',
+      countryCode: 'CN',
+      country: '中国',
+      provinceCode: undefined,
       province: '',
+      cityCode: undefined,
       city: '',
+      districtCode: undefined,
       district: '',
     }));
   };
@@ -215,14 +278,38 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label
+                  htmlFor="place-country"
+                  className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+                >
+                  国家 / 地区
+                </label>
+                <Select
+                  id="place-country"
+                  value={activeCountry?.code || 'CN'}
+                  onChange={(e) => handleCountryChange(e.target.value)}
+                >
+                  {countries.map((c) => (
+                    <option
+                      key={c.code}
+                      value={c.code}
+                      className="bg-card text-foreground"
+                    >
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
               {provinces.length > 0 && (
                 <div>
                   <label
                     htmlFor="place-province"
                     className="block text-[11px] font-medium text-muted-foreground mb-1.5"
                   >
-                    省 / 直辖市 / 自治区
+                    省 / 直辖市 / 州
                   </label>
                   <Select
                     id="place-province"
@@ -252,7 +339,7 @@ export const PlaceInputDialog: React.FC<PlaceInputDialogProps> = ({
                     htmlFor="place-city"
                     className="block text-[11px] font-medium text-muted-foreground mb-1.5"
                   >
-                    地级市 / 州
+                    地级市 / 郡 / 城
                   </label>
                   <Select
                     id="place-city"

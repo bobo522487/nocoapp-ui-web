@@ -25,6 +25,7 @@ import { countArticlesInTree } from '../../articles/articleData';
 import { useBookStore } from '../../../store/useBookStore';
 import { fetchProject, updateProjectRequest } from '../../dashboard/api';
 import { ApiError, errorMessage } from '../../../lib/api';
+import { formatGenealogyPlace, formatPlacePath } from '../../place-input';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -133,7 +134,7 @@ const ProjectHomePage: React.FC = () => {
         surname: values.primarySurname?.trim() || null,
         ancestor: values.ancestor?.trim() || null,
         hallName: values.primaryName?.trim() || null,
-        originText: values.region?.trim() || null,
+        originText: formatGenealogyPlace(values.region).trim() || null,
         description: values.description.trim() || null,
         expectedUpdatedAt: versionStamp,
       });
@@ -311,9 +312,7 @@ const ProjectHomePage: React.FC = () => {
                 <div className="p-4 space-y-1">
                   <div className="text-[12px] text-muted-foreground">所在地区</div>
                   <div className="text-[14px] font-semibold text-foreground">
-                    {activeProject?.region
-                      ? activeProject.region.split('/').join(' / ')
-                      : '未填写'}
+                    {formatPlacePath(activeProject?.region, ' / ') || '未填写'}
                   </div>
                 </div>
               </div>

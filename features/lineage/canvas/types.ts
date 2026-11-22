@@ -12,7 +12,6 @@ export interface PersonNodeData extends Record<string, unknown> {
   hasChildren?: boolean;
   isCollapsed?: boolean;
   childrenCount?: number;
-  biographyPage?: number;
   biographyOrder?: number;
   onSelect?: (personId: string) => void;
   onAddChild?: (personId: string, gender?: 'male' | 'female') => void;

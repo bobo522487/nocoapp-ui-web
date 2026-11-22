@@ -14,10 +14,12 @@ export interface ArticleMetaInput {
   author?: string;
 }
 
+import type { GenealogyPlace } from '../place-input/place.types';
+
 export interface ProjectArticleSeedContext {
   familyName?: string;
   surname?: string;
   hallName?: string;
   ancestor?: string;
-  region?: string;
+  region?: GenealogyPlace | null;
 }

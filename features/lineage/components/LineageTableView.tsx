@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PersonRecord } from '../types';
 import {
   Search,
@@ -15,7 +15,14 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Select } from '../../../components/ui/select';
 import { getPersonDateDisplay } from '../../date-input';
+import { getPersonPlaceDisplay } from '../../place-input';
 import { formatGivenName } from '../utils/nameUtils';
+import {
+  buildLineageGraphIndex,
+  computeAutoRankLabel,
+  formatPersonAliases,
+  getPersonPrimaryTitle,
+} from '../utils/personHelpers';
 
 interface LineageTableViewProps {
   persons: PersonRecord[];
@@ -44,18 +51,23 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
     return () => clearTimeout(timer);
   }, [confirmDeleteId]);
 
+  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
   const maxGen = Math.max(...persons.map((p) => p.generation || 1), 1);
 
+  const normalizedQuery = searchTerm.trim().toLowerCase();
   const filteredPersons = persons.filter((p) => {
+    const aliasesText = formatPersonAliases(p).toLowerCase();
+    const titleText = getPersonPrimaryTitle(p).toLowerCase();
+    const burialText = getPersonPlaceDisplay(p, 'burial').toLowerCase();
+    const birthPlaceText = getPersonPlaceDisplay(p, 'birth').toLowerCase();
+
     const matchesSearch =
-      !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.courtesyName &&
-        p.courtesyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.officialTitle &&
-        p.officialTitle.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.burialPlace &&
-        p.burialPlace.toLowerCase().includes(searchTerm.toLowerCase()));
+      !normalizedQuery ||
+      p.name.toLowerCase().includes(normalizedQuery) ||
+      aliasesText.includes(normalizedQuery) ||
+      titleText.includes(normalizedQuery) ||
+      burialText.includes(normalizedQuery) ||
+      birthPlaceText.includes(normalizedQuery);
 
     const matchesGen =
       genFilter === 'all' || p.generation.toString() === genFilter;
@@ -142,6 +154,17 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
               filteredPersons.map((p) => {
                 const isSelected = p.id === selectedPersonId;
                 const isConfirming = confirmDeleteId === p.id;
+                const aliasesText = formatPersonAliases(p);
+                const rankLabel = computeAutoRankLabel(p, persons);
+                const father = p.fatherId
+                  ? graphIndex.personById.get(p.fatherId)
+                  : undefined;
+                const spouses = p.spouseOfId
+                  ? []
+                  : graphIndex.spousesByPartnerId.get(p.id) || [];
+                const primaryTitle = getPersonPrimaryTitle(p);
+                const burialPlaceText = getPersonPlaceDisplay(p, 'burial').trim();
+
                 return (
                   <tr
                     key={p.id}
@@ -166,18 +189,16 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                             ].join('') || '配偶'
                           : formatGivenName(p.name, clanSurname)}
                       </div>
-                      {p.courtesyName && (
+                      {aliasesText && (
                         <div className="text-[11px] text-muted-foreground">
-                          {p.courtesyName}
+                          {aliasesText}
                         </div>
                       )}
                     </td>
+                    <td className="py-3 px-4">{rankLabel}</td>
                     <td className="py-3 px-4">
-                      {p.spouseOfId ? p.spouseRelationLabel || '配偶' : p.rank || '男'}
-                    </td>
-                    <td className="py-3 px-4">
-                      {p.fatherName
-                        ? `${formatGivenName(p.fatherName, clanSurname)} 公`
+                      {father
+                        ? `${formatGivenName(father.name, clanSurname)} 公`
                         : p.spouseOfId
                         ? '配偶节点'
                         : p.generation === 1
@@ -185,23 +206,36 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                         : '待考'}
                     </td>
                     <td className="py-3 px-4">
-                      {p.spouses && p.spouses.length > 0 ? (
+                      {spouses.length > 0 ? (
                         <div className="flex items-center gap-1 text-foreground">
                           <Heart
                             size={11}
                             className="text-rose-500 shrink-0"
                           />
-                          <span>{p.spouses.map((s) => s.name).join('、')}</span>
+                          <span>
+                            {spouses
+                              .map((s) =>
+                                [
+                                  s.surname && !s.name.startsWith(s.surname)
+                                    ? s.surname
+                                    : '',
+                                  s.name,
+                                ]
+                                  .filter(Boolean)
+                                  .join('')
+                              )
+                              .join('、')}
+                          </span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground/60">待注</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      {p.officialTitle ? (
+                      {primaryTitle ? (
                         <span className="inline-flex items-center gap-1 text-primary font-medium">
                           <Award size={12} className="shrink-0" />
-                          {p.officialTitle}
+                          {primaryTitle}
                         </span>
                       ) : (
                         '-'
@@ -216,13 +250,13 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      {p.burialPlace ? (
+                      {burialPlaceText ? (
                         <div className="flex items-center gap-1 text-[11px] truncate max-w-[180px]">
                           <MapPin
                             size={11}
                             className="shrink-0 text-muted-foreground"
                           />
-                          <span className="truncate">{p.burialPlace}</span>
+                          <span className="truncate">{burialPlaceText}</span>
                         </div>
                       ) : (
                         '-'

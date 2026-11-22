@@ -16,6 +16,11 @@ import {
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useRouteContext } from '../../../hooks/useRouteContext';
 import type { PersonRecord } from '../../lineage/types';
+import {
+  buildLineageGraphIndex,
+  computeAutoRankLabel,
+  formatPersonAliases,
+} from '../../lineage/utils/personHelpers';
 import { resolveChartPersons, toChineseNumeral } from '../bookCompiler';
 
 export interface SelectedLineageMember {
@@ -113,35 +118,14 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   );
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
 
-  const personMap = useMemo(() => {
-    const map = new Map<string, PersonRecord>();
-    persons.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [persons]);
-
-  const childrenMap = useMemo(() => {
-    const map = new Map<string, PersonRecord[]>();
-    for (const p of persons) {
-      if (p.fatherId) {
-        const list = map.get(p.fatherId) || [];
-        list.push(p);
-        map.set(p.fatherId, list);
-      }
-    }
-    for (const [, list] of map) {
-      list.sort((a, b) => {
-        const oa = a.siblingOrder ?? a.biographyOrder ?? 50;
-        const ob = b.siblingOrder ?? b.biographyOrder ?? 50;
-        return oa - ob;
-      });
-    }
-    return map;
-  }, [persons]);
+  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
+  const personMap = graphIndex.personById;
+  const childrenMap = graphIndex.childrenByFatherId;
 
   const rootPersons = useMemo(
     () =>
       persons.filter(
-        (p) => !p.fatherId || !personMap.has(p.fatherId)
+        (p) => !p.spouseOfId && (!p.fatherId || !personMap.has(p.fatherId))
       ),
     [persons, personMap]
   );
@@ -154,7 +138,8 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
         if (p.generation !== genNum) return false;
       }
       if (q) {
-        const fullText = `${p.name} ${p.courtesyName || ''} ${p.rank || ''}`.toLowerCase();
+        const rankLabel = computeAutoRankLabel(p, persons);
+        const fullText = `${p.name} ${formatPersonAliases(p)} ${rankLabel}`.toLowerCase();
         if (!fullText.includes(q)) return false;
       }
       return true;
@@ -241,11 +226,14 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
               [{toChineseNumeral(p.generation)}世]
             </span>
             <span className="truncate">{p.name}</span>
-            {p.rank && (
-              <span className="text-[11px] text-muted-foreground truncate ml-auto">
-                {p.rank}
-              </span>
-            )}
+            {(() => {
+              const rankLabel = computeAutoRankLabel(p, persons);
+              return rankLabel ? (
+                <span className="text-[11px] text-muted-foreground truncate ml-auto">
+                  {rankLabel}
+                </span>
+              ) : null;
+            })()}
           </div>
           {hasKids && !isCollapsed && renderTreeNodes(kids, depth + 1, nextVisited)}
         </div>
@@ -388,7 +376,7 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
                           {p.name}
                         </td>
                         <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">
-                          {father?.name || p.fatherName || '—'}
+                          {father?.name || '—'}
                         </td>
                         <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">
                           {grandfather?.name || '—'}

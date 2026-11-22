@@ -18,6 +18,7 @@ import {
   AssetEditorModal,
   type AssetEditorSubmitValues,
 } from '../components/AssetEditorModal';
+import { formatGenealogyPlace } from '../../place-input';
 
 type HomeState = {
   loading: boolean;
@@ -83,7 +84,7 @@ const WorkspaceHomePage: React.FC = () => {
         surname: values.primarySurname?.trim(),
         ancestor: values.ancestor?.trim(),
         hallName: values.primaryName?.trim(),
-        originText: values.region?.trim() || undefined,
+        originText: formatGenealogyPlace(values.region).trim() || undefined,
         description: values.description.trim() || undefined,
         colorTheme: values.colorTheme,
         projectLevel: values.projectLevel ?? 1,

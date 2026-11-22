@@ -2,12 +2,13 @@ import React from 'react';
 import { Star } from 'lucide-react';
 import { AssetColorTheme } from '../../../types';
 import { ASSET_COLOR_PALETTES } from '../../../store/useWorkspaceStore';
+import { formatPlacePath, type GenealogyPlace } from '../../place-input';
 
 interface GenealogyBookPreviewProps {
   projectName: string;
   primaryName: string;
   primarySurname: string;
-  region: string;
+  region?: GenealogyPlace | null;
   projectState: '0' | '1';
   projectLevel: number;
   colorTheme: AssetColorTheme;
@@ -69,13 +70,7 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
   const hasTitle = Boolean(primaryName.trim());
   const displayTitle = hasTitle ? primaryName.trim() : '右侧输入主题名';
   const displaySurname = primarySurname.trim();
-  const displayRegion = region
-    ? region
-        .split('/')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(' · ')
-    : '未设置地区';
+  const displayRegion = formatPlacePath(region, ' · ') || '未设置地区';
 
   return (
     <div className="flex flex-col items-center w-full select-none">

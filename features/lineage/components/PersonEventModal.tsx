@@ -1,14 +1,12 @@
 import React, { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, X } from 'lucide-react';
-import { Input } from '../../../components/ui/input';
 import { Select } from '../../../components/ui/select';
 import { Textarea } from '../../../components/ui/textarea';
 import { cn } from '../../../lib/utils';
 import { DateInput, type GenealogyDate } from '../../date-input';
 import { PlaceInput, type GenealogyPlace } from '../../place-input';
 import { PersonEventType, PersonRecord } from '../types';
-import { EDUCATION_LEVEL_OPTIONS } from '../utils/personHelpers';
 import {
   EVENT_TYPE_LABELS,
   EVENT_TYPE_OPTIONS,
@@ -38,30 +36,17 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
 }) => {
   const titleId = useId();
   const typeSelectId = useId();
-  const customLabelId = useId();
   const dateInputId = useId();
   const placeInputId = useId();
   const descInputId = useId();
 
-  const [eventType, setEventType] = useState<PersonEventType>('other');
-  const [customTypeLabel, setCustomTypeLabel] = useState('');
+  const [eventType, setEventType] = useState<PersonEventType>('career');
   const [structuredDate, setStructuredDate] = useState<GenealogyDate | null>(
     null
   );
   const [structuredPlace, setStructuredPlace] =
     useState<GenealogyPlace | null>(null);
   const [description, setDescription] = useState('');
-
-  // Optional contextual sub-fields
-  const [statusOverride, setStatusOverride] = useState<'living' | 'deceased'>(
-    'deceased'
-  );
-  const [deathCause, setDeathCause] = useState('');
-  const [organization, setOrganization] = useState('');
-  const [position, setPosition] = useState('');
-  const [educationLevel, setEducationLevel] = useState('');
-  const [relatedPersonId, setRelatedPersonId] = useState('');
-  const [relatedPersonName, setRelatedPersonName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isOpen = Boolean(context);
@@ -70,17 +55,9 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
     if (!context) return;
     const init = context.initialEvent;
     setEventType(init.type);
-    setCustomTypeLabel(init.customTypeLabel || '');
     setStructuredDate(init.structuredDate ?? null);
     setStructuredPlace(init.structuredPlace ?? null);
     setDescription(init.description || '');
-    setStatusOverride(init.statusOverride || 'deceased');
-    setDeathCause(init.deathCause || '');
-    setOrganization(init.organization || '');
-    setPosition(init.position || '');
-    setEducationLevel(init.educationLevel || '');
-    setRelatedPersonId(init.relatedPersonId || '');
-    setRelatedPersonName(init.relatedPersonName || '');
     setConfirmDelete(false);
   }, [context]);
 
@@ -105,10 +82,7 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
       context.sourceKind === 'child_birth' ||
       context.sourceKind === 'death' ||
       context.sourceKind === 'burial' ||
-      context.sourceKind === 'education' ||
-      context.sourceKind === 'career' ||
-      context.sourceKind === 'marriage_node' ||
-      context.sourceKind === 'marriage_legacy');
+      context.sourceKind === 'marriage_node');
 
   const typeLabel = EVENT_TYPE_LABELS[eventType] || '事件';
   const modalTitle =
@@ -118,23 +92,9 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
     e.preventDefault();
     onSubmit(context, {
       type: eventType,
-      customTypeLabel:
-        eventType === 'other' ? customTypeLabel.trim() || undefined : undefined,
       structuredDate,
       structuredPlace,
       description,
-      statusOverride: eventType === 'death' ? statusOverride : undefined,
-      deathCause: eventType === 'death' ? deathCause : undefined,
-      organization:
-        eventType === 'education' || eventType === 'career'
-          ? organization
-          : undefined,
-      position: eventType === 'career' ? position : undefined,
-      educationLevel: eventType === 'education' ? educationLevel : undefined,
-      relatedPersonId:
-        eventType === 'marriage' ? relatedPersonId || undefined : undefined,
-      relatedPersonName:
-        eventType === 'marriage' ? relatedPersonName || undefined : undefined,
     });
   };
 
@@ -189,7 +149,7 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
           aria-hidden="true"
         />
 
-        {/* Unified Event Form Body */}
+        {/* Uniform 4-Field Event Form Body */}
         <form
           onSubmit={handleSubmit}
           className="flex-1 flex flex-col min-h-0"
@@ -197,53 +157,32 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
         >
           <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
             {/* 1. 事件类型 */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-              <div
-                className={
-                  eventType === 'other' ? 'sm:col-span-6' : 'sm:col-span-12'
+            <div>
+              <label htmlFor={typeSelectId} className={labelClass}>
+                事件类型 <span className="text-[#C93B3B] ml-0.5">*</span>
+              </label>
+              <Select
+                id={typeSelectId}
+                value={eventType}
+                disabled={isTypeLocked}
+                onChange={(e) =>
+                  setEventType(e.target.value as PersonEventType)
                 }
+                className={cn(
+                  controlInputClass,
+                  isTypeLocked ? 'opacity-80 cursor-not-allowed' : ''
+                )}
               >
-                <label htmlFor={typeSelectId} className={labelClass}>
-                  事件类型 <span className="text-[#C93B3B] ml-0.5">*</span>
-                </label>
-                <Select
-                  id={typeSelectId}
-                  value={eventType}
-                  disabled={isTypeLocked}
-                  onChange={(e) =>
-                    setEventType(e.target.value as PersonEventType)
-                  }
-                  className={cn(
-                    controlInputClass,
-                    isTypeLocked ? 'opacity-80 cursor-not-allowed' : ''
-                  )}
-                >
-                  {EVENT_TYPE_OPTIONS.map((opt) => (
-                    <option
-                      key={opt.value}
-                      value={opt.value}
-                      className="bg-card text-foreground"
-                    >
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              {eventType === 'other' && (
-                <div className="sm:col-span-6">
-                  <label htmlFor={customLabelId} className={labelClass}>
-                    自定义事件标题
-                  </label>
-                  <Input
-                    id={customLabelId}
-                    value={customTypeLabel}
-                    onChange={(e) => setCustomTypeLabel(e.target.value)}
-                    placeholder="如：入赘、立嗣、著述、建祠"
-                    className={controlInputClass}
-                  />
-                </div>
-              )}
+                {EVENT_TYPE_OPTIONS.map((opt) => (
+                  <option
+                    key={opt.value}
+                    value={opt.value}
+                    className="bg-card text-foreground"
+                  >
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
             {/* 2. 日期 & 3. 地点 */}
@@ -256,19 +195,8 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
                   id={dateInputId}
                   label="事件日期"
                   value={structuredDate}
-                  onChange={(nextDate) => {
-                    setStructuredDate(nextDate);
-                    if (
-                      eventType === 'death' &&
-                      nextDate &&
-                      statusOverride === 'living'
-                    ) {
-                      setStatusOverride('deceased');
-                    }
-                  }}
-                  enableTime={
-                    eventType === 'birth' || eventType === 'death'
-                  }
+                  onChange={setStructuredDate}
+                  enableTime
                   enableOriginal
                   placeholder="如 1977-02-21，或点右侧选择"
                   className={controlInputClass}
@@ -283,129 +211,13 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
                   id={placeInputId}
                   label="事件地点"
                   value={structuredPlace}
-                  onChange={(nextPlace) => {
-                    setStructuredPlace(nextPlace);
-                    if (
-                      eventType === 'death' &&
-                      nextPlace &&
-                      statusOverride === 'living'
-                    ) {
-                      setStatusOverride('deceased');
-                    }
-                  }}
+                  onChange={setStructuredPlace}
                   clanPersons={allPersons}
                   placeholder="输入省市区县或原始地名，或点右侧选择"
                   className={controlInputClass}
                 />
               </div>
             </div>
-
-            {/* Contextual sub-fields cleanly aligned when relevant */}
-            {eventType === 'education' && (
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                <div className="sm:col-span-7">
-                  <label className={labelClass}>学校 / 书院名称</label>
-                  <Input
-                    value={organization}
-                    onChange={(e) => setOrganization(e.target.value)}
-                    placeholder="如：贵州大学、县立小学"
-                    className={controlInputClass}
-                  />
-                </div>
-                <div className="sm:col-span-5">
-                  <label className={labelClass}>学历</label>
-                  <Select
-                    value={educationLevel}
-                    isPlaceholder={!educationLevel}
-                    onChange={(e) => setEducationLevel(e.target.value)}
-                    className={controlInputClass}
-                  >
-                    <option value="">请选择学历</option>
-                    {EDUCATION_LEVEL_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {eventType === 'career' && (
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                <div className="sm:col-span-7">
-                  <label className={labelClass}>单位 / 机构</label>
-                  <Input
-                    value={organization}
-                    onChange={(e) => setOrganization(e.target.value)}
-                    placeholder="如：省档案馆、礼部"
-                    className={controlInputClass}
-                  />
-                </div>
-                <div className="sm:col-span-5">
-                  <label className={labelClass}>职务 / 功名</label>
-                  <Input
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    placeholder="如：研究员、岁贡生"
-                    className={controlInputClass}
-                  />
-                </div>
-              </div>
-            )}
-
-            {eventType === 'marriage' && (
-              <div>
-                <label className={labelClass}>配偶姓名</label>
-                <Input
-                  value={relatedPersonName}
-                  onChange={(e) => setRelatedPersonName(e.target.value)}
-                  disabled={
-                    context.sourceKind === 'marriage_node' ||
-                    context.sourceKind === 'marriage_legacy'
-                  }
-                  placeholder="填写结婚对象姓名"
-                  className={cn(
-                    controlInputClass,
-                    context.sourceKind === 'marriage_node' ||
-                      context.sourceKind === 'marriage_legacy'
-                      ? 'opacity-80'
-                      : ''
-                  )}
-                />
-              </div>
-            )}
-
-            {eventType === 'death' && (
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                <div className="sm:col-span-5">
-                  <label className={labelClass}>在世状态</label>
-                  <Select
-                    value={statusOverride}
-                    onChange={(e) =>
-                      setStatusOverride(
-                        e.target.value as 'living' | 'deceased'
-                      )
-                    }
-                    className={controlInputClass}
-                  >
-                    <option value="deceased">已故（歿）</option>
-                    <option value="living">在世（存）</option>
-                  </Select>
-                </div>
-                {statusOverride === 'deceased' && (
-                  <div className="sm:col-span-7">
-                    <label className={labelClass}>死亡原因</label>
-                    <Input
-                      value={deathCause}
-                      onChange={(e) => setDeathCause(e.target.value)}
-                      placeholder="如：寿终正寝、病逝"
-                      className={controlInputClass}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* 4. 描述 */}
             <div>
@@ -414,21 +226,11 @@ export const PersonEventModal: React.FC<PersonEventModalProps> = ({
               </label>
               <Textarea
                 id={descInputId}
-                rows={3}
+                rows={4}
                 value={description}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setDescription(val);
-                  if (
-                    eventType === 'death' &&
-                    val.trim() &&
-                    statusOverride === 'living'
-                  ) {
-                    setStatusOverride('deceased');
-                  }
-                }}
-                placeholder="填写该事件的详细背景、经过或谱牒记述..."
-                className="min-h-[92px] text-[14px] p-3 leading-relaxed rounded-[6px] border-input bg-card shadow-[var(--shadow-control)]"
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="填写该事件的经过、学校/单位/职衔、功名或谱牒记述..."
+                className="min-h-[108px] text-[14px] p-3 leading-relaxed rounded-[6px] border-input bg-card shadow-[var(--shadow-control)]"
               />
             </div>
           </div>

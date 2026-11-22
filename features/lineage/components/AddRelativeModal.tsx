@@ -4,9 +4,14 @@ import { Maximize2, Minimize2, User, X } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { Select } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
-import { PersonRecord, RelationKind } from '../types';
-import { formatGivenName } from '../utils/nameUtils';
+import { PersonRecord, PersonRomanizedName, RelationKind } from '../types';
+import {
+  formatGivenName,
+  toGivenNamePinyin,
+  toSurnamePinyin,
+} from '../utils/nameUtils';
 import { getDerivedSpouses } from '../utils/personHelpers';
+import { extractYearLabel } from '../utils/personTimeline';
 import {
   DateInput,
   formatGenealogyDate,
@@ -31,6 +36,7 @@ export interface AddRelativeContext {
 export interface AddRelativeSubmitPayload {
   surname?: string;
   name: string;
+  romanizedName?: PersonRomanizedName;
   gender: 'male' | 'female' | 'unknown';
   status: 'living' | 'deceased';
   relationType?: RelationKind;
@@ -98,69 +104,22 @@ interface MotherOption {
   isAutoCreateUnknown?: boolean;
 }
 
-function extractYearLabel(
-  rawDate?: string,
-  structuredDate?: {
-    kind?: string;
-    year?: number;
-    dynastyName?: string;
-    reignName?: string;
-    originalText?: string | null;
-  } | null
-): string {
-  if (structuredDate) {
-    if (
-      structuredDate.kind === 'exact' &&
-      typeof structuredDate.year === 'number'
-    ) {
-      return `${structuredDate.year}年`;
-    }
-    if (structuredDate.kind === 'regnal' && structuredDate.dynastyName) {
-      return `${structuredDate.dynastyName}${structuredDate.reignName || ''}${
-        typeof structuredDate.year === 'number'
-          ? `${structuredDate.year}年`
-          : ''
-      }`;
-    }
-    if (structuredDate.originalText?.trim()) {
-      const m = structuredDate.originalText.match(/(-?\d{1,4})/);
-      return m ? `${m[1]}年` : structuredDate.originalText.trim();
-    }
-  }
-  const text = rawDate?.trim();
-  if (!text) return '';
-  const match = text.match(/(-?\d{1,4})/);
-  return match ? `${match[1]}年` : text;
+function formatLifespanYear(structuredDate?: GenealogyDate | null): string {
+  const label = extractYearLabel(structuredDate).trim();
+  if (!label) return '';
+  return /^-?\d+$/.test(label) ? `${label}年` : label;
 }
 
 function formatPersonLifespan(p: PersonRecord): string {
-  const birth = extractYearLabel(
-    p.birth?.date || p.birthDate,
-    p.birth?.structuredDate
-  );
+  const birth = formatLifespanYear(p.birth?.structuredDate);
   const death =
     p.status === 'living'
       ? '存'
-      : extractYearLabel(
-          p.death?.date || p.deathDate,
-          p.death?.structuredDate
-        ) || '歿';
+      : formatLifespanYear(p.death?.structuredDate) || '歿';
 
   if (birth) return `${birth}–${death}`;
   if (death !== '存' && death !== '歿') return `–${death}`;
   return death;
-}
-
-function formatLegacySpouseLifespan(
-  birthDate?: string,
-  deathDate?: string
-): string {
-  const birth = extractYearLabel(birthDate);
-  const death = extractYearLabel(deathDate);
-  if (birth && death) return `${birth}–${death}`;
-  if (birth) return `${birth}–`;
-  if (death) return `–${death}`;
-  return '';
 }
 
 function buildMotherOptionsForFather(
@@ -169,7 +128,6 @@ function buildMotherOptionsForFather(
   clanSurname: string
 ): MotherOption[] {
   const nodeSpouses = getDerivedSpouses(allPersons, father.id);
-  const nodeIds = new Set(nodeSpouses.map((s) => s.id));
   const rawOptions: MotherOption[] = nodeSpouses.map((sp) => ({
     key: sp.id,
     id: sp.id,
@@ -177,20 +135,6 @@ function buildMotherOptionsForFather(
     avatarUrl: sp.avatarUrl,
     lifespan: formatPersonLifespan(sp),
   }));
-
-  (father.spouses || []).forEach((sp, idx) => {
-    if (sp.id && nodeIds.has(sp.id)) return;
-    const cleanName = sp.name?.trim();
-    if (!cleanName) return;
-    const dupByName = rawOptions.some((opt) => opt.name === cleanName);
-    if (dupByName) return;
-    rawOptions.push({
-      key: sp.id || `legacy-sp-${idx}`,
-      id: sp.id,
-      name: cleanName,
-      lifespan: formatLegacySpouseLifespan(sp.birthDate, sp.deathDate),
-    });
-  });
 
   const knownOptions = rawOptions.filter((opt) => opt.name !== '不详');
   const existingUnknown = rawOptions.find((opt) => opt.name === '不详');
@@ -322,6 +266,8 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
   const motherRelationFieldId = useId();
   const surnameInputId = useId();
   const givenNameInputId = useId();
+  const surnamePinyinInputId = useId();
+  const givenNamePinyinInputId = useId();
   const birthDateId = useId();
   const birthPlaceId = useId();
   const deathDateId = useId();
@@ -331,9 +277,13 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
 
   const surnameRef = useRef<HTMLInputElement | null>(null);
   const givenNameRef = useRef<HTMLInputElement | null>(null);
+  const isSurnameComposingRef = useRef(false);
+  const isGivenNameComposingRef = useRef(false);
 
   const [surname, setSurname] = useState('');
   const [givenName, setGivenName] = useState('');
+  const [surnamePinyin, setSurnamePinyin] = useState('');
+  const [givenNamePinyin, setGivenNamePinyin] = useState('');
   const [gender, setGender] = useState<'male' | 'female' | 'unknown'>('male');
   const [status, setStatus] = useState<'living' | 'deceased'>('living');
   const [fatherRelationCategory, setFatherRelationCategory] =
@@ -397,8 +347,12 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
           ? targetPerson.status || 'living'
           : 'living';
 
+    isSurnameComposingRef.current = false;
+    isGivenNameComposingRef.current = false;
     setSurname(inheritedSurname);
+    setSurnamePinyin(toSurnamePinyin(inheritedSurname));
     setGivenName('');
+    setGivenNamePinyin('');
     setGender(resolvedGender);
     setStatus(resolvedStatus);
     setFatherRelationCategory('biological');
@@ -493,17 +447,6 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
     return selectedMotherOption?.name || '不详';
   }, [context, isMotherLocked, selectedMotherOption]);
 
-  const subtitleText = useMemo(() => {
-    if (!context) return '';
-    const { relation } = context;
-    if (relation === 'spouse') return `配偶：${fatherDisplayName}`;
-    if (relation === 'sibling') return `同胞：${fatherDisplayName}`;
-    if (relation === 'parent') return `子女：${fatherDisplayName}`;
-    return activeMotherDisplayName
-      ? `父母：${fatherDisplayName}、${activeMotherDisplayName}`
-      : `父母：${fatherDisplayName}`;
-  }, [context, fatherDisplayName, activeMotherDisplayName]);
-
   if (!context) return null;
 
   const isChildMode = context.relation === 'child';
@@ -585,9 +528,20 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
       }
     }
 
+    const cleanSurnamePinyin = surnamePinyin.trim();
+    const cleanGivenPinyin = givenNamePinyin.trim();
+    const romanizedName: PersonRomanizedName | undefined =
+      cleanSurnamePinyin || cleanGivenPinyin
+        ? {
+            ...(cleanSurnamePinyin ? { surname: cleanSurnamePinyin } : {}),
+            ...(cleanGivenPinyin ? { name: cleanGivenPinyin } : {}),
+          }
+        : undefined;
+
     onSubmit(context, {
       surname: cleanSurname || undefined,
       name: normalizedGiven,
+      romanizedName,
       gender,
       status,
       ...childRelationPayload,
@@ -632,9 +586,6 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
       )}
       onClick={(e) => {
         e.stopPropagation();
-        if (!isChildMode && e.target === e.currentTarget) {
-          onClose();
-        }
       }}
     >
       <div
@@ -658,11 +609,6 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
             >
               {titleText}
             </h2>
-            {!isChildMode && subtitleText && (
-              <div className="text-[13px] text-[#56585A] dark:text-slate-400 truncate mt-0.5">
-                {subtitleText}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -704,52 +650,134 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
         >
           <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
 
-            {/* Row 1: 姓氏 + 名字 (12-column grid matching FamilySearch 5+5) */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-              <div className="sm:col-span-5">
-                <label htmlFor={surnameInputId} className={labelClass}>
-                  姓氏
-                </label>
-                <Input
-                  ref={surnameRef}
-                  id={surnameInputId}
-                  value={surname}
-                  onChange={(e) => {
-                    setSurname(e.target.value);
-                    if (nameError) setNameError(null);
-                  }}
-                  placeholder="如：陈"
-                  className={controlInputClass}
-                />
+            {/* Row 1: 姓名区块（汉字 + 拼音，均 50% / 50% 两栏） */}
+            <div id="nameform-block" className="space-y-4">
+              <div data-testid="nameform:zh">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <label htmlFor={surnameInputId} className={labelClass}>
+                      姓氏
+                    </label>
+                    <Input
+                      ref={surnameRef}
+                      id={surnameInputId}
+                      name="nameTemplate.zh.lastName"
+                      data-testid="zh-last-name"
+                      data-lang="zh"
+                      autoComplete="off"
+                      maxLength={256}
+                      value={surname}
+                      onCompositionStart={() => {
+                        isSurnameComposingRef.current = true;
+                      }}
+                      onCompositionEnd={(e) => {
+                        isSurnameComposingRef.current = false;
+                        const nextValue = e.currentTarget.value;
+                        setSurname(nextValue);
+                        setSurnamePinyin(toSurnamePinyin(nextValue));
+                      }}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setSurname(nextValue);
+                        if (!isSurnameComposingRef.current) {
+                          setSurnamePinyin(toSurnamePinyin(nextValue));
+                        }
+                        if (nameError) setNameError(null);
+                      }}
+                      placeholder="如：陈"
+                      className={controlInputClass}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor={givenNameInputId} className={labelClass}>
+                      名字 <span className="text-[#C93B3B] ml-0.5">*</span>
+                    </label>
+                    <Input
+                      ref={givenNameRef}
+                      id={givenNameInputId}
+                      name="nameTemplate.zh.firstName"
+                      data-testid="zh-first-name"
+                      data-lang="zh"
+                      autoComplete="off"
+                      maxLength={256}
+                      value={givenName}
+                      onCompositionStart={() => {
+                        isGivenNameComposingRef.current = true;
+                      }}
+                      onCompositionEnd={(e) => {
+                        isGivenNameComposingRef.current = false;
+                        const nextValue = e.currentTarget.value;
+                        setGivenName(nextValue);
+                        setGivenNamePinyin(toGivenNamePinyin(nextValue));
+                      }}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setGivenName(nextValue);
+                        if (!isGivenNameComposingRef.current) {
+                          setGivenNamePinyin(toGivenNamePinyin(nextValue));
+                        }
+                        if (nameError) setNameError(null);
+                      }}
+                      placeholder="请输入名字"
+                      className={cn(
+                        controlInputClass,
+                        nameError
+                          ? 'border-[#C93B3B] focus-visible:border-[#C93B3B] focus-visible:ring-[#C93B3B]/20'
+                          : ''
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {nameError && (
+                  <p className="mt-1.5 text-[12px] text-[#C93B3B] font-medium">
+                    {nameError}
+                  </p>
+                )}
               </div>
-              <div className="sm:col-span-5">
-                <label htmlFor={givenNameInputId} className={labelClass}>
-                  名字 <span className="text-[#C93B3B] ml-0.5">*</span>
-                </label>
-                <Input
-                  ref={givenNameRef}
-                  id={givenNameInputId}
-                  value={givenName}
-                  onChange={(e) => {
-                    setGivenName(e.target.value);
-                    if (nameError) setNameError(null);
-                  }}
-                  placeholder="请输入名字"
-                  className={cn(
-                    controlInputClass,
-                    nameError
-                      ? 'border-[#C93B3B] focus-visible:border-[#C93B3B] focus-visible:ring-[#C93B3B]/20'
-                      : ''
-                  )}
-                />
+
+              <div data-testid="nameform:zh-Latn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <label htmlFor={surnamePinyinInputId} className={labelClass}>
+                      姓氏拼音
+                    </label>
+                    <Input
+                      id={surnamePinyinInputId}
+                      name="nameTemplate.zh-Latn.lastName"
+                      data-testid="zh-latn-last-name"
+                      data-lang="zh-Latn"
+                      autoComplete="off"
+                      maxLength={256}
+                      value={surnamePinyin}
+                      onChange={(e) => setSurnamePinyin(e.target.value)}
+                      placeholder="如：Chen"
+                      className={controlInputClass}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label
+                      htmlFor={givenNamePinyinInputId}
+                      className={labelClass}
+                    >
+                      名字拼音
+                    </label>
+                    <Input
+                      id={givenNamePinyinInputId}
+                      name="nameTemplate.zh-Latn.firstName"
+                      data-testid="zh-latn-first-name"
+                      data-lang="zh-Latn"
+                      autoComplete="off"
+                      maxLength={256}
+                      value={givenNamePinyin}
+                      onChange={(e) => setGivenNamePinyin(e.target.value)}
+                      placeholder="如：Wenzhao"
+                      className={controlInputClass}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-
-            {nameError && (
-              <p className="-mt-3 text-[12px] text-[#C93B3B] font-medium">
-                {nameError}
-              </p>
-            )}
 
             {/* Row 2: 性别 */}
             <div>
@@ -783,9 +811,9 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
               </div>
             </div>
 
-            {/* Row 3: 出生日期 (5) + 出生地点 (7) */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-              <div className="sm:col-span-5">
+            {/* Row 3: 出生日期 + 出生地点 (50% / 50%) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="min-w-0">
                 <label htmlFor={birthDateId} className={labelClass}>
                   出生日期
                 </label>
@@ -800,7 +828,7 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
                   className={controlInputClass}
                 />
               </div>
-              <div className="sm:col-span-7">
+              <div className="min-w-0">
                 <label htmlFor={birthPlaceId} className={labelClass}>
                   出生地点
                 </label>
@@ -844,8 +872,8 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
             {/* Row 5: 死亡信息（仅状态为「殁」时显示） */}
             {isDeceased && (
               <div className="pt-1 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 pt-3">
-                  <div className="sm:col-span-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                  <div className="min-w-0">
                     <label htmlFor={deathDateId} className={labelClass}>
                       死亡日期
                     </label>
@@ -860,7 +888,7 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
                       className={controlInputClass}
                     />
                   </div>
-                  <div className="sm:col-span-7">
+                  <div className="min-w-0">
                     <label htmlFor={deathPlaceId} className={labelClass}>
                       死亡地点
                     </label>
@@ -883,8 +911,8 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
                 <div className="text-[13px] font-semibold text-[#212225] dark:text-slate-200 mb-3">
                   结婚事件
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                  <div className="sm:col-span-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
                     <label htmlFor={marriageDateId} className={labelClass}>
                       结婚时间
                     </label>
@@ -899,7 +927,7 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
                       className={controlInputClass}
                     />
                   </div>
-                  <div className="sm:col-span-7">
+                  <div className="min-w-0">
                     <label htmlFor={marriagePlaceId} className={labelClass}>
                       结婚地点
                     </label>
@@ -919,9 +947,9 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
 
             {isChildMode && (
               <div className="pt-4 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
                   {/* 左栏：父亲卡片 + 与父亲的关系 */}
-                  <div className="flex flex-col gap-3">
+                  <div className="min-w-0 flex flex-col gap-3">
                     <div>
                       <span id={fatherFieldId} className={labelClass}>
                         父亲
@@ -1007,7 +1035,7 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
                       : selectedMotherOption?.lifespan || '';
 
                     return (
-                      <div className="flex flex-col gap-3">
+                      <div className="min-w-0 flex flex-col gap-3">
                         <div>
                           {isMotherLocked ? (
                             <span id={motherFieldId} className={labelClass}>

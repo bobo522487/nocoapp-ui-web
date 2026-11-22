@@ -1,5 +1,6 @@
 import { TreeItem } from '../../../components/common/Tree/types';
-import { PersonRecord, SpouseInfo } from '../types';
+import { PersonRecord } from '../types';
+import { buildLineageGraphIndex } from './personHelpers';
 
 export interface ChartEntry {
   chartId: string;
@@ -10,21 +11,31 @@ export interface ChartEntry {
 export interface LineageStatsSummary {
   chartCount: number;
   totalPersons: number;
-  maleCount: number;
-  femaleCount: number;
+
+  // All entered nodes (Row 1 KPI cards)
+  allMaleCount: number;
+  allMaleLiving: number;
+  allMaleDeceased: number;
+  allFemaleCount: number;
+  allFemaleLiving: number;
+  allFemaleDeceased: number;
   livingCount: number;
   deceasedCount: number;
 
+  // Non-spouse lineage members (Row 2 男丁 / 女丁)
+  maleCount: number;
   maleLiving: number;
   maleDeceased: number;
   maleLivingMarried: number;
   maleLivingUnmarried: number;
 
+  femaleCount: number;
   femaleLiving: number;
   femaleDeceased: number;
   femaleLivingMarried: number;
   femaleLivingUnmarried: number;
 
+  // Independent spouse nodes (Row 3 儿媳 / 女婿)
   daughterInLawCount: number;
   daughterInLawLiving: number;
   daughterInLawDeceased: number;
@@ -54,26 +65,28 @@ export function flattenChartsInTree(items: TreeItem[]): ChartEntry[] {
   return result;
 }
 
-function isSpouseDeceased(spouse: SpouseInfo): boolean {
-  if (spouse.deathDate && spouse.deathDate.trim().length > 0) return true;
-  if (spouse.burialPlace && spouse.burialPlace.trim().length > 0) return true;
-  return false;
-}
-
 export function computeLineageStats(
   persons: PersonRecord[],
   chartCount = 1
 ): LineageStatsSummary {
-  let maleCount = 0;
-  let femaleCount = 0;
+  const index = buildLineageGraphIndex(persons);
+
+  let allMaleCount = 0;
+  let allMaleLiving = 0;
+  let allMaleDeceased = 0;
+  let allFemaleCount = 0;
+  let allFemaleLiving = 0;
+  let allFemaleDeceased = 0;
   let livingCount = 0;
   let deceasedCount = 0;
 
+  let maleCount = 0;
   let maleLiving = 0;
   let maleDeceased = 0;
   let maleLivingMarried = 0;
   let maleLivingUnmarried = 0;
 
+  let femaleCount = 0;
   let femaleLiving = 0;
   let femaleDeceased = 0;
   let femaleLivingMarried = 0;
@@ -89,14 +102,40 @@ export function computeLineageStats(
 
   for (const person of persons) {
     const isLiving = person.status === 'living';
-    const spouses = Array.isArray(person.spouses) ? person.spouses : [];
-    const hasSpouse = spouses.some((s) => s.name && s.name.trim().length > 0) || spouses.length > 0;
 
-    if (isLiving) {
-      livingCount += 1;
+    if (isLiving) livingCount += 1;
+    else deceasedCount += 1;
+
+    if (person.gender === 'female') {
+      allFemaleCount += 1;
+      if (isLiving) allFemaleLiving += 1;
+      else allFemaleDeceased += 1;
     } else {
-      deceasedCount += 1;
+      allMaleCount += 1;
+      if (isLiving) allMaleLiving += 1;
+      else allMaleDeceased += 1;
     }
+
+    if (person.spouseOfId) {
+      const partner = index.personById.get(person.spouseOfId);
+      const isSonInLaw =
+        partner?.gender === 'female' ||
+        (partner?.gender !== 'male' && person.gender === 'male');
+
+      if (isSonInLaw) {
+        sonInLawCount += 1;
+        if (isLiving) sonInLawLiving += 1;
+        else sonInLawDeceased += 1;
+      } else {
+        daughterInLawCount += 1;
+        if (isLiving) daughterInLawLiving += 1;
+        else daughterInLawDeceased += 1;
+      }
+      continue;
+    }
+
+    const spouseNodes = index.spousesByPartnerId.get(person.id) || [];
+    const hasSpouse = spouseNodes.length > 0;
 
     if (person.gender === 'female') {
       femaleCount += 1;
@@ -107,15 +146,6 @@ export function computeLineageStats(
       } else {
         femaleDeceased += 1;
       }
-
-      for (const spouse of spouses) {
-        sonInLawCount += 1;
-        if (isSpouseDeceased(spouse)) {
-          sonInLawDeceased += 1;
-        } else {
-          sonInLawLiving += 1;
-        }
-      }
     } else {
       maleCount += 1;
       if (isLiving) {
@@ -125,29 +155,26 @@ export function computeLineageStats(
       } else {
         maleDeceased += 1;
       }
-
-      for (const spouse of spouses) {
-        daughterInLawCount += 1;
-        if (isSpouseDeceased(spouse)) {
-          daughterInLawDeceased += 1;
-        } else {
-          daughterInLawLiving += 1;
-        }
-      }
     }
   }
 
   return {
     chartCount,
     totalPersons: persons.length,
-    maleCount,
-    femaleCount,
+    allMaleCount,
+    allMaleLiving,
+    allMaleDeceased,
+    allFemaleCount,
+    allFemaleLiving,
+    allFemaleDeceased,
     livingCount,
     deceasedCount,
+    maleCount,
     maleLiving,
     maleDeceased,
     maleLivingMarried,
     maleLivingUnmarried,
+    femaleCount,
     femaleLiving,
     femaleDeceased,
     femaleLivingMarried,

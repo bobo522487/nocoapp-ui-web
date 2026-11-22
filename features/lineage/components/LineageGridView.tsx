@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PersonRecord } from '../types';
 import { Crown, Heart, MapPin, Award } from 'lucide-react';
 import { formatGivenName } from '../utils/nameUtils';
+import {
+  buildLineageGraphIndex,
+  computeAutoRankLabel,
+  formatPersonAliases,
+  getPersonPrimaryTitle,
+} from '../utils/personHelpers';
+import { getPersonPlaceDisplay } from '../../place-input';
 
 interface LineageGridViewProps {
   persons: PersonRecord[];
@@ -18,6 +25,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
   onSelectPerson,
   onAddChild,
 }) => {
+  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
   const maxGen = Math.max(...persons.map((p) => p.generation), 1);
   const generations = Array.from(
     { length: Math.max(Math.min(maxGen, 5), 1) },
@@ -68,7 +76,20 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                 ) : (
                   genPersons.map((p) => {
                     const isSelected = p.id === selectedPersonId;
-                    const children = persons.filter((c) => c.fatherId === p.id);
+                    const father = p.fatherId
+                      ? graphIndex.personById.get(p.fatherId)
+                      : undefined;
+                    const children = p.spouseOfId
+                      ? []
+                      : graphIndex.childrenByFatherId.get(p.id) || [];
+                    const spouses = p.spouseOfId
+                      ? []
+                      : graphIndex.spousesByPartnerId.get(p.id) || [];
+                    const aliasesText = formatPersonAliases(p);
+                    const rankLabel = computeAutoRankLabel(p, persons);
+                    const primaryTitle = getPersonPrimaryTitle(p);
+                    const burialPlaceText = getPersonPlaceDisplay(p, 'burial').trim();
+
                     return (
                       <div
                         key={p.id}
@@ -83,64 +104,85 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-sm text-foreground">
-                                {formatGivenName(p.name, clanSurname)}
+                                {p.spouseOfId
+                                  ? [
+                                      p.surname && !p.name.startsWith(p.surname)
+                                        ? p.surname
+                                        : '',
+                                      p.name,
+                                    ].join('') || '配偶'
+                                  : formatGivenName(p.name, clanSurname)}
                               </span>
-                              {p.courtesyName && (
-                                <span className="text-[11px] text-muted-foreground">
-                                  字{p.courtesyName}
+                              {aliasesText && (
+                                <span className="text-[11px] text-muted-foreground truncate">
+                                  {aliasesText}
                                 </span>
                               )}
                             </div>
-                            {p.fatherName && (
+                            {father && (
                               <div className="text-[10px] text-muted-foreground mt-0.5">
-                                父：{formatGivenName(p.fatherName, clanSurname)}公
+                                父：{formatGivenName(father.name, clanSurname)}公
                               </div>
                             )}
                           </div>
                           <span className="text-[10px] text-muted-foreground shrink-0">
-                            {p.rank || (gen === 1 ? '始祖' : '男')}
+                            {rankLabel}
                           </span>
                         </div>
 
-                        {p.officialTitle && (
+                        {primaryTitle && (
                           <div className="mt-1.5 flex items-center gap-1 text-[11px] text-primary font-medium truncate">
                             <Award size={11} className="shrink-0" />
-                            <span className="truncate">{p.officialTitle}</span>
+                            <span className="truncate">{primaryTitle}</span>
                           </div>
                         )}
 
-                        {p.spouses && p.spouses.length > 0 && (
+                        {spouses.length > 0 && (
                           <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                             <Heart
                               size={11}
                               className="text-rose-500 shrink-0"
                             />
                             <span className="truncate">
-                              配：{p.spouses.map((s) => s.name).join('、')}
+                              配：
+                              {spouses
+                                .map((s) =>
+                                  [
+                                    s.surname && !s.name.startsWith(s.surname)
+                                      ? s.surname
+                                      : '',
+                                    s.name,
+                                  ]
+                                    .filter(Boolean)
+                                    .join('')
+                                )
+                                .join('、')}
                             </span>
                           </div>
                         )}
 
-                        {p.burialPlace && (
+                        {burialPlaceText && (
                           <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/80 truncate">
                             <MapPin size={10} className="shrink-0" />
-                            <span className="truncate">{p.burialPlace}</span>
+                            <span className="truncate">{burialPlaceText}</span>
                           </div>
                         )}
 
-                        <div className="mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
-                          <span>出 {children.length} 子</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAddChild(p.id);
-                            }}
-                            className="text-primary hover:underline font-medium cursor-pointer"
-                          >
-                            + 添子嗣
-                          </button>
-                        </div>
+                        {!p.spouseOfId && (
+                          <div className="mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                            <span>出 {children.length} 子</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddChild(p.id);
+                              }}
+                              className="text-primary hover:underline font-medium cursor-pointer"
+                            >
+                              + 添子嗣
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })

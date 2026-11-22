@@ -19,47 +19,46 @@ import { Textarea } from '../../../components/ui/textarea';
 import { cn } from '../../../lib/utils';
 import {
   DateInput,
+  getPersonDateDisplay,
   readGenealogyDate,
   writeGenealogyDate,
 } from '../../date-input';
-import { formatGenealogyDate } from '../../date-input/date-format';
 import type { GenealogyDate } from '../../date-input/date.types';
 import {
   PlaceInput,
-  formatGenealogyPlace,
+  getPersonPlaceDisplay,
   readGenealogyPlace,
   writeGenealogyPlace,
 } from '../../place-input';
+import type { GenealogyPlace } from '../../place-input/place.types';
 import {
-  PersonCareerEntry,
-  PersonEducationEntry,
+  PersonEventType,
+  PersonLifeEvent,
   PersonRecord,
 } from '../types';
 import { formatGivenName } from '../utils/nameUtils';
 import {
-  EDUCATION_LEVEL_OPTIONS,
   computeAutoRankLabel,
-  getDerivedSpouses,
   hydratePersonDraft,
+  normalizeEventType,
   normalizePersonForSave,
-  parseAliasList,
-  readEntryGenealogyDate,
-  writeEntryGenealogyDate,
 } from '../utils/personHelpers';
 import {
   EVENT_TYPE_LABELS,
+  EVENT_TYPE_OPTIONS,
   EventEditContext,
   PersonTimelineEvent,
   UnifiedEventSubmitPayload,
   applyUnifiedEventToPerson,
-  buildImmediateFamilyGroups,
   buildPersonTimelineEvents,
+  findCoupleMarriageInfo,
   formatHeaderBirthLine,
   removeUnifiedEventFromPerson,
   resolvePersonDisplayName,
   resolvePersonRelationshipHeader,
   resolveRomanizedDisplayName,
 } from '../utils/personTimeline';
+import { ParentChildRelationModal } from './ParentChildRelationModal';
 import { PersonEventModal } from './PersonEventModal';
 import { PersonFamilySection } from './PersonFamilySection';
 import { PersonProfileModal } from './PersonProfileModal';
@@ -248,22 +247,13 @@ const AvatarPortrait: React.FC<AvatarPortraitProps> = ({
   );
 };
 
-function createEmptyEducationEntry(seedIndex = 1): PersonEducationEntry {
+function createEmptyLifeEventEntry(seedIndex = 1): PersonLifeEvent {
   return {
-    id: `edu-${Date.now()}-${seedIndex}-${Math.random().toString(36).slice(2, 5)}`,
-    period: '',
-    level: '',
-    school: '',
-  };
-}
-
-function createEmptyCareerEntry(seedIndex = 1): PersonCareerEntry {
-  return {
-    id: `career-${Date.now()}-${seedIndex}-${Math.random().toString(36).slice(2, 5)}`,
-    period: '',
-    location: '',
-    organization: '',
-    position: '',
+    id: `ev-${Date.now()}-${seedIndex}-${Math.random().toString(36).slice(2, 5)}`,
+    type: 'career',
+    structuredDate: undefined,
+    structuredPlace: undefined,
+    description: '',
   };
 }
 
@@ -283,20 +273,19 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   const [mode, setMode] = useState<DrawerMode>('browse');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
-  // Unified Event Editor & Vital Quick Edit Modals
+  // Unified Event Editor, Vital Quick Edit & Parent-Child Relation Modals
   const [eventEditContext, setEventEditContext] =
     useState<EventEditContext | null>(null);
   const [vitalQuickEditField, setVitalQuickEditField] =
     useState<VitalQuickEditField>(null);
+  const [editingParentChildId, setEditingParentChildId] = useState<
+    string | null
+  >(null);
 
   // Browse-mode collapsible sections & menus
   const [vitalsExpanded, setVitalsExpanded] = useState(true);
-  const [vitalsDetailedView, setVitalsDetailedView] = useState(false);
-  const [familyExpanded, setFamilyExpanded] = useState(true);
   const [timelineExpanded, setTimelineExpanded] = useState(true);
-  const [addMenuSource, setAddMenuSource] = useState<
-    'actions' | 'family' | null
-  >(null);
+  const [addMenuSource, setAddMenuSource] = useState<'actions' | null>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [confirmDeleteSelf, setConfirmDeleteSelf] = useState(false);
 
@@ -315,7 +304,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const addMenuContainerRef = useRef<HTMLDivElement | null>(null);
-  const familyAddMenuRef = useRef<HTMLDivElement | null>(null);
   const moreMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const prevPersonIdRef = useRef<string | null>(null);
 
@@ -329,6 +317,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       setProfileModalOpen(false);
       setEventEditContext(null);
       setVitalQuickEditField(null);
+      setEditingParentChildId(null);
       setAddMenuSource(null);
       setMoreMenuOpen(false);
       setConfirmDeleteSelf(false);
@@ -342,29 +331,14 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       setMode('browse');
       setEventEditContext(null);
       setVitalQuickEditField(null);
+      setEditingParentChildId(null);
       setAddMenuSource(null);
       setMoreMenuOpen(false);
       setConfirmDeleteSelf(false);
     }
 
     if (personChanged || mode === 'browse') {
-      const hydrated = hydratePersonDraft(person, clanSurname);
-      const eduHistory = hydrated.career?.educationHistory || [];
-      const careerHistory = hydrated.career?.careerHistory || [];
-      setFormData({
-        ...hydrated,
-        career: {
-          ...(hydrated.career || {}),
-          educationHistory:
-            eduHistory.length > 0
-              ? eduHistory
-              : [createEmptyEducationEntry(1)],
-          careerHistory:
-            careerHistory.length > 0
-              ? careerHistory
-              : [createEmptyCareerEntry(1)],
-        },
-      });
+      setFormData(hydratePersonDraft(person, clanSurname));
       setAliasInput('');
     }
   }, [person, clanSurname, mode]);
@@ -379,13 +353,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
         addMenuSource === 'actions' &&
         addMenuContainerRef.current &&
         !addMenuContainerRef.current.contains(target)
-      ) {
-        setAddMenuSource(null);
-      }
-      if (
-        addMenuSource === 'family' &&
-        familyAddMenuRef.current &&
-        !familyAddMenuRef.current.contains(target)
       ) {
         setAddMenuSource(null);
       }
@@ -418,23 +385,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   const enterEditMode = useCallback(
     (focusSection?: EditSectionKey) => {
       if (!person) return;
-      const hydrated = hydratePersonDraft(person, clanSurname);
-      const eduHistory = hydrated.career?.educationHistory || [];
-      const careerHistory = hydrated.career?.careerHistory || [];
-      setFormData({
-        ...hydrated,
-        career: {
-          ...(hydrated.career || {}),
-          educationHistory:
-            eduHistory.length > 0
-              ? eduHistory
-              : [createEmptyEducationEntry(1)],
-          careerHistory:
-            careerHistory.length > 0
-              ? careerHistory
-              : [createEmptyCareerEntry(1)],
-        },
-      });
+      setFormData(hydratePersonDraft(person, clanSurname));
       setAliasInput('');
       setAddMenuSource(null);
       setMoreMenuOpen(false);
@@ -474,23 +425,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
 
   const handleCancelEdit = useCallback(() => {
     if (person) {
-      const hydrated = hydratePersonDraft(person, clanSurname);
-      const eduHistory = hydrated.career?.educationHistory || [];
-      const careerHistory = hydrated.career?.careerHistory || [];
-      setFormData({
-        ...hydrated,
-        career: {
-          ...(hydrated.career || {}),
-          educationHistory:
-            eduHistory.length > 0
-              ? eduHistory
-              : [createEmptyEducationEntry(1)],
-          careerHistory:
-            careerHistory.length > 0
-              ? careerHistory
-              : [createEmptyCareerEntry(1)],
-        },
-      });
+      setFormData(hydratePersonDraft(person, clanSurname));
     }
     setAliasInput('');
     setMode('browse');
@@ -531,14 +466,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
     [person]
   );
 
-  const immediateFamily = useMemo(
-    () =>
-      person
-        ? buildImmediateFamilyGroups(person, allPersons, clanSurname)
-        : { upperGroup: [], lowerGroup: [], totalCount: 0 },
-    [person, allPersons, clanSurname]
-  );
-
   const timelineEvents = useMemo(
     () =>
       person ? buildPersonTimelineEvents(person, allPersons, clanSurname) : [],
@@ -556,17 +483,12 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   const familyCounts = useMemo(() => {
     if (!formData) return { spouses: 0, children: 0 };
     const primaryId = formData.spouseOfId || formData.id;
-    const primaryPerson =
-      allPersons.find((p) => p.id === primaryId) || formData;
     const spouseNodes = allPersons.filter((p) => p.spouseOfId === primaryId);
-    const legacySpousesCount = (primaryPerson.spouses || []).filter(
-      (s) => s.name?.trim() && !spouseNodes.some((n) => n.id === s.id)
-    ).length;
     const childrenCount = allPersons.filter(
       (p) => p.fatherId === primaryId && !p.spouseOfId
     ).length;
     return {
-      spouses: spouseNodes.length + legacySpousesCount,
+      spouses: spouseNodes.length,
       children: childrenCount,
     };
   }, [allPersons, formData]);
@@ -583,34 +505,12 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       : person.gender === 'female'
         ? '女'
         : '未知';
-  const vitalAliases = parseAliasList(person.aliases, person.courtesyName);
 
-  const vitalBirthDateText = (
-    person.birth?.structuredDate
-      ? formatGenealogyDate(person.birth.structuredDate)
-      : person.birth?.date || person.birthDate || ''
-  ).trim();
-  const vitalBirthPlaceText = (
-    person.birth?.structuredPlace
-      ? formatGenealogyPlace(person.birth.structuredPlace)
-      : person.birth?.place || ''
-  ).trim();
+  const vitalBirthDateText = getPersonDateDisplay(person, 'birth').trim();
+  const vitalBirthPlaceText = getPersonPlaceDisplay(person, 'birth').trim();
 
-  const vitalDeathDateText = (
-    person.death?.structuredDate
-      ? formatGenealogyDate(person.death.structuredDate)
-      : person.death?.date || person.deathDate || ''
-  ).trim();
-  const vitalDeathPlaceText = (
-    person.death?.structuredPlace
-      ? formatGenealogyPlace(person.death.structuredPlace)
-      : person.death?.place || ''
-  ).trim();
-  const vitalBurialPlaceText = (
-    person.death?.structuredBurialPlace
-      ? formatGenealogyPlace(person.death.structuredBurialPlace)
-      : person.death?.burialPlace || person.burialPlace || ''
-  ).trim();
+  const vitalDeathDateText = getPersonDateDisplay(person, 'death').trim();
+  const vitalDeathPlaceText = getPersonPlaceDisplay(person, 'death').trim();
 
   // Open Unified Event Modal for Vital Birth / Death
   const openVitalBirthEventModal = () => {
@@ -639,8 +539,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
         structuredDate: readGenealogyDate(person, 'death'),
         structuredPlace: readGenealogyPlace(person, 'death'),
         description: person.death?.summary || '',
-        statusOverride: person.status,
-        deathCause: person.death?.cause || '',
       },
     });
   };
@@ -698,10 +596,31 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               : null);
 
     const canDelete =
-      ev.sourceKind === 'education' ||
-      ev.sourceKind === 'career' ||
-      ev.sourceKind === 'custom_event' ||
-      ev.sourceKind === 'burial';
+      ev.sourceKind === 'custom_event' || ev.sourceKind === 'burial';
+
+    let coupleMeta: EventEditContext['coupleMeta'];
+    if (ev.sourceKind === 'marriage_node' && ev.jumpPersonId) {
+      const other = allPersons.find((p) => p.id === ev.jumpPersonId);
+      if (other) {
+        const partnerRec = target.spouseOfId ? other : target;
+        const spouseRec = target.spouseOfId ? target : other;
+        const spouseCount = allPersons.filter(
+          (p) => p.spouseOfId === partnerRec.id
+        ).length;
+        const info = findCoupleMarriageInfo(
+          partnerRec,
+          spouseRec,
+          Math.max(1, spouseCount),
+          clanSurname
+        );
+        coupleMeta = {
+          partnerId: partnerRec.id,
+          spouseId: spouseRec.id,
+          partnerEventId: info.partnerEventId,
+          spouseEventId: info.spouseEventId,
+        };
+      }
+    }
 
     setEventEditContext({
       mode: 'edit',
@@ -709,19 +628,46 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       sourceId: ev.sourceId,
       targetPersonId: target.id,
       canDelete,
+      coupleMeta,
       initialEvent: {
-        type: ev.eventType,
-        customTypeLabel: ev.customTypeLabel,
+        type: normalizeEventType(ev.eventType),
         structuredDate: resolvedDate,
         structuredPlace: resolvedPlace,
         description: ev.description || '',
-        statusOverride: ev.eventType === 'death' ? target.status : undefined,
-        deathCause: ev.deathCause || target.death?.cause || '',
-        organization: ev.organization || '',
-        position: ev.position || '',
-        educationLevel: ev.educationLevel || '',
-        relatedPersonId: ev.relatedPerson?.personId,
-        relatedPersonName: ev.relatedPerson?.displayName,
+      },
+    });
+  };
+
+  const openEditMarriageModal = (partnerId: string, spouseId: string) => {
+    const partner = allPersons.find((p) => p.id === partnerId);
+    const spouse = allPersons.find((p) => p.id === spouseId);
+    if (!partner || !spouse) return;
+    const spouseCount = allPersons.filter(
+      (p) => p.spouseOfId === partner.id
+    ).length;
+    const info = findCoupleMarriageInfo(
+      partner,
+      spouse,
+      Math.max(1, spouseCount),
+      clanSurname
+    );
+    setEventEditContext({
+      mode: 'edit',
+      sourceKind: 'marriage_node',
+      sourceId: info.partnerEventId,
+      targetPersonId: partner.id,
+      canDelete: false,
+      coupleMeta: {
+        partnerId: partner.id,
+        spouseId: spouse.id,
+        partnerEventId: info.partnerEventId,
+        spouseEventId: info.spouseEventId,
+      },
+      initialEvent: {
+        type: 'marriage',
+        structuredDate: info.structuredDate,
+        structuredPlace: info.structuredPlace,
+        description: info.description,
       },
     });
   };
@@ -730,6 +676,47 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
     ctx: EventEditContext,
     payload: UnifiedEventSubmitPayload
   ) => {
+    if (ctx.coupleMeta) {
+      const partner = allPersons.find(
+        (p) => p.id === ctx.coupleMeta!.partnerId
+      );
+      const spouse = allPersons.find((p) => p.id === ctx.coupleMeta!.spouseId);
+
+      if (partner) {
+        const partnerUpdates = applyUnifiedEventToPerson(
+          partner,
+          allPersons,
+          payload,
+          {
+            ...ctx,
+            sourceId:
+              ctx.coupleMeta.partnerEventId || `ev-marriage-${partner.id}`,
+            targetPersonId: partner.id,
+          }
+        );
+        onUpdatePerson(partner.id, partnerUpdates);
+      }
+
+      if (spouse) {
+        const spouseUpdates = applyUnifiedEventToPerson(
+          spouse,
+          allPersons,
+          payload,
+          {
+            ...ctx,
+            sourceId:
+              ctx.coupleMeta.spouseEventId ||
+              `ev-marriage-${ctx.coupleMeta.partnerId}`,
+            targetPersonId: spouse.id,
+          }
+        );
+        onUpdatePerson(spouse.id, spouseUpdates);
+      }
+
+      setEventEditContext(null);
+      return;
+    }
+
     const target =
       allPersons.find((p) => p.id === ctx.targetPersonId) || person;
     const updates = applyUnifiedEventToPerson(target, allPersons, payload, ctx);
@@ -823,7 +810,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       return {
         ...prev,
         aliases: merged,
-        courtesyName: merged.join('、'),
       };
     });
     setAliasInput('');
@@ -835,171 +821,44 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
       return {
         ...prev,
         aliases: next,
-        courtesyName: next.join('、'),
       };
     });
   };
 
-  const educationEntries: PersonEducationEntry[] =
-    formData.career?.educationHistory &&
-    formData.career.educationHistory.length > 0
-      ? formData.career.educationHistory
-      : [createEmptyEducationEntry(1)];
+  const eventEntries: PersonLifeEvent[] = formData.events || [];
 
-  const careerEntries: PersonCareerEntry[] =
-    formData.career?.careerHistory && formData.career.careerHistory.length > 0
-      ? formData.career.careerHistory
-      : [createEmptyCareerEntry(1)];
+  const handleAddLifeEvent = () => {
+    updateDraft((prev) => {
+      const list = prev.events || [];
+      return {
+        ...prev,
+        events: [...list, createEmptyLifeEventEntry(list.length + 1)],
+      };
+    });
+  };
 
-  const handleUpdateEducationEntry = (
-    entryId: string,
-    field: keyof Omit<PersonEducationEntry, 'id' | 'structuredPeriod'>,
-    value: string
+  const handleUpdateLifeEvent = (
+    eventId: string,
+    patch: {
+      type?: PersonEventType;
+      structuredDate?: GenealogyDate | null;
+      structuredPlace?: GenealogyPlace | null;
+      description?: string;
+    }
   ) => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.educationHistory && prev.career.educationHistory.length > 0
-          ? prev.career.educationHistory
-          : educationEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          educationHistory: list.map((item) =>
-            item.id === entryId ? { ...item, [field]: value } : item
-          ),
-        },
-      };
-    });
+    updateDraft((prev) => ({
+      ...prev,
+      events: (prev.events || []).map((item) =>
+        item.id === eventId ? { ...item, ...patch } : item
+      ),
+    }));
   };
 
-  const handleUpdateEducationDate = (
-    entryId: string,
-    nextDate: GenealogyDate | null
-  ) => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.educationHistory && prev.career.educationHistory.length > 0
-          ? prev.career.educationHistory
-          : educationEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          educationHistory: list.map((item) =>
-            item.id === entryId ? writeEntryGenealogyDate(item, nextDate) : item
-          ),
-        },
-      };
-    });
-  };
-
-  const handleAddEducationEntry = () => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.educationHistory && prev.career.educationHistory.length > 0
-          ? prev.career.educationHistory
-          : educationEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          educationHistory: [
-            ...list,
-            createEmptyEducationEntry(list.length + 1),
-          ],
-        },
-      };
-    });
-  };
-
-  const handleRemoveEducationEntry = (entryId: string) => {
-    updateDraft((prev) => {
-      const list = prev.career?.educationHistory || [];
-      const remaining = list.filter((item) => item.id !== entryId);
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          educationHistory:
-            remaining.length > 0 ? remaining : [createEmptyEducationEntry(1)],
-        },
-      };
-    });
-  };
-
-  const handleUpdateCareerEntry = (
-    entryId: string,
-    field: keyof Omit<PersonCareerEntry, 'id' | 'structuredPeriod'>,
-    value: string
-  ) => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.careerHistory && prev.career.careerHistory.length > 0
-          ? prev.career.careerHistory
-          : careerEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          careerHistory: list.map((item) =>
-            item.id === entryId ? { ...item, [field]: value } : item
-          ),
-        },
-      };
-    });
-  };
-
-  const handleUpdateCareerDate = (
-    entryId: string,
-    nextDate: GenealogyDate | null
-  ) => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.careerHistory && prev.career.careerHistory.length > 0
-          ? prev.career.careerHistory
-          : careerEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          careerHistory: list.map((item) =>
-            item.id === entryId ? writeEntryGenealogyDate(item, nextDate) : item
-          ),
-        },
-      };
-    });
-  };
-
-  const handleAddCareerEntry = () => {
-    updateDraft((prev) => {
-      const list =
-        prev.career?.careerHistory && prev.career.careerHistory.length > 0
-          ? prev.career.careerHistory
-          : careerEntries;
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          careerHistory: [...list, createEmptyCareerEntry(list.length + 1)],
-        },
-      };
-    });
-  };
-
-  const handleRemoveCareerEntry = (entryId: string) => {
-    updateDraft((prev) => {
-      const list = prev.career?.careerHistory || [];
-      const remaining = list.filter((item) => item.id !== entryId);
-      return {
-        ...prev,
-        career: {
-          ...(prev.career || {}),
-          careerHistory:
-            remaining.length > 0 ? remaining : [createEmptyCareerEntry(1)],
-        },
-      };
-    });
+  const handleRemoveLifeEvent = (eventId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      events: (prev.events || []).filter((item) => item.id !== eventId),
+    }));
   };
 
   const renderAddRelativeDropdown = () => (
@@ -1351,7 +1210,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               </div>
             </div>
 
-            {/* Section 1: 重要资料 (replaces 传记, matches section-card-vitals reference) */}
+            {/* Section 1: 基本资料 */}
             <section
               data-testid="section-card-vitals"
               className="px-5 py-4 border-b border-[#ECEEEE] dark:border-slate-700/70"
@@ -1363,7 +1222,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                   onClick={() => setVitalsExpanded((prev) => !prev)}
                   className="flex items-center gap-1.5 text-left py-1 rounded text-[14px] font-bold text-[#212225] dark:text-slate-100 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-colors cursor-pointer"
                 >
-                  <span>重要资料</span>
+                  <span>基本资料</span>
                   {vitalsExpanded ? (
                     <ChevronUp
                       size={14}
@@ -1381,46 +1240,10 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               </div>
 
               {vitalsExpanded && (
-                <div className="mt-2.5 space-y-3">
-                  {/* 详细资料检视 Switch */}
-                  <div
-                    data-testid="vitals-detail-view"
-                    className="flex items-center gap-2.5 py-0.5"
-                  >
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={vitalsDetailedView}
-                      aria-label="详细资料检视"
-                      onClick={() => setVitalsDetailedView((v) => !v)}
-                      className={cn(
-                        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#057091]',
-                        vitalsDetailedView
-                          ? 'bg-[#057091] border-[#057091]'
-                          : 'bg-[#D8DADA] dark:bg-slate-600 border-[#C4C7C9] dark:border-slate-500'
-                      )}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-150',
-                          vitalsDetailedView
-                            ? 'translate-x-[18px]'
-                            : 'translate-x-[2px]'
-                        )}
-                      />
-                    </button>
-                    <span
-                      onClick={() => setVitalsDetailedView((v) => !v)}
-                      className="text-[12.5px] font-medium text-[#56585A] dark:text-slate-300 cursor-pointer select-none"
-                    >
-                      详细资料检视
-                    </span>
-                  </div>
-
-                  {/* 2-Column Vitals Grid: 名称 / 性别 / 出生 / 死亡 */}
+                <div className="mt-2.5">
+                  {/* 2-Column Vitals Grid: 姓名 / 性别 / 出生 / 死亡 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-                    {/* 1. 名称 */}
+                    {/* 1. 姓名 */}
                     <div
                       data-testid="highlight-NAME"
                       className="group relative rounded-[8px] px-2.5 py-2 -mx-2.5 hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors"
@@ -1432,7 +1255,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                         className="w-full text-left pr-8 cursor-pointer"
                       >
                         <div className="text-[12.5px] font-bold text-[#212225] dark:text-slate-100">
-                          名称
+                          姓名
                         </div>
                         <div className="mt-0.5 text-[13.5px] text-[#212225] dark:text-slate-100 leading-snug break-words">
                           <span>{displayName}</span>
@@ -1442,24 +1265,11 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                             </span>
                           )}
                         </div>
-                        {vitalsDetailedView && (
-                          <div className="mt-1 space-y-0.5 text-[12px] text-[#56585A] dark:text-slate-400">
-                            {vitalAliases.length > 0 && (
-                              <div>字号别名：{vitalAliases.join('、')}</div>
-                            )}
-                            {person.legalName && (
-                              <div>常用名：{person.legalName}</div>
-                            )}
-                            {person.generationWord && (
-                              <div>派语字辈：{person.generationWord}</div>
-                            )}
-                          </div>
-                        )}
                       </button>
 
                       <button
                         type="button"
-                        aria-label="编辑名称"
+                        aria-label="编辑姓名"
                         aria-haspopup="dialog"
                         onClick={() => setVitalQuickEditField('name')}
                         className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 opacity-75 group-hover:opacity-100 hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/25 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-colors cursor-pointer"
@@ -1485,11 +1295,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                         <div className="mt-0.5 text-[13.5px] text-[#212225] dark:text-slate-100 leading-snug">
                           {vitalGenderText}
                         </div>
-                        {vitalsDetailedView && person.rank && (
-                          <div className="mt-1 text-[12px] text-[#56585A] dark:text-slate-400">
-                            排行：{person.rank}
-                          </div>
-                        )}
                       </button>
 
                       <button
@@ -1533,11 +1338,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                         ) : (
                           <div className="mt-0.5 text-[13px] text-[#8C9094] dark:text-slate-500">
                             未填写
-                          </div>
-                        )}
-                        {vitalsDetailedView && person.birth?.summary && (
-                          <div className="mt-1 text-[12px] text-[#56585A] dark:text-slate-400">
-                            {person.birth.summary}
                           </div>
                         )}
                       </button>
@@ -1589,20 +1389,6 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                             已故
                           </div>
                         )}
-                        {vitalsDetailedView &&
-                          person.status === 'deceased' && (
-                            <div className="mt-1 space-y-0.5 text-[12px] text-[#56585A] dark:text-slate-400">
-                              {person.death?.cause && (
-                                <div>死因：{person.death.cause}</div>
-                              )}
-                              {vitalBurialPlaceText && (
-                                <div>埋葬：{vitalBurialPlaceText}</div>
-                              )}
-                              {person.death?.summary && (
-                                <div>{person.death.summary}</div>
-                              )}
-                            </div>
-                          )}
                       </button>
 
                       <button
@@ -1620,179 +1406,26 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               )}
             </section>
 
-            {/* Section 2: 家庭成员 (Collapsible) */}
-            <section className="px-5 py-4 border-b border-[#ECEEEE] dark:border-slate-700/70">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  aria-expanded={familyExpanded}
-                  onClick={() => setFamilyExpanded((prev) => !prev)}
-                  className="flex items-center gap-1.5 text-left py-1 rounded text-[14px] font-bold text-[#212225] dark:text-slate-100 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-colors cursor-pointer"
-                >
-                  <span>家庭成员</span>
-                  <span className="text-[12.5px] font-medium text-[#56585A] dark:text-slate-400 tabular-nums">
-                    （{immediateFamily.totalCount}）
-                  </span>
-                  {familyExpanded ? (
-                    <ChevronUp
-                      size={14}
-                      className="text-[#56585A] dark:text-slate-400"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <ChevronDown
-                      size={14}
-                      className="text-[#56585A] dark:text-slate-400"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-
-                <div ref={familyAddMenuRef} className="relative">
-                  <button
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={addMenuSource === 'family'}
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      setAddMenuSource((prev) =>
-                        prev === 'family' ? null : 'family'
-                      );
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-[6px] text-[12.5px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap"
-                  >
-                    <Plus size={13} aria-hidden="true" />
-                    <span>新增</span>
-                  </button>
-
-                  {addMenuSource === 'family' && renderAddRelativeDropdown()}
-                </div>
-              </div>
-
-              {familyExpanded && (
-                <div className="mt-3 space-y-2.5">
-                  {immediateFamily.totalCount === 0 ? (
-                    <p className="text-[13px] text-[#737679] dark:text-slate-400">
-                      暂无已关联的家庭成员记录。
-                    </p>
-                  ) : (
-                    <>
-                      {immediateFamily.upperGroup.length > 0 && (
-                        <ul className="space-y-1">
-                          {immediateFamily.upperGroup.map((member) => {
-                            const clickable = Boolean(
-                              member.personId && onSelectPerson
-                            );
-                            const rowInner = (
-                              <>
-                                <AvatarPortrait
-                                  avatarUrl={member.avatarUrl}
-                                  displayName={member.displayName}
-                                  gender={member.gender}
-                                  sizeClass="w-11 h-11"
-                                  textClass="text-[14px]"
-                                />
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="text-[13.5px] font-semibold text-[#212225] dark:text-slate-100 truncate group-hover:text-[#057091] dark:group-hover:text-[#58B1CD] transition-colors">
-                                    {member.displayName}
-                                  </div>
-                                  <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate">
-                                    {member.relationshipLabel}
-                                  </div>
-                                  {member.yearsLabel && (
-                                    <div className="text-[11.5px] text-[#737679] dark:text-slate-400 tabular-nums truncate">
-                                      {member.yearsLabel}
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            );
-
-                            return (
-                              <li key={member.key}>
-                                {clickable ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onSelectPerson?.(member.personId!)
-                                    }
-                                    className="group w-full flex items-center gap-3 px-2 py-1.5 -mx-2 rounded-[8px] hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors cursor-pointer"
-                                  >
-                                    {rowInner}
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-3 px-2 py-1.5 -mx-2">
-                                    {rowInner}
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-
-                      {immediateFamily.upperGroup.length > 0 &&
-                        immediateFamily.lowerGroup.length > 0 && (
-                          <hr className="border-0 border-t border-[#ECEEEE] dark:border-slate-700/70" />
-                        )}
-
-                      {immediateFamily.lowerGroup.length > 0 && (
-                        <ul className="space-y-1">
-                          {immediateFamily.lowerGroup.map((member) => {
-                            const clickable = Boolean(
-                              member.personId && onSelectPerson
-                            );
-                            const rowInner = (
-                              <>
-                                <AvatarPortrait
-                                  avatarUrl={member.avatarUrl}
-                                  displayName={member.displayName}
-                                  gender={member.gender}
-                                  sizeClass="w-11 h-11"
-                                  textClass="text-[14px]"
-                                />
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="text-[13.5px] font-semibold text-[#212225] dark:text-slate-100 truncate group-hover:text-[#057091] dark:group-hover:text-[#58B1CD] transition-colors">
-                                    {member.displayName}
-                                  </div>
-                                  <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate">
-                                    {member.relationshipLabel}
-                                  </div>
-                                  {member.yearsLabel && (
-                                    <div className="text-[11.5px] text-[#737679] dark:text-slate-400 tabular-nums truncate">
-                                      {member.yearsLabel}
-                                    </div>
-                                  )}
-                                </div>
-                              </>
-                            );
-
-                            return (
-                              <li key={member.key}>
-                                {clickable ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onSelectPerson?.(member.personId!)
-                                    }
-                                    className="group w-full flex items-center gap-3 px-2 py-1.5 -mx-2 rounded-[8px] hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors cursor-pointer"
-                                  >
-                                    {rowInner}
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-3 px-2 py-1.5 -mx-2">
-                                    {rowInner}
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+            {/* Section 2: 配偶与子女 & 父母与兄弟姐妹 */}
+            <section
+              data-testid="section-card-family"
+              className="px-5 py-4 border-b border-[#ECEEEE] dark:border-slate-700/70"
+            >
+              <PersonFamilySection
+                person={person}
+                allPersons={allPersons}
+                clanSurname={clanSurname}
+                isWide={width >= 540}
+                onSelectPerson={(targetId) => onSelectPerson?.(targetId)}
+                onAddChild={(fid, motherInfo) =>
+                  onAddChild(fid, 'male', motherInfo)
+                }
+                onAddSpouse={(pid) => onAddSpouse(pid)}
+                onEditMarriage={openEditMarriageModal}
+                onEditParentChild={(childId) =>
+                  setEditingParentChildId(childId)
+                }
+              />
             </section>
 
             {/* Section 3: 时间线 (Unified Events: 出生/去世/结婚/教育/工作/迁居/其他) */}
@@ -1839,7 +1472,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                   {timelineEvents.length === 0 ? (
                     <div className="py-2 space-y-2">
                       <p className="text-[13px] text-[#737679] dark:text-slate-400">
-                        暂无时间线事件，可点击右上角「新增」统一录入出生、教育、工作、婚姻或去世等生平事件。
+                        暂无时间线事件，可点击右上角「新增」统一录入出生、求学、任职、婚姻、迁居或卒葬等生平事件。
                       </p>
                     </div>
                   ) : (
@@ -2230,10 +1863,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               sectionKey="vital"
               title="重要资料（生卒葬）"
               summary={(() => {
-                const b = readGenealogyDate(formData, 'birth');
-                const txt = b
-                  ? formatGenealogyDate(b)
-                  : formData.birth?.date || formData.birthDate || '';
+                const txt = getPersonDateDisplay(formData, 'birth').trim();
                 return txt ? `生于 ${txt}` : '待完善';
               })()}
               expanded={expandedEditSections.vital}
@@ -2372,27 +2002,19 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               )}
             </EditSectionBlock>
 
-            {/* 其他资料（教育与职业 + 事件管理） */}
+            {/* 生平事件（统一四字段结构：类型 + 日期 + 地点 + 描述） */}
             <EditSectionBlock
               sectionKey="other"
-              title="教育、工作与事件"
-              summary={`教育 ${
-                educationEntries.filter(
-                  (e) =>
-                    e.period?.trim() ||
-                    e.structuredPeriod ||
-                    e.level?.trim() ||
-                    e.school?.trim()
-                ).length
-              } · 工作 ${
-                careerEntries.filter(
-                  (c) =>
-                    c.period?.trim() ||
-                    c.structuredPeriod ||
-                    c.organization?.trim() ||
-                    c.position?.trim()
-                ).length
-              }${(formData.events?.length || 0) > 0 ? ` · 其他 ${formData.events!.length}` : ''}`}
+              title="生平事件"
+              summary={(() => {
+                const activeCount = eventEntries.filter(
+                  (ev) =>
+                    ev.structuredDate ||
+                    ev.structuredPlace ||
+                    ev.description?.trim()
+                ).length;
+                return activeCount > 0 ? `${activeCount} 条记录` : '待添加';
+              })()}
               expanded={expandedEditSections.other}
               onToggle={() =>
                 setExpandedEditSections((prev) => ({
@@ -2401,266 +2023,128 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                 }))
               }
             >
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-[13px] font-semibold text-[#212225] dark:text-slate-100">
-                    教育经历
-                  </h4>
+                  <span className="text-[12.5px] text-[#56585A] dark:text-slate-400">
+                    所有类型统一包含日期、地点与描述
+                  </span>
                   <button
                     type="button"
-                    onClick={handleAddEducationEntry}
-                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:underline cursor-pointer"
+                    onClick={handleAddLifeEvent}
+                    className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:underline cursor-pointer shrink-0"
                   >
-                    <Plus size={12} aria-hidden="true" />
-                    <span>添加</span>
+                    <Plus size={13} aria-hidden="true" />
+                    <span>添加事件</span>
                   </button>
                 </div>
-                <div className="space-y-2.5">
-                  {educationEntries.map((entry, idx) => (
-                    <div key={entry.id} className="flex items-end gap-1.5">
-                      <div className="flex-1 min-w-0 grid grid-cols-12 gap-2">
-                        <div className="col-span-5">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-edu-period-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              开始时间
-                            </label>
-                          )}
-                          <DateInput
-                            id={`edit-edu-period-${entry.id}`}
-                            label="教育开始时间"
-                            value={readEntryGenealogyDate(entry)}
-                            onChange={(val) =>
-                              handleUpdateEducationDate(entry.id, val)
-                            }
-                            enableTime={false}
-                            enableOriginal
-                            placeholder="如 1995-09"
-                            className="h-9 text-xs"
-                          />
-                        </div>
-                        <div className="col-span-3">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-edu-level-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              学历
-                            </label>
-                          )}
-                          <Select
-                            id={`edit-edu-level-${entry.id}`}
-                            value={entry.level || ''}
-                            isPlaceholder={!entry.level}
-                            onChange={(e) =>
-                              handleUpdateEducationEntry(
-                                entry.id,
-                                'level',
-                                e.target.value
-                              )
-                            }
-                            className="h-9 text-xs"
-                          >
-                            <option value="">请选择</option>
-                            {EDUCATION_LEVEL_OPTIONS.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                        <div className="col-span-4">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-edu-school-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              学校
-                            </label>
-                          )}
-                          <Input
-                            id={`edit-edu-school-${entry.id}`}
-                            autoComplete="off"
-                            maxLength={120}
-                            value={entry.school || ''}
-                            onChange={(e) =>
-                              handleUpdateEducationEntry(
-                                entry.id,
-                                'school',
-                                e.target.value
-                              )
-                            }
-                            placeholder="如：贵州大学"
-                            className="h-9 text-xs px-2.5"
-                          />
-                        </div>
-                      </div>
-                      {educationEntries.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEducationEntry(entry.id)}
-                          aria-label={`删除教育经历 ${idx + 1}`}
-                          className="h-9 w-7 shrink-0 flex items-center justify-center rounded text-[#56585A] hover:text-[#C93B3B] cursor-pointer"
-                        >
-                          <X size={13} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-              <div className="space-y-2.5 pt-3 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-[13px] font-semibold text-[#212225] dark:text-slate-100">
-                    工作 / 功名经历
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={handleAddCareerEntry}
-                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:underline cursor-pointer"
-                  >
-                    <Plus size={12} aria-hidden="true" />
-                    <span>添加</span>
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {careerEntries.map((entry, idx) => (
-                    <div key={entry.id} className="flex items-end gap-1.5">
-                      <div className="flex-1 min-w-0 grid grid-cols-12 gap-2">
-                        <div className="col-span-5">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-career-period-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              开始时间
-                            </label>
-                          )}
-                          <DateInput
-                            id={`edit-career-period-${entry.id}`}
-                            label="工作开始时间"
-                            value={readEntryGenealogyDate(entry)}
-                            onChange={(val) =>
-                              handleUpdateCareerDate(entry.id, val)
-                            }
-                            enableTime={false}
-                            enableOriginal
-                            placeholder="如 2002-07"
-                            className="h-9 text-xs"
-                          />
-                        </div>
-                        <div className="col-span-4">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-career-org-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              单位
-                            </label>
-                          )}
-                          <Input
-                            id={`edit-career-org-${entry.id}`}
-                            autoComplete="off"
-                            maxLength={120}
-                            value={entry.organization || ''}
-                            onChange={(e) =>
-                              handleUpdateCareerEntry(
-                                entry.id,
-                                'organization',
-                                e.target.value
-                              )
-                            }
-                            placeholder="如：省档案馆"
-                            className="h-9 text-xs px-2.5"
-                          />
-                        </div>
-                        <div className="col-span-3">
-                          {idx === 0 && (
-                            <label
-                              htmlFor={`edit-career-pos-${entry.id}`}
-                              className="block text-[11.5px] font-medium text-[#56585A] dark:text-slate-400 mb-1"
-                            >
-                              职务
-                            </label>
-                          )}
-                          <Input
-                            id={`edit-career-pos-${entry.id}`}
-                            autoComplete="off"
-                            maxLength={120}
-                            value={entry.position || ''}
-                            onChange={(e) =>
-                              handleUpdateCareerEntry(
-                                entry.id,
-                                'position',
-                                e.target.value
-                              )
-                            }
-                            placeholder="研究员"
-                            className="h-9 text-xs px-2"
-                          />
-                        </div>
-                      </div>
-                      {careerEntries.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCareerEntry(entry.id)}
-                          aria-label={`删除工作经历 ${idx + 1}`}
-                          className="h-9 w-7 shrink-0 flex items-center justify-center rounded text-[#56585A] hover:text-[#C93B3B] cursor-pointer"
-                        >
-                          <X size={13} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {formData.events && formData.events.length > 0 && (
-                <div className="space-y-2 pt-3 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-[13px] font-semibold text-[#212225] dark:text-slate-100">
-                      其他自定义事件
-                    </h4>
+                {eventEntries.length === 0 ? (
+                  <div className="py-3 text-center border border-dashed border-[#D8DADA] dark:border-slate-700 rounded-[8px]">
+                    <p className="text-[12.5px] text-[#737679] dark:text-slate-400 mb-2">
+                      暂无生平事件记录
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddLifeEvent}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[6px] text-[12.5px] font-semibold text-[#057091] dark:text-[#58B1CD] bg-[#EAF4F7] dark:bg-[#057091]/20 hover:bg-[#DCEEF4] transition-colors cursor-pointer"
+                    >
+                      <Plus size={13} aria-hidden="true" />
+                      <span>添加首条事件</span>
+                    </button>
                   </div>
-                  <ul className="space-y-1.5">
-                    {formData.events.map((ev) => (
-                      <li
+                ) : (
+                  <div className="divide-y divide-[#ECEEEE] dark:divide-slate-700/70">
+                    {eventEntries.map((ev, idx) => (
+                      <div
                         key={ev.id}
-                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded bg-[#F5F6F6] dark:bg-[#252B33] text-[12px]"
+                        className="py-3 first:pt-0 last:pb-0 space-y-2.5"
                       >
-                        <span className="truncate">
-                          <strong>
-                            {ev.customTypeLabel ||
-                              EVENT_TYPE_LABELS[ev.type] ||
-                              '事件'}
-                          </strong>
-                          {ev.date ? ` · ${ev.date}` : ''}
-                          {ev.place ? ` · ${ev.place}` : ''}
-                          {ev.description ? ` · ${ev.description}` : ''}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateDraft((prev) => ({
-                              ...prev,
-                              events: (prev.events || []).filter(
-                                (item) => item.id !== ev.id
-                              ),
-                            }))
-                          }
-                          aria-label="删除事件"
-                          className="text-[#56585A] hover:text-[#C93B3B] cursor-pointer shrink-0"
-                        >
-                          <X size={13} aria-hidden="true" />
-                        </button>
-                      </li>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-[12px] font-semibold text-[#56585A] dark:text-slate-400 tabular-nums shrink-0">
+                              #{idx + 1}
+                            </span>
+                            <Select
+                              aria-label={`事件 ${idx + 1} 类型`}
+                              value={ev.type}
+                              onChange={(e) =>
+                                handleUpdateLifeEvent(ev.id, {
+                                  type: e.target.value as PersonEventType,
+                                })
+                              }
+                              className="h-9 text-xs max-w-[140px]"
+                            >
+                              {EVENT_TYPE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLifeEvent(ev.id)}
+                            aria-label={`删除事件 ${idx + 1}`}
+                            className="h-8 w-8 shrink-0 flex items-center justify-center rounded text-[#56585A] hover:text-[#C93B3B] hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={13} aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                          <div className="sm:col-span-5">
+                            <DateInput
+                              id={`edit-event-date-${ev.id}`}
+                              label={`事件 ${idx + 1} 日期`}
+                              value={ev.structuredDate ?? null}
+                              onChange={(val) =>
+                                handleUpdateLifeEvent(ev.id, {
+                                  structuredDate: val ?? undefined,
+                                })
+                              }
+                              enableTime
+                              enableOriginal
+                              placeholder="日期（可选）"
+                              className="h-9 text-xs"
+                            />
+                          </div>
+                          <div className="sm:col-span-7">
+                            <PlaceInput
+                              id={`edit-event-place-${ev.id}`}
+                              label={`事件 ${idx + 1} 地点`}
+                              value={ev.structuredPlace ?? null}
+                              onChange={(val) =>
+                                handleUpdateLifeEvent(ev.id, {
+                                  structuredPlace: val ?? undefined,
+                                })
+                              }
+                              clanPersons={allPersons}
+                              placeholder="地点（可选）"
+                              className="h-9 text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Textarea
+                            id={`edit-event-desc-${ev.id}`}
+                            rows={2}
+                            value={ev.description || ''}
+                            onChange={(e) =>
+                              handleUpdateLifeEvent(ev.id, {
+                                description: e.target.value,
+                              })
+                            }
+                            placeholder="事件描述（如：学校/单位/职衔/事迹经过）"
+                            className="min-h-[60px] text-[13px] px-2.5 py-2 leading-relaxed"
+                          />
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </EditSectionBlock>
 
             {/* 家庭成员维护 */}
@@ -2683,10 +2167,13 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                 isWide={width >= 540}
                 onSelectPerson={(targetId) => onSelectPerson?.(targetId)}
                 onAddChild={(fid, motherInfo) =>
-                  onAddChild(isSpouseNode ? person.id : fid, 'male', motherInfo)
+                  onAddChild(fid, 'male', motherInfo)
                 }
                 onAddSpouse={(pid) => onAddSpouse(pid)}
-                onAddSibling={onAddSibling}
+                onEditMarriage={openEditMarriageModal}
+                onEditParentChild={(childId) =>
+                  setEditingParentChildId(childId)
+                }
               />
             </EditSectionBlock>
 
@@ -2796,6 +2283,27 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
         clanSurname={clanSurname}
         onClose={() => setVitalQuickEditField(null)}
         onSave={(updates) => onUpdatePerson(person.id, updates)}
+      />
+
+      {/* Parent-Child Relationship Editor Modal */}
+      <ParentChildRelationModal
+        childPerson={
+          editingParentChildId
+            ? allPersons.find((p) => p.id === editingParentChildId) || null
+            : null
+        }
+        allPersons={allPersons}
+        clanSurname={clanSurname}
+        onClose={() => setEditingParentChildId(null)}
+        onSave={(childId, updates) => {
+          const target = allPersons.find((p) => p.id === childId);
+          if (!target) return;
+          const normalized = normalizePersonForSave(
+            { ...target, ...updates },
+            allPersons
+          );
+          onUpdatePerson(childId, normalized);
+        }}
       />
     </aside>
   );

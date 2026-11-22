@@ -161,7 +161,7 @@ const ProjectSettingsPage: React.FC = () => {
           primarySurname: trimmedSurname,
           ancestor: trimmedAncestor,
           primaryName: trimmedHall || undefined,
-          region: formattedRegion || undefined,
+          region: values.regionPlace,
           description: trimmedDesc,
         });
         setSavedToast(true);

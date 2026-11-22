@@ -8,20 +8,19 @@ import { Textarea } from '../../../components/ui/textarea';
 import { X, UserPlus, Heart } from 'lucide-react';
 import { formatGivenName } from '../utils/nameUtils';
 import {
-  DateInput,
-  formatGenealogyDate,
-  type GenealogyDate,
-} from '../../date-input';
-import {
-  PlaceInput,
-  formatGenealogyPlace,
-  type GenealogyPlace,
-} from '../../place-input';
+  computeAutoRankLabel,
+  formatPersonAliases,
+  parseAliasInput,
+} from '../utils/personHelpers';
+import { DateInput, type GenealogyDate } from '../../date-input';
+import { PlaceInput, type GenealogyPlace } from '../../place-input';
 
 interface AddPersonDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (personData: Partial<PersonRecord>) => void;
+  onAdd: (
+    personData: Partial<PersonRecord> & { initialSpouseName?: string }
+  ) => void;
   parentPerson?: PersonRecord | null;
   existingPersons: PersonRecord[];
   branchId: string;
@@ -38,10 +37,9 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
   clanSurname = '',
 }) => {
   const [name, setName] = useState('');
-  const [courtesyName, setCourtesyName] = useState('');
+  const [aliasInput, setAliasInput] = useState('');
   const [generation, setGeneration] = useState(1);
   const [generationWord, setGenerationWord] = useState('');
-  const [rank, setRank] = useState('长子');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [status, setStatus] = useState<'living' | 'deceased'>('deceased');
   const [fatherId, setFatherId] = useState<string | null>(null);
@@ -56,66 +54,84 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
     if (parentPerson) {
       setFatherId(parentPerson.id);
       setGeneration(parentPerson.generation + 1);
-      const existingChildren = existingPersons.filter(
-        (p) => p.fatherId === parentPerson.id
-      );
-      const ranks = ['长子', '次子', '三子', '四子', '五子', '六子'];
-      setRank(
-        ranks[existingChildren.length] || `第${existingChildren.length + 1}子`
-      );
     } else {
       setFatherId(null);
       setGeneration(1);
-      setRank('始祖');
     }
-  }, [parentPerson, existingPersons, isOpen]);
+  }, [parentPerson, isOpen]);
 
   if (!isOpen) return null;
+
+  const fatherCandidates = existingPersons.filter((p) => !p.spouseOfId);
+
+  const computedRankPreview = (() => {
+    if (!fatherId) return generation === 1 ? '始祖' : '首节点';
+    const tempId = '__new_person_preview__';
+    const siblingCount = existingPersons.filter(
+      (p) => p.fatherId === fatherId && !p.spouseOfId
+    ).length;
+    const previewPerson: PersonRecord = {
+      id: tempId,
+      branchId,
+      name: name.trim() || '新录族人',
+      generation,
+      gender,
+      status,
+      fatherId,
+      siblingOrder: siblingCount + 1,
+    };
+    return computeAutoRankLabel(previewPerson, [
+      ...existingPersons,
+      previewPerson,
+    ]);
+  })();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const father = existingPersons.find((p) => p.id === fatherId);
-
-    const formattedBirth = formatGenealogyDate(birthDateValue).trim() || undefined;
-    const formattedBurialPlace =
-      formatGenealogyPlace(burialPlaceValue).trim() || undefined;
+    const parsedAliases = parseAliasInput(aliasInput);
+    const siblingOrder = fatherId
+      ? existingPersons.filter((p) => p.fatherId === fatherId && !p.spouseOfId)
+          .length + 1
+      : undefined;
+    const cleanTitle = officialTitle.trim();
 
     onAdd({
       name: formatGivenName(name.trim(), clanSurname),
-      courtesyName: courtesyName.trim() || undefined,
+      aliases: parsedAliases.length > 0 ? parsedAliases : undefined,
       generation,
       generationWord: generationWord.trim() || undefined,
-      rank,
       gender,
       status,
+      siblingOrder,
       fatherId: fatherId || null,
-      fatherName: father
-        ? formatGivenName(father.name, clanSurname)
-        : undefined,
-      spouses: spouseName.trim() ? [{ name: spouseName.trim() }] : [],
-      birthDate: formattedBirth,
       birth: birthDateValue
         ? {
-            date: formattedBirth || '',
             structuredDate: birthDateValue,
           }
         : undefined,
-      officialTitle: officialTitle.trim() || undefined,
-      burialPlace: formattedBurialPlace,
+      events: cleanTitle
+        ? [
+            {
+              id: `ev-career-${Date.now()}`,
+              type: 'career',
+              description: cleanTitle,
+            },
+          ]
+        : undefined,
       death: burialPlaceValue
         ? {
-            burialPlace: formattedBurialPlace || '',
             structuredBurialPlace: burialPlaceValue,
           }
         : undefined,
       biography: biography.trim() || undefined,
       branchId,
+      initialSpouseName: spouseName.trim() || undefined,
     });
 
     setName('');
-    setCourtesyName('');
+    setAliasInput('');
     setGenerationWord('');
     setSpouseName('');
     setBirthDateValue(null);
@@ -180,12 +196,15 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               <option value="" className="bg-card text-foreground">
                 -- 始祖 / 无父节点 (第一世) --
               </option>
-              {existingPersons.map((p) => (
-                <option key={p.id} value={p.id} className="bg-card text-foreground">
-                  第{p.generation}世：{formatGivenName(p.name, clanSurname)}{' '}
-                  {p.courtesyName ? `(字${p.courtesyName})` : ''}
-                </option>
-              ))}
+              {fatherCandidates.map((p) => {
+                const aliases = formatPersonAliases(p);
+                return (
+                  <option key={p.id} value={p.id} className="bg-card text-foreground">
+                    第{p.generation}世：{formatGivenName(p.name, clanSurname)}{' '}
+                    {aliases ? `(${aliases})` : ''}
+                  </option>
+                );
+              })}
             </Select>
           </div>
 
@@ -204,12 +223,12 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
             </div>
             <div>
               <label className="block text-[11px] text-muted-foreground mb-1">
-                字 / 号
+                字 / 号 / 别名
               </label>
               <Input
-                value={courtesyName}
-                onChange={(e) => setCourtesyName(e.target.value)}
-                placeholder="如: 子安"
+                value={aliasInput}
+                onChange={(e) => setAliasInput(e.target.value)}
+                placeholder="如: 子安、竹溪（逗号分隔）"
                 className="h-8 text-xs"
               />
             </div>
@@ -231,13 +250,13 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
             </div>
             <div>
               <label className="block text-[11px] text-muted-foreground mb-1">
-                排行
+                排行（自动派生）
               </label>
               <Input
-                value={rank}
-                onChange={(e) => setRank(e.target.value)}
-                placeholder="如: 长子"
-                className="h-8 text-xs"
+                value={computedRankPreview}
+                readOnly
+                disabled
+                className="h-8 text-xs bg-muted/40 text-muted-foreground"
               />
             </div>
             <div>

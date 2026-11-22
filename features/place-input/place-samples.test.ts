@@ -75,6 +75,8 @@ function runPlaceTests() {
   assert.equal(finalizedStructured.originalText, '桐梓县狮子山金钗穴');
 
   // 5. Clan frequent places extraction & prioritization
+  const taihePlace = matchRegionFromText('江西省吉安市泰和县')!;
+  const guanshanhuPlace = matchRegionFromText('贵州省贵阳市观山湖区')!;
   const mockPersons: PersonRecord[] = [
     {
       id: 'p1',
@@ -82,11 +84,16 @@ function runPlaceTests() {
       generation: 1,
       branchId: 'b1',
       fatherId: null,
-      spouses: [],
       gender: 'male',
       status: 'deceased',
-      birth: { place: '江西省吉安市泰和县' },
-      death: { burialPlace: '泰和县狮子山金钗穴，坐北朝南' },
+      birth: { structuredPlace: taihePlace },
+      death: {
+        structuredBurialPlace: {
+          schemaVersion: 1,
+          kind: 'phrase',
+          originalText: '泰和县狮子山金钗穴，坐北朝南',
+        },
+      },
     },
     {
       id: 'p2',
@@ -94,11 +101,10 @@ function runPlaceTests() {
       generation: 2,
       branchId: 'b1',
       fatherId: 'p1',
-      spouses: [],
       gender: 'male',
       status: 'deceased',
-      birth: { place: '江西省吉安市泰和县' },
-      death: { burialPlace: '贵州省贵阳市观山湖区' },
+      birth: { structuredPlace: taihePlace },
+      death: { structuredBurialPlace: guanshanhuPlace },
     },
     {
       id: 'p3',
@@ -106,10 +112,9 @@ function runPlaceTests() {
       generation: 3,
       branchId: 'b1',
       fatherId: 'p2',
-      spouses: [],
       gender: 'male',
       status: 'living',
-      birth: { place: '江西省吉安市泰和县' },
+      birth: { structuredPlace: taihePlace },
     },
   ];
   const clanStats = extractClanPlaceStats(mockPersons);
@@ -121,7 +126,7 @@ function runPlaceTests() {
   assert.equal(sClan[0].primaryLabel, '江西省吉安市泰和县');
   assert.ok(sClan[0].metaLabel.includes('已用3次'));
 
-  // 6. Lossless blur guard & legacy adapter round-trip
+  // 6. Lossless blur guard & canonical SSOT adapter round-trip
   assert.equal(isLosslessPlaceCarry('观山湖', s1[0]), true);
   const arbitrarySuggestions = generatePlaceSuggestions('老家后山，坐北朝南');
   assert.equal(arbitrarySuggestions[arbitrarySuggestions.length - 1].kind, 'phrase');
@@ -136,6 +141,7 @@ function runPlaceTests() {
   assert.ok(readBirth);
   assert.equal(readBirth.kind, 'structured');
   assert.equal(readBirth.district, '泰和县');
+  assert.equal(readBirth.districtCode, '360826');
 
   const readBurial = readGenealogyPlace(mockPersons[0], 'burial');
   assert.ok(readBurial);
@@ -147,8 +153,10 @@ function runPlaceTests() {
     'burial',
     finalizedStructured
   );
-  assert.equal(updatedBurial.burialPlace, '贵州省贵阳市观山湖区');
-  assert.equal(updatedBurial.death?.burialPlace, '贵州省贵阳市观山湖区');
+  assert.equal(
+    formatGenealogyPlace(updatedBurial.death?.structuredBurialPlace),
+    '贵州省贵阳市观山湖区'
+  );
   assert.equal(
     updatedBurial.death?.structuredBurialPlace?.originalText,
     '桐梓县狮子山金钗穴'
@@ -159,7 +167,10 @@ function runPlaceTests() {
     'death',
     finalizedStructured
   );
-  assert.equal(updatedDeath.death?.place, '贵州省贵阳市观山湖区');
+  assert.equal(
+    formatGenealogyPlace(updatedDeath.death?.structuredPlace),
+    '贵州省贵阳市观山湖区'
+  );
   assert.equal(
     updatedDeath.death?.structuredPlace?.originalText,
     '桐梓县狮子山金钗穴'
@@ -182,10 +193,18 @@ function runPlaceTests() {
   assert.equal(legacyShort.kind, 'structured');
   assert.equal(formatGenealogyPlace(legacyShort), '北京市东城区');
 
-  const overseasPhrase = parsePlaceText('美国/加利福尼亚/旧金山');
-  assert.ok(overseasPhrase);
-  assert.equal(overseasPhrase.kind, 'phrase');
-  assert.equal(overseasPhrase.originalText, '美国/加利福尼亚/旧金山');
+  const overseasStructured = parsePlaceText('美国/加利福尼亚/旧金山');
+  assert.ok(overseasStructured);
+  assert.equal(overseasStructured.kind, 'structured');
+  assert.equal(overseasStructured.countryCode, 'US');
+  assert.equal(overseasStructured.provinceCode, 'US-CA');
+  assert.equal(overseasStructured.cityCode, 'US-SFO');
+  assert.equal(formatGenealogyPlace(overseasStructured), '美国加利福尼亚州旧金山');
+
+  const unmappedOverseasPhrase = parsePlaceText('澳大利亚/昆士兰州/布里斯班');
+  assert.ok(unmappedOverseasPhrase);
+  assert.equal(unmappedOverseasPhrase.kind, 'phrase');
+  assert.equal(unmappedOverseasPhrase.originalText, '澳大利亚/昆士兰州/布里斯班');
 
   const legacyPhrase = parsePlaceText('庐陵郡太和县南溪里');
   assert.ok(legacyPhrase);

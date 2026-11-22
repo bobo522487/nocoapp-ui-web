@@ -33,8 +33,6 @@ import {
   AddRelativeSubmitPayload,
 } from '../../lineage/components/AddRelativeModal';
 import { normalizePersonForSave } from '../../lineage/utils/personHelpers';
-import { formatGenealogyDate } from '../../date-input';
-import { formatGenealogyPlace } from '../../place-input';
 import { LineageEditorModal } from '../components/LineageEditorModal';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
@@ -432,36 +430,15 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     const newId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const keepSelection = Boolean(selectedPersonId);
 
-    const birthFormatted = payload.birthDate
-      ? formatGenealogyDate(payload.birthDate).trim()
-      : '';
-    const birthPlaceFormatted = payload.birthPlace
-      ? formatGenealogyPlace(payload.birthPlace).trim()
-      : '';
     const birth =
       payload.birthDate || payload.birthPlace
         ? {
-            date: birthFormatted,
             structuredDate: payload.birthDate ?? undefined,
-            place: birthPlaceFormatted,
             structuredPlace: payload.birthPlace ?? undefined,
           }
         : undefined;
 
     const isDeceased = payload.status === 'deceased';
-    const deathFormatted =
-      isDeceased && payload.deathDate
-        ? formatGenealogyDate(payload.deathDate).trim()
-        : '';
-    const deathPlaceFormatted =
-      isDeceased && payload.deathPlace
-        ? formatGenealogyPlace(payload.deathPlace).trim()
-        : '';
-    const burialPlaceFormatted =
-      isDeceased && payload.burialPlace
-        ? formatGenealogyPlace(payload.burialPlace).trim()
-        : '';
-
     const death =
       isDeceased &&
       (payload.deathDate ||
@@ -469,12 +446,9 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         payload.deathCause ||
         payload.burialPlace)
         ? {
-            date: deathFormatted,
             structuredDate: payload.deathDate ?? undefined,
-            place: deathPlaceFormatted,
             structuredPlace: payload.deathPlace ?? undefined,
             cause: payload.deathCause,
-            burialPlace: burialPlaceFormatted,
             structuredBurialPlace: payload.burialPlace ?? undefined,
           }
         : undefined;
@@ -482,7 +456,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     if (context.relation === 'child') {
       const father = context.targetPerson;
       const siblingCount = chartPersons.filter(
-        (p) => p.fatherId === father.id
+        (p) => p.fatherId === father.id && !p.spouseOfId
       ).length;
       const generation = father ? father.generation + 1 : 1;
 
@@ -490,17 +464,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       let referencePersons = chartPersons;
       let resolvedMotherId =
         payload.motherId ?? context.motherInfo?.motherId;
-      let resolvedMotherName =
-        payload.motherName ?? context.motherInfo?.motherName;
 
       if (payload.shouldAutoCreateMother && father) {
         const autoMotherId = `person-mother-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const cleanMotherName = payload.motherName?.trim() || '不详';
-        const existingSpouseCount = Math.max(
-          father.spouses?.length || 0,
-          chartPersons.filter((p) => p.spouseOfId === father.id).length
-        );
-        const spouseRankLabels = ['原配', '继配', '三配', '四配'];
+        const existingSpouseCount = chartPersons.filter(
+          (p) => p.spouseOfId === father.id
+        ).length;
         const autoMotherDraft: PersonRecord = {
           id: autoMotherId,
           branchId: chartId,
@@ -512,10 +482,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           fatherId: null,
           spouseOfId: father.id,
           relationType: '妻子',
-          spouseRelationLabel:
-            spouseRankLabels[existingSpouseCount] ||
-            `第${existingSpouseCount + 1}配`,
-          spouses: [],
           biographyOrder: chartPersons.length + 1,
         };
         const normalizedMother = normalizePersonForSave(
@@ -525,7 +491,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         personsToInsert.push(normalizedMother);
         referencePersons = [...referencePersons, normalizedMother];
         resolvedMotherId = normalizedMother.id;
-        resolvedMotherName = cleanMotherName;
       }
 
       const defaultRelationType =
@@ -536,14 +501,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         branchId: chartId,
         surname: payload.surname,
         name: payload.name,
+        romanizedName: payload.romanizedName,
         generation,
         gender: payload.gender,
         status: payload.status,
         siblingOrder: father ? siblingCount + 1 : undefined,
         fatherId: father ? father.id : null,
-        fatherName: father?.name,
         motherId: resolvedMotherId,
-        motherName: resolvedMotherName,
         relationType: payload.relationType || defaultRelationType,
         fatherRelationType:
           payload.fatherRelationType ||
@@ -553,13 +517,8 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           payload.motherRelationType ||
           payload.relationType ||
           defaultRelationType,
-        spouses: [],
         birth,
         death,
-        birthDate: birthFormatted || undefined,
-        deathDate: deathFormatted || undefined,
-        burialPlace: burialPlaceFormatted || undefined,
-        biographyPage: 20 + (generation - 1) * 3,
         biographyOrder: referencePersons.length + 1,
       };
       const normalizedChild = normalizePersonForSave(
@@ -589,11 +548,10 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       }
     } else if (context.relation === 'sibling') {
       const refPerson = context.targetPerson;
-      const father = refPerson.fatherId
-        ? chartPersons.find((p) => p.id === refPerson.fatherId) || null
-        : null;
       const siblingCount = refPerson.fatherId
-        ? chartPersons.filter((p) => p.fatherId === refPerson.fatherId).length
+        ? chartPersons.filter(
+            (p) => p.fatherId === refPerson.fatherId && !p.spouseOfId
+          ).length
         : chartPersons.filter(
             (p) =>
               !p.fatherId &&
@@ -605,22 +563,16 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         branchId: chartId,
         surname: payload.surname,
         name: payload.name,
+        romanizedName: payload.romanizedName,
         generation: refPerson.generation || 1,
         gender: payload.gender,
         status: payload.status,
         siblingOrder: siblingCount + 1,
         fatherId: refPerson.fatherId ?? null,
-        fatherName: father?.name || refPerson.fatherName,
         motherId: refPerson.motherId,
-        motherName: refPerson.motherName,
         relationType: payload.gender === 'female' ? '生女' : '生子',
-        spouses: [],
         birth,
         death,
-        birthDate: birthFormatted || undefined,
-        deathDate: deathFormatted || undefined,
-        burialPlace: burialPlaceFormatted || undefined,
-        biographyPage: 20 + ((refPerson.generation || 1) - 1) * 3,
         biographyOrder: chartPersons.length + 1,
       };
       const normalized = normalizePersonForSave(draftSibling, chartPersons);
@@ -634,14 +586,9 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       );
     } else if (context.relation === 'spouse') {
       const partner = context.targetPerson;
-      const existingSpouseCount = Math.max(
-        partner.spouses?.length || 0,
-        chartPersons.filter((p) => p.spouseOfId === partner.id).length
-      );
-      const spouseRankLabels = ['原配', '继配', '三配', '四配'];
-      const relationLabel =
-        spouseRankLabels[existingSpouseCount] ||
-        `第${existingSpouseCount + 1}配`;
+      const existingSpouseCount = chartPersons.filter(
+        (p) => p.spouseOfId === partner.id
+      ).length;
       const relationType =
         payload.gender === 'male'
           ? '丈夫'
@@ -649,12 +596,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             ? '妻子'
             : '配偶';
 
-      const marriageFormatted = payload.marriageDate
-        ? formatGenealogyDate(payload.marriageDate).trim()
-        : '';
-      const marriagePlaceFormatted = payload.marriagePlace
-        ? formatGenealogyPlace(payload.marriagePlace).trim()
-        : '';
       const hasMarriageEvent = Boolean(
         payload.marriageDate || payload.marriagePlace
       );
@@ -679,14 +620,11 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       const spouseMarriageEvents: PersonLifeEvent[] = hasMarriageEvent
         ? [
             {
-              id: `ev-marriage-${newId}`,
+              id: `ev-marriage-${partner.id}`,
               type: 'marriage',
-              date: marriageFormatted || undefined,
               structuredDate: payload.marriageDate ?? undefined,
-              place: marriagePlaceFormatted || undefined,
               structuredPlace: payload.marriagePlace ?? undefined,
-              relatedPersonId: partner.id,
-              relatedPersonName: partnerDisplayName,
+              description: `与${partnerDisplayName}结缡`,
             },
           ]
         : [];
@@ -696,6 +634,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         branchId: chartId,
         surname: payload.surname,
         name: payload.name,
+        romanizedName: payload.romanizedName,
         generation: partner.generation,
         gender: payload.gender,
         status: payload.status,
@@ -703,15 +642,10 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         fatherId: null,
         spouseOfId: partner.id,
         relationType,
-        spouseRelationLabel: relationLabel,
-        spouses: [],
         birth,
         death,
         events:
           spouseMarriageEvents.length > 0 ? spouseMarriageEvents : undefined,
-        birthDate: birthFormatted || undefined,
-        deathDate: deathFormatted || undefined,
-        burialPlace: burialPlaceFormatted || undefined,
         biographyOrder: chartPersons.length + 1,
       };
       const normalized = normalizePersonForSave(draftSpouse, chartPersons);
@@ -726,14 +660,11 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
 
       if (hasMarriageEvent) {
         const partnerMarriageEvent: PersonLifeEvent = {
-          id: `ev-marriage-partner-${newId}`,
+          id: `ev-marriage-${newId}`,
           type: 'marriage',
-          date: marriageFormatted || undefined,
           structuredDate: payload.marriageDate ?? undefined,
-          place: marriagePlaceFormatted || undefined,
           structuredPlace: payload.marriagePlace ?? undefined,
-          relatedPersonId: newId,
-          relatedPersonName: spouseDisplayName,
+          description: `与${spouseDisplayName}结缡`,
         };
         updatePersonStore(
           activeProjectId,
@@ -751,10 +682,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       const existingFather = target.fatherId
         ? chartPersons.find((p) => p.id === target.fatherId) || null
         : null;
-      const newParentFullName =
-        [payload.surname?.trim() || '', payload.name.trim()]
-          .filter(Boolean)
-          .join('') || payload.name;
 
       if (target.spouseOfId) {
         const parentGen = Math.max(1, (target.generation || 1) - 1);
@@ -763,12 +690,12 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             const existingFatherSpouses = chartPersons.filter(
               (p) => p.spouseOfId === existingFather.id
             );
-            const spouseRankLabels = ['原配', '继配', '三配', '四配'];
             const draftMother: PersonRecord = {
               id: newId,
               branchId: chartId,
               surname: payload.surname,
               name: payload.name,
+              romanizedName: payload.romanizedName,
               generation: existingFather.generation,
               gender: 'female',
               status: payload.status,
@@ -776,15 +703,8 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               fatherId: null,
               spouseOfId: existingFather.id,
               relationType: '妻子',
-              spouseRelationLabel:
-                spouseRankLabels[existingFatherSpouses.length] ||
-                `第${existingFatherSpouses.length + 1}配`,
-              spouses: [],
               birth,
               death,
-              birthDate: birthFormatted || undefined,
-              deathDate: deathFormatted || undefined,
-              burialPlace: burialPlaceFormatted || undefined,
               biographyOrder: chartPersons.length + 1,
             };
             const normalizedMother = normalizePersonForSave(
@@ -805,7 +725,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               target.id,
               {
                 motherId: normalizedMother.id,
-                motherName: newParentFullName,
               },
               chartName,
               effectiveSurname
@@ -816,16 +735,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               branchId: chartId,
               surname: payload.surname,
               name: payload.name,
+              romanizedName: payload.romanizedName,
               generation: parentGen,
               gender: 'female',
               status: payload.status,
               fatherId: null,
-              spouses: [],
               birth,
               death,
-              birthDate: birthFormatted || undefined,
-              deathDate: deathFormatted || undefined,
-              burialPlace: burialPlaceFormatted || undefined,
               biographyOrder: chartPersons.length + 1,
             };
             const normalizedMother = normalizePersonForSave(
@@ -846,7 +762,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               target.id,
               {
                 motherId: normalizedMother.id,
-                motherName: newParentFullName,
               },
               chartName,
               effectiveSurname
@@ -858,16 +773,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             branchId: chartId,
             surname: payload.surname,
             name: payload.name,
+            romanizedName: payload.romanizedName,
             generation: parentGen,
             gender: payload.gender,
             status: payload.status,
             fatherId: null,
-            spouses: [],
             birth,
             death,
-            birthDate: birthFormatted || undefined,
-            deathDate: deathFormatted || undefined,
-            burialPlace: burialPlaceFormatted || undefined,
             biographyOrder: chartPersons.length + 1,
           };
           const normalizedFather = normalizePersonForSave(
@@ -888,7 +800,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             target.id,
             {
               fatherId: normalizedFather.id,
-              fatherName: normalizedFather.name,
             },
             chartName,
             effectiveSurname
@@ -898,12 +809,12 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
         const existingFatherSpouses = chartPersons.filter(
           (p) => p.spouseOfId === existingFather.id
         );
-        const spouseRankLabels = ['原配', '继配', '三配', '四配'];
         const draftMother: PersonRecord = {
           id: newId,
           branchId: chartId,
           surname: payload.surname,
           name: payload.name,
+          romanizedName: payload.romanizedName,
           generation: existingFather.generation,
           gender: 'female',
           status: payload.status,
@@ -911,15 +822,8 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           fatherId: null,
           spouseOfId: existingFather.id,
           relationType: '妻子',
-          spouseRelationLabel:
-            spouseRankLabels[existingFatherSpouses.length] ||
-            `第${existingFatherSpouses.length + 1}配`,
-          spouses: [],
           birth,
           death,
-          birthDate: birthFormatted || undefined,
-          deathDate: deathFormatted || undefined,
-          burialPlace: burialPlaceFormatted || undefined,
           biographyOrder: chartPersons.length + 1,
         };
         const normalizedMother = normalizePersonForSave(
@@ -940,7 +844,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           target.id,
           {
             motherId: normalizedMother.id,
-            motherName: newParentFullName,
           },
           chartName,
           effectiveSurname
@@ -956,8 +859,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           gender: 'male',
           status: 'deceased',
           fatherId: null,
-          spouses: [],
-          biographyPage: 1,
           biographyOrder: 1,
         };
         const normalizedUnknownFather = normalizePersonForSave(
@@ -978,6 +879,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           branchId: chartId,
           surname: payload.surname,
           name: payload.name,
+          romanizedName: payload.romanizedName,
           generation: normalizedUnknownFather.generation,
           gender: 'female',
           status: payload.status,
@@ -985,13 +887,8 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           fatherId: null,
           spouseOfId: normalizedUnknownFather.id,
           relationType: '妻子',
-          spouseRelationLabel: '原配',
-          spouses: [],
           birth,
           death,
-          birthDate: birthFormatted || undefined,
-          deathDate: deathFormatted || undefined,
-          burialPlace: burialPlaceFormatted || undefined,
           biographyOrder: chartPersons.length + 2,
         };
         const normalizedMother = normalizePersonForSave(draftMother, [
@@ -1012,7 +909,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           target.id,
           {
             motherId: normalizedMother.id,
-            motherName: newParentFullName,
           },
           chartName,
           effectiveSurname
@@ -1023,17 +919,13 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           branchId: chartId,
           surname: payload.surname,
           name: payload.name,
+          romanizedName: payload.romanizedName,
           generation: target.generation <= 1 ? 1 : target.generation - 1,
           gender: payload.gender,
           status: payload.status,
           fatherId: null,
-          spouses: [],
           birth,
           death,
-          birthDate: birthFormatted || undefined,
-          deathDate: deathFormatted || undefined,
-          burialPlace: burialPlaceFormatted || undefined,
-          biographyPage: 1,
           biographyOrder: 1,
         };
         const normalized = normalizePersonForSave(draftParent, chartPersons);
@@ -1061,16 +953,12 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
       name: initialData.name || '新录族人',
       generation: initialData.generation || 1,
       gender: initialData.gender || 'male',
-      rank: initialData.rank,
       status: initialData.status || 'living',
       fatherId: initialData.fatherId ?? null,
-      fatherName: initialData.fatherName,
       relationType:
         initialData.relationType ??
         (initialData.gender === 'female' ? '生女' : '生子'),
       branchId: chartId,
-      spouses: initialData.spouses || [],
-      biographyPage: 20 + ((initialData.generation || 1) - 1) * 3,
       biographyOrder: chartPersons.length + 1,
     };
     addPersonStore(
@@ -1090,7 +978,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
     const father = chartPersons.find((p) => p.id === fatherId);
     handleUpdatePerson(childId, {
       fatherId,
-      fatherName: father?.name,
       generation: father ? father.generation + 1 : 1,
     });
   };
@@ -1460,7 +1347,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
           surname: activeProject?.primarySurname || '',
           hallName: activeProject?.primaryName || '',
           progenitor: '',
-          region: '',
+          region: null,
         }}
         onClose={() => setIsCreateLineageOpen(false)}
         onSubmit={(values) => {

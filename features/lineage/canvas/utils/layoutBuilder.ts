@@ -1,7 +1,7 @@
 import { PersonRecord } from '../../types';
 import { formatGivenName } from '../../utils/nameUtils';
 import {
-  getDerivedChildren,
+  buildLineageGraphIndex,
   getSpouseSortScore,
 } from '../../utils/personHelpers';
 import {
@@ -59,33 +59,9 @@ export function buildGenealogyGraph(
     clanSurname = '',
   } = options;
 
-  const personMap = new Map<string, PersonRecord>();
-  persons.forEach((p) => personMap.set(p.id, p));
-
-  const rawChildrenMap = new Map<string, PersonRecord[]>();
-  persons.forEach((person) => {
-    if (
-      person.fatherId &&
-      !person.spouseOfId &&
-      personMap.has(person.fatherId)
-    ) {
-      const list = rawChildrenMap.get(person.fatherId) || [];
-      list.push(person);
-      rawChildrenMap.set(person.fatherId, list);
-    }
-  });
-  rawChildrenMap.forEach((_, fatherId) => {
-    rawChildrenMap.set(fatherId, getDerivedChildren(persons, fatherId));
-  });
-
-  const allSpousesByPartner = new Map<string, PersonRecord[]>();
-  persons.forEach((p) => {
-    if (p.spouseOfId && personMap.has(p.spouseOfId)) {
-      const list = allSpousesByPartner.get(p.spouseOfId) || [];
-      list.push(p);
-      allSpousesByPartner.set(p.spouseOfId, list);
-    }
-  });
+  const graphIndex = buildLineageGraphIndex(persons);
+  const rawChildrenMap = graphIndex.childrenByFatherId;
+  const allSpousesByPartner = graphIndex.spousesByPartnerId;
 
   function countDescendants(personId: string): number {
     const children = rawChildrenMap.get(personId) || [];
@@ -117,22 +93,19 @@ export function buildGenealogyGraph(
   const allVisibleIds = new Set(visiblePersons.map((p) => p.id));
 
   const spousesByPartnerId = new Map<string, PersonRecord[]>();
-  visiblePersons.forEach((p) => {
-    if (p.spouseOfId && allVisibleIds.has(p.spouseOfId)) {
-      const list = spousesByPartnerId.get(p.spouseOfId) || [];
-      list.push(p);
-      spousesByPartnerId.set(p.spouseOfId, list);
+  allSpousesByPartner.forEach((list, partnerId) => {
+    if (!allVisibleIds.has(partnerId)) return;
+    const visibleSpouses = list.filter((sp) => allVisibleIds.has(sp.id));
+    if (visibleSpouses.length > 0) {
+      visibleSpouses.sort((a, b) => {
+        const diff = getSpouseSortScore(a) - getSpouseSortScore(b);
+        if (diff !== 0) return diff;
+        const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
+        const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
+        return orderA - orderB;
+      });
+      spousesByPartnerId.set(partnerId, visibleSpouses);
     }
-  });
-  spousesByPartnerId.forEach((list, partnerId) => {
-    list.sort((a, b) => {
-      const diff = getSpouseSortScore(a) - getSpouseSortScore(b);
-      if (diff !== 0) return diff;
-      const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
-      const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
-      return orderA - orderB;
-    });
-    spousesByPartnerId.set(partnerId, list);
   });
 
   const rootPersons = visiblePersons.filter(

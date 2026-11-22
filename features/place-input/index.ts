@@ -8,6 +8,7 @@ export {
   extractClanPlaceStats,
   finalizeGenealogyPlace,
   formatGenealogyPlace,
+  formatPlacePath,
   generatePlaceSuggestions,
   getAllPlaceCountries,
   getChinaProvinces,

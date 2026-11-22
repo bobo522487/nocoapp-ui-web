@@ -254,18 +254,18 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
                   男性人数（人）
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-sky-500/12 text-sky-600 dark:text-sky-400 text-[11px] font-semibold tabular-nums shrink-0">
-                  {formatStatPct(stats.maleCount, stats.totalPersons, 2)}
+                  {formatStatPct(stats.allMaleCount, stats.totalPersons, 2)}
                 </span>
               </div>
               <div className="text-[26px] leading-tight font-bold text-foreground tabular-nums my-2">
-                {stats.maleCount}
+                {stats.allMaleCount}
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-[12px] text-muted-foreground tabular-nums">
                 <span>
-                  健在 <strong className="text-foreground">{stats.maleLiving}</strong>
+                  健在 <strong className="text-foreground">{stats.allMaleLiving}</strong>
                 </span>
                 <span>
-                  已故 <strong className="text-foreground">{stats.maleDeceased}</strong>
+                  已故 <strong className="text-foreground">{stats.allMaleDeceased}</strong>
                 </span>
               </div>
             </div>
@@ -277,18 +277,18 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
                   女性人数（人）
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-rose-500/12 text-rose-600 dark:text-rose-400 text-[11px] font-semibold tabular-nums shrink-0">
-                  {formatStatPct(stats.femaleCount, stats.totalPersons, 2)}
+                  {formatStatPct(stats.allFemaleCount, stats.totalPersons, 2)}
                 </span>
               </div>
               <div className="text-[26px] leading-tight font-bold text-foreground tabular-nums my-2">
-                {stats.femaleCount}
+                {stats.allFemaleCount}
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-[12px] text-muted-foreground tabular-nums">
                 <span>
-                  健在 <strong className="text-foreground">{stats.femaleLiving}</strong>
+                  健在 <strong className="text-foreground">{stats.allFemaleLiving}</strong>
                 </span>
                 <span>
-                  已故 <strong className="text-foreground">{stats.femaleDeceased}</strong>
+                  已故 <strong className="text-foreground">{stats.allFemaleDeceased}</strong>
                 </span>
               </div>
             </div>
@@ -308,10 +308,10 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-[12px] text-muted-foreground tabular-nums">
                 <span>
-                  男性 <strong className="text-foreground">{stats.maleLiving}</strong>
+                  男性 <strong className="text-foreground">{stats.allMaleLiving}</strong>
                 </span>
                 <span>
-                  女性 <strong className="text-foreground">{stats.femaleLiving}</strong>
+                  女性 <strong className="text-foreground">{stats.allFemaleLiving}</strong>
                 </span>
               </div>
             </div>
@@ -331,10 +331,10 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-[12px] text-muted-foreground tabular-nums">
                 <span>
-                  男性 <strong className="text-foreground">{stats.maleDeceased}</strong>
+                  男性 <strong className="text-foreground">{stats.allMaleDeceased}</strong>
                 </span>
                 <span>
-                  女性 <strong className="text-foreground">{stats.femaleDeceased}</strong>
+                  女性 <strong className="text-foreground">{stats.allFemaleDeceased}</strong>
                 </span>
               </div>
             </div>

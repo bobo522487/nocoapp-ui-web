@@ -1,3 +1,5 @@
+import type { GenealogyPlace } from './features/place-input/place.types';
+
 export enum ViewMode {
   HOME = 'HOME',
   PROJECTS = 'PROJECTS',
@@ -35,7 +37,7 @@ export interface ProjectItem {
   updatedAt: string;
   primarySurname?: string;
   ancestor?: string;
-  region?: string;
+  region?: GenealogyPlace | null;
   primaryName?: string;
   projectState?: '0' | '1';
   projectLevel?: number;

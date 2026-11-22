@@ -361,7 +361,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-[14px] text-[#1E293B] dark:text-slate-100">
                       {entry.name}
-                      {entry.courtesyName ? `（字${entry.courtesyName}）` : ''}
+                      {entry.aliasesText ? `（${entry.aliasesText}）` : ''}
                     </span>
                     <span className="text-[11px] text-[#057091] dark:text-[#58B1CD] font-semibold">
                       第{toChineseNumeral(entry.generation)}世

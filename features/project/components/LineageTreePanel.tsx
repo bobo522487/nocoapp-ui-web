@@ -13,6 +13,7 @@ import {
   useLineageStore,
 } from '../../../store/useLineageStore';
 import { createSeedPersonsForChart } from '../../lineage/lineageData';
+import { parsePlaceText } from '../../place-input';
 import { LineageEditorModal } from './LineageEditorModal';
 
 interface LineageModalState {
@@ -75,7 +76,7 @@ export const LineageTreePanel: React.FC = () => {
         surname: activeProject?.primarySurname || '',
         hallName: activeProject?.primaryName || '',
         progenitor: '',
-        region: '',
+        region: null,
       },
     });
   };
@@ -108,7 +109,7 @@ export const LineageTreePanel: React.FC = () => {
         surname: fallbackSurname,
         hallName: node.data?.hallName || '',
         progenitor: node.data?.progenitor || rootPerson?.name || '',
-        region: node.data?.region || '',
+        region: parsePlaceText(node.data?.region) ?? null,
       },
     });
   };

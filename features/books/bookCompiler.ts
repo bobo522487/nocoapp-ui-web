@@ -7,7 +7,14 @@ import {
 } from '../articles/articleData';
 import { createSeedPersonsForChart } from '../lineage/lineageData';
 import type { PersonRecord } from '../lineage/types';
+import {
+  buildLineageGraphIndex,
+  computeAutoRankLabel,
+  formatPersonAliases,
+  getPersonPrimaryTitle,
+} from '../lineage/utils/personHelpers';
 import { getPersonDateDisplay } from '../date-input';
+import { getPersonPlaceDisplay } from '../place-input';
 import type {
   BookEdition,
   BookLayoutConfig,
@@ -126,7 +133,7 @@ export function sliceLineagePersons(
   const startGen = startPerson.generation || 1;
   const childrenByParent = new Map<string, PersonRecord[]>();
   for (const p of allPersons) {
-    if (p.fatherId) {
+    if (p.fatherId && !p.spouseOfId) {
       const list = childrenByParent.get(p.fatherId) || [];
       list.push(p);
       childrenByParent.set(p.fatherId, list);
@@ -186,21 +193,34 @@ export function sliceLineagePersons(
 
 function buildPersonSummary(
   p: PersonRecord,
-  childrenNames: string[]
+  allPersons: PersonRecord[],
+  childrenNames: string[],
+  spouses: PersonRecord[],
+  rank: string
 ): string {
   const parts: string[] = [];
-  if (p.courtesyName) parts.push(`字${p.courtesyName}`);
-  if (p.rank) parts.push(p.rank);
+  const aliasText = formatPersonAliases(p);
+  if (aliasText) parts.push(`别名 ${aliasText}`);
+  if (rank) parts.push(rank);
   const birthDisplay = getPersonDateDisplay(p, 'birth');
   if (birthDisplay) {
     parts.push(`生于${birthDisplay}`);
   }
-  if (p.officialTitle || p.career?.title) {
-    parts.push(p.officialTitle || p.career?.title || '');
+  const primaryTitle = getPersonPrimaryTitle(p);
+  if (primaryTitle) {
+    parts.push(primaryTitle);
   }
-  if (p.spouses?.length) {
-    const spText = p.spouses
-      .map((s) => `${s.relationLabel || '配'}${s.name}${s.clanOrigin ? `（${s.clanOrigin}）` : ''}`)
+  if (spouses.length > 0) {
+    const spText = spouses
+      .map((s) => {
+        const rel = computeAutoRankLabel(s, allPersons) || '配';
+        const fullName =
+          s.surname?.trim() && !s.name.startsWith(s.surname.trim())
+            ? `${s.surname.trim()}${s.name}`
+            : s.name;
+        const origin = s.notes?.trim() ? `（${s.notes.trim()}）` : '';
+        return `${rel}${fullName}${origin}`;
+      })
       .join('；');
     parts.push(spText);
   }
@@ -208,8 +228,9 @@ function buildPersonSummary(
   if (deathDisplay) {
     parts.push(`卒于${deathDisplay}`);
   }
-  if (p.burialPlace || p.death?.burialPlace) {
-    parts.push(`葬${p.burialPlace || p.death?.burialPlace}`);
+  const burialPlaceText = getPersonPlaceDisplay(p, 'burial').trim();
+  if (burialPlaceText) {
+    parts.push(`葬${burialPlaceText}`);
   }
   if (p.biography) {
     parts.push(p.biography);
@@ -438,11 +459,10 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
     const sliced = sliceLineagePersons(chartPersons, leaf);
     sliced.forEach((p) => uniqueMemberIds.add(p.id));
 
+    const chartIndex = buildLineageGraphIndex(chartPersons);
     const childrenMap = new Map<string, string[]>();
-    const personById = new Map<string, PersonRecord>();
     for (const p of sliced) {
-      personById.set(p.id, p);
-      if (p.fatherId) {
+      if (p.fatherId && !p.spouseOfId) {
         const arr = childrenMap.get(p.fatherId) || [];
         arr.push(p.name);
         childrenMap.set(p.fatherId, arr);
@@ -454,19 +474,22 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
 
     // 1. 世系表 (allocate page numbers first or collect entries)
     const entries: CompiledLineageEntry[] = sliced.map((p) => {
-      const father = p.fatherId ? personById.get(p.fatherId) : undefined;
+      const father = p.fatherId ? chartIndex.personById.get(p.fatherId) : undefined;
       const kids = childrenMap.get(p.id) || [];
-      const summary = buildPersonSummary(p, kids);
+      const spouses = chartIndex.spousesByPartnerId.get(p.id) || [];
+      const rank = computeAutoRankLabel(p, chartPersons);
+      const aliasesText = formatPersonAliases(p) || undefined;
+      const summary = buildPersonSummary(p, chartPersons, kids, spouses, rank);
       totalWords += p.name.length + summary.length;
       return {
         id: p.id,
         name: p.name,
         surname: p.surname,
-        courtesyName: p.courtesyName,
+        aliasesText,
         generation: p.generation,
-        rank: p.rank,
-        fatherName: father?.name || p.fatherName,
-        spousesText: p.spouses?.map((s) => s.name).join('、'),
+        rank: rank || undefined,
+        fatherName: father?.name,
+        spousesText: spouses.map((s) => s.name).join('、') || undefined,
         summaryText: summary,
         childrenNames: kids,
       };
@@ -503,8 +526,7 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
             name: p.name,
             generation: p.generation,
             fatherName:
-              (p.fatherId ? personById.get(p.fatherId)?.name : undefined) ||
-              p.fatherName ||
+              (p.fatherId ? chartIndex.personById.get(p.fatherId)?.name : undefined) ||
               '—',
             pageRef:
               firstShixiPageNo + Math.floor((i * rowsPerPage + idx) / 6),
@@ -549,7 +571,7 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
           name: p.name,
           generation: p.generation,
           fatherId: p.fatherId,
-          rank: p.rank,
+          rank: computeAutoRankLabel(p, chartPersons) || undefined,
         })),
       });
     }

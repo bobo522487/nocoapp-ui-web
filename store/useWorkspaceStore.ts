@@ -12,6 +12,7 @@ import {
   activateOrganizationRequest,
   fetchOrganizations,
 } from '../features/dashboard/api';
+import { parsePlaceText, type GenealogyPlace } from '../features/place-input';
 import { createAppStorage } from './storageAdapter';
 
 export const ASSET_COLOR_PALETTES: Record<
@@ -103,7 +104,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     primarySurname: '陈',
     ancestor: '陈旺',
     primaryName: '义门陈氏宗谱',
-    region: '江西省/九江市/德安县',
+    region: parsePlaceText('江西省/九江市/德安县'),
     projectState: '0',
     projectLevel: 5,
   },
@@ -119,7 +120,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     primarySurname: '刘',
     ancestor: '刘邦',
     primaryName: '丰沛刘氏天潢',
-    region: '江苏省/徐州市/丰县',
+    region: parsePlaceText('江苏省/徐州市/丰县'),
     projectState: '1',
     projectLevel: 4,
   },
@@ -135,7 +136,7 @@ const INITIAL_PROJECTS: ProjectItem[] = [
     primarySurname: '彭',
     ancestor: '彭祖',
     primaryName: '彭城彭氏合谱',
-    region: '贵州省/遵义市/桐梓县',
+    region: parsePlaceText('贵州省/遵义市/桐梓县'),
     projectState: '0',
     projectLevel: 4,
   },
@@ -186,7 +187,7 @@ const INITIAL_NOTIFICATIONS: WorkspaceNotification[] = [
   {
     id: 'notif-genealogy-1',
     title: '世系图谱已更新',
-    description: '「义门陈氏宗谱」中的西汉天潢图系已收录 14 位族人节点。',
+    description: '「义门陈氏宗谱」中的西汉天潢图系已收录族人节点。',
     time: '10 分钟前',
     read: false,
   },
@@ -213,11 +214,8 @@ interface WorkspaceState {
   setSearchQuery: (query: string) => void;
   setProjectZibei: (projectId: string, words: string[]) => void;
   switchWorkspace: (workspaceId: string) => void;
-  /** 从后端拉取我的组织列表并灌入 workspaces（API 为唯一事实源）。 */
   hydrateFromApi: () => Promise<void>;
-  /** 切换当前组织：调 activate（切换即记住，spec FR-007）并清空跨组织的活动项目指针。 */
   setCurrentOrganization: (workspaceId: string) => Promise<void>;
-  /** 归档后的去向：返回下一个可用组织，没有则 null（引导状态，spec FR-013）。 */
   resolveNextAvailableOrganization: () => Workspace | null;
   setActiveProjectId: (projectId: string) => void;
   createWorkspace: (name: string) => Workspace;
@@ -230,12 +228,11 @@ interface WorkspaceState {
     defaultTableId?: string;
     primarySurname?: string;
     ancestor?: string;
-    region?: string;
+    region?: GenealogyPlace | string | null;
     primaryName?: string;
     projectState?: '0' | '1';
     projectLevel?: number;
   }) => ProjectItem;
-  /** 把后端项目投影进 store，供模板项目壳（ProjectHomePage）展示名称等基本信息。 */
   syncProject: (project: {
     id: string;
     organizationId: string;
@@ -250,7 +247,6 @@ interface WorkspaceState {
     projectLevel?: number;
     updatedAt: string;
   }) => void;
-  /** 用后端返回的项目列表同步指定工作区下的项目缓存，保证面包屑切换列表与服务端一致。 */
   syncWorkspaceProjects: (
     organizationId: string,
     items: Array<{
@@ -268,7 +264,6 @@ interface WorkspaceState {
       updatedAt: string;
     }>
   ) => void;
-  /** 项目被删除后从 store 移除，避免项目壳展示已删除项目。 */
   dropProject: (projectId: string) => void;
   updateProject: (id: string, updates: Partial<ProjectItem>) => void;
   renameProject: (id: string, name: string) => void;
@@ -299,7 +294,6 @@ interface WorkspaceState {
 }
 
 const AVATAR_COLORS = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#475569'];
-
 const ORG_COLORS = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#58B1CD'];
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -354,7 +348,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               color: ORG_COLORS[index % ORG_COLORS.length],
               plan: '组织',
               createdAt: (org.lastUsedAt ?? '').slice(0, 10) || '—',
-            }),
+            })
           );
           set((state) => {
             const activeExists = workspaces.some(
@@ -373,7 +367,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             };
           });
         } catch (error) {
-          // 拉取失败时不留模板假组织，页面各自展示错误态（FR-015：不虚构数据）。
           set({ workspaces: [] });
           throw error;
         }
@@ -457,7 +450,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           updatedAt: '刚刚',
           primarySurname: primarySurname?.trim() || undefined,
           ancestor: ancestor?.trim() || undefined,
-          region: region?.trim() || undefined,
+          region: parsePlaceText(region),
           primaryName: primaryName?.trim() || undefined,
           projectState: projectState || '0',
           projectLevel: projectLevel ?? 1,
@@ -472,6 +465,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       syncProject: (project) =>
         set((state) => {
           const existing = state.projects.find((p) => p.id === project.id);
+          const resolvedRegion =
+            project.originText !== undefined
+              ? parsePlaceText(project.originText)
+              : existing?.region ?? null;
           const item: ProjectItem = {
             id: project.id,
             workspaceId: project.organizationId,
@@ -483,7 +480,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             primarySurname: project.surname ?? existing?.primarySurname,
             ancestor: project.ancestor ?? existing?.ancestor,
             primaryName: project.hallName ?? existing?.primaryName,
-            region: project.originText ?? existing?.region,
+            region: resolvedRegion,
             projectState:
               project.status !== undefined
                 ? project.status === 'completed'
@@ -507,6 +504,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           );
           const synced: ProjectItem[] = items.map((project) => {
             const existing = state.projects.find((p) => p.id === project.id);
+            const resolvedRegion =
+              project.originText !== undefined
+                ? parsePlaceText(project.originText)
+                : existing?.region ?? null;
             return {
               id: project.id,
               workspaceId: project.organizationId,
@@ -518,7 +519,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               primarySurname: project.surname ?? existing?.primarySurname,
               ancestor: project.ancestor ?? existing?.ancestor,
               primaryName: project.hallName ?? existing?.primaryName,
-              region: project.originText ?? existing?.region,
+              region: resolvedRegion,
               projectState:
                 project.status !== undefined
                   ? project.status === 'completed'
@@ -559,7 +560,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const source = get().projects.find((p) => p.id === id);
         if (!source) return null;
         const copy: ProjectItem = {
-          ...source,
+          ...structuredClone(source),
           id: `proj-${Date.now()}`,
           name: `${source.name} (副本)`,
           ownerType: 'owned',
@@ -675,54 +676,73 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'nocoapp:workspace',
-      version: 2,
+      version: 3,
       storage: createAppStorage(),
       migrate: (persistedState: any, version: number) => {
-        if (!persistedState || version >= 2) return persistedState;
+        if (!persistedState) return persistedState;
 
-        const prevProjects: ProjectItem[] = Array.isArray(persistedState.projects)
-          ? persistedState.projects.filter(
-              (p: ProjectItem) => !LEGACY_MOCK_PROJECT_IDS.has(p.id)
-            )
-          : [];
+        let nextState = { ...persistedState };
 
-        const mergedProjects = [...INITIAL_PROJECTS];
-        for (const proj of prevProjects) {
-          if (!mergedProjects.some((p) => p.id === proj.id)) {
-            mergedProjects.push(proj);
+        if (version < 2) {
+          const prevProjects: ProjectItem[] = Array.isArray(nextState.projects)
+            ? nextState.projects.filter(
+                (p: ProjectItem) => !LEGACY_MOCK_PROJECT_IDS.has(p.id)
+              )
+            : [];
+
+          const mergedProjects = [...INITIAL_PROJECTS];
+          for (const proj of prevProjects) {
+            if (!mergedProjects.some((p) => p.id === proj.id)) {
+              mergedProjects.push(proj);
+            }
           }
+
+          const prevApps: AppItem[] = Array.isArray(nextState.apps)
+            ? nextState.apps.filter(
+                (a: AppItem) => !LEGACY_MOCK_APP_IDS.has(a.id)
+              )
+            : [];
+
+          const nextWorkspaces: Workspace[] = Array.isArray(nextState.workspaces)
+            ? nextState.workspaces.map((ws: Workspace) =>
+                ws.id === 'ws-team' && ws.name === '研发协同空间'
+                  ? { ...ws, name: '宗亲修谱空间' }
+                  : ws
+              )
+            : INITIAL_WORKSPACES;
+
+          const prevActiveProj = nextState.activeProjectId;
+          const nextActiveProj =
+            prevActiveProj &&
+            !LEGACY_MOCK_PROJECT_IDS.has(prevActiveProj) &&
+            mergedProjects.some((p) => p.id === prevActiveProj)
+              ? prevActiveProj
+              : mergedProjects[0]?.id || 'proj-chen-yimen';
+
+          nextState = {
+            ...nextState,
+            workspaces: nextWorkspaces,
+            projects: mergedProjects,
+            apps: prevApps,
+            activeProjectId: nextActiveProj,
+            notifications: INITIAL_NOTIFICATIONS,
+          };
         }
 
-        const prevApps: AppItem[] = Array.isArray(persistedState.apps)
-          ? persistedState.apps.filter(
-              (a: AppItem) => !LEGACY_MOCK_APP_IDS.has(a.id)
-            )
-          : [];
+        if (version < 3) {
+          const migratedProjects = Array.isArray(nextState.projects)
+            ? nextState.projects.map((p: ProjectItem & { region?: GenealogyPlace | string | null }) => ({
+                ...p,
+                region: parsePlaceText(p.region),
+              }))
+            : INITIAL_PROJECTS;
+          nextState = {
+            ...nextState,
+            projects: migratedProjects,
+          };
+        }
 
-        const nextWorkspaces: Workspace[] = Array.isArray(persistedState.workspaces)
-          ? persistedState.workspaces.map((ws: Workspace) =>
-              ws.id === 'ws-team' && ws.name === '研发协同空间'
-                ? { ...ws, name: '宗亲修谱空间' }
-                : ws
-            )
-          : INITIAL_WORKSPACES;
-
-        const prevActiveProj = persistedState.activeProjectId;
-        const nextActiveProj =
-          prevActiveProj &&
-          !LEGACY_MOCK_PROJECT_IDS.has(prevActiveProj) &&
-          mergedProjects.some((p) => p.id === prevActiveProj)
-            ? prevActiveProj
-            : mergedProjects[0]?.id || 'proj-chen-yimen';
-
-        return {
-          ...persistedState,
-          workspaces: nextWorkspaces,
-          projects: mergedProjects,
-          apps: prevApps,
-          activeProjectId: nextActiveProj,
-          notifications: INITIAL_NOTIFICATIONS,
-        };
+        return nextState;
       },
     }
   )

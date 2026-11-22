@@ -1,5 +1,6 @@
 import type { TreeItem } from '../../components/common/Tree/types';
 import type { ArticleDocument, ProjectArticleSeedContext } from './types';
+import { formatPlacePath } from '../place-input';
 
 export function makeArticleStorageKey(projectId: string, articleId: string): string {
   return `${projectId}::${articleId}`;
@@ -69,9 +70,7 @@ export function createInitialArticleSeed(
   const surname = ctx.surname?.trim() || '宗';
   const hallName = ctx.hallName?.trim() || `${surname}氏宗堂`;
   const ancestor = ctx.ancestor?.trim() || `${surname}氏始迁祖`;
-  const region = ctx.region?.trim()
-    ? ctx.region.split('/').filter(Boolean).join(' ')
-    : '故里原籍';
+  const region = formatPlacePath(ctx.region, ' ') || '故里原籍';
   const timestamp = formatNowTimestamp();
 
   const prefaceId = 'article-preface';

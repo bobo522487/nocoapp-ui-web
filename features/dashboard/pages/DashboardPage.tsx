@@ -29,9 +29,13 @@ import {
 import PageSkeleton from '../components/PageSkeleton';
 import PageError from '../components/PageError';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { AssetEditorModal } from '../components/AssetEditorModal';
+import {
+  AssetEditorModal,
+  type AssetEditorSubmitValues,
+} from '../components/AssetEditorModal';
 import { FamilyCard, type FamilyCardMetrics } from '../components/FamilyCard';
 import { ZibeiSettingsModal } from '../components/ZibeiSettingsModal';
+import { formatGenealogyPlace } from '../../place-input';
 
 const statusFromState = (
   state: '0' | '1',
@@ -284,22 +288,13 @@ const DashboardPage: React.FC = () => {
   };
 
   // 家族建档弹窗提交：映射到项目 API 载荷，并在新建时初始化始迁祖世系节点。
-  const handleEditorSubmit = async (values: {
-    name: string;
-    description: string;
-    colorTheme: ProjectColorTheme;
-    primarySurname?: string;
-    ancestor?: string;
-    region?: string;
-    primaryName?: string;
-    projectState?: '0' | '1';
-    projectLevel?: number;
-  }) => {
+  const handleEditorSubmit = async (values: AssetEditorSubmitValues) => {
     if (!formDialog) return;
     setFormError(null);
     setFormSaving(true);
     try {
       const state0 = values.projectState ?? '0';
+      const originText = formatGenealogyPlace(values.region).trim();
       if (formDialog.mode === 'create') {
         const created = await createProjectRequest(activeWorkspaceId, {
           name: values.name.trim(),
@@ -307,7 +302,7 @@ const DashboardPage: React.FC = () => {
           surname: values.primarySurname?.trim(),
           ancestor: values.ancestor?.trim(),
           hallName: values.primaryName?.trim(),
-          originText: values.region?.trim() || undefined,
+          originText: originText || undefined,
           description: values.description.trim() || undefined,
           colorTheme: values.colorTheme,
           projectLevel: values.projectLevel ?? 1,
@@ -329,7 +324,7 @@ const DashboardPage: React.FC = () => {
           surname: values.primarySurname?.trim() ?? null,
           ancestor: values.ancestor?.trim() ?? null,
           hallName: values.primaryName?.trim() ?? null,
-          originText: values.region?.trim() || null,
+          originText: originText || null,
           description: values.description.trim() || null,
           colorTheme: values.colorTheme,
           projectLevel: values.projectLevel ?? original.projectLevel,

@@ -152,8 +152,8 @@ function runAllTests() {
   assert.equal(formatGenealogyDate(ziLunar), '农历2014甲午年正月初一子时');
   assert.equal(ziLunar.kind === 'date' && ziLunar.originalText, '二〇一四年甲午正月初一日子时');
 
-  // 10. Legacy adapter single source of truth & round-trip preservation
-  const legacyPerson: PersonRecord = {
+  // 10. Canonical structuredDate Single Source of Truth & round-trip preservation
+  const basePerson: PersonRecord = {
     id: 'p-1',
     branchId: 'default',
     name: '元英',
@@ -161,17 +161,24 @@ function runAllTests() {
     status: 'deceased',
     generation: 1,
     fatherId: null,
-    spouses: [],
-    birthDate: '明洪武十八年乙丑三月初六日亥时',
+    birth: {
+      structuredDate: {
+        schemaVersion: 1,
+        kind: 'phrase',
+        originalText: '明洪武十八年乙丑三月初六日亥时',
+      },
+    },
   };
-  const hydratedBirth = readGenealogyDate(legacyPerson, 'birth');
+  const hydratedBirth = readGenealogyDate(basePerson, 'birth');
   assert.equal(hydratedBirth?.kind, 'phrase');
   assert.equal(hydratedBirth?.originalText, '明洪武十八年乙丑三月初六日亥时');
 
-  const updated = writeGenealogyDate(legacyPerson, 'birth', ziLunar);
+  const updated = writeGenealogyDate(basePerson, 'birth', ziLunar);
   assert.equal(updated.birth?.structuredDate, ziLunar);
-  assert.equal(updated.birthDate, '农历2014甲午年正月初一子时');
-  assert.equal(updated.birth?.date, '农历2014甲午年正月初一子时');
+  assert.equal(
+    formatGenealogyDate(updated.birth?.structuredDate),
+    '农历2014甲午年正月初一子时'
+  );
 
   // 11. Precision derivation from optional month/day
   assert.equal(derivePrecisionFromParts(null, null), 'year');

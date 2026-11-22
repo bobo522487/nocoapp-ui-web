@@ -1,10 +1,11 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { cn } from '../../../lib/utils';
 import { PersonRecord } from '../types';
-import { parseAliasList } from '../utils/personHelpers';
+import { toGivenNamePinyin, toSurnamePinyin } from '../utils/nameUtils';
+import { getPersonAliases } from '../utils/personHelpers';
 
 export type VitalQuickEditField = 'name' | 'gender' | null;
 
@@ -72,6 +73,15 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
   onSave,
 }) => {
   const titleId = useId();
+  const surnameInputId = useId();
+  const givenNameInputId = useId();
+  const surnamePinyinInputId = useId();
+  const givenNamePinyinInputId = useId();
+  const aliasesInputId = useId();
+
+  const isSurnameComposingRef = useRef(false);
+  const isGivenNameComposingRef = useRef(false);
+
   const [surname, setSurname] = useState('');
   const [name, setName] = useState('');
   const [romSurname, setRomSurname] = useState('');
@@ -84,6 +94,8 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
 
   useEffect(() => {
     if (!field || !person) return;
+    isSurnameComposingRef.current = false;
+    isGivenNameComposingRef.current = false;
     setSurname(
       person.spouseOfId
         ? person.surname || ''
@@ -92,7 +104,7 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
     setName(person.name || '');
     setRomSurname(person.romanizedName?.surname || '');
     setRomName(person.romanizedName?.name || '');
-    const aliasList = parseAliasList(person.aliases, person.courtesyName);
+    const aliasList = getPersonAliases(person);
     setAliasesText(aliasList.join('、'));
     setGender(person.gender || 'unknown');
     setNameError(null);
@@ -132,19 +144,19 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
       );
       const rSur = romSurname.trim();
       const rNam = romName.trim();
+      const rSuffix = person.romanizedName?.suffix?.trim();
       onSave({
         surname: cleanSurname || undefined,
         name: cleanName || cleanSurname,
         romanizedName:
-          rSur || rNam
+          rSur || rNam || rSuffix
             ? {
                 ...(rSur ? { surname: rSur } : {}),
                 ...(rNam ? { name: rNam } : {}),
+                ...(rSuffix ? { suffix: rSuffix } : {}),
               }
             : undefined,
         aliases: parsedAliases.length > 0 ? parsedAliases : undefined,
-        courtesyName:
-          parsedAliases.length > 0 ? parsedAliases.join('、') : undefined,
       });
       onClose();
       return;
@@ -205,7 +217,7 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
             id={titleId}
             className="text-[20px] font-bold leading-snug text-[#212225] dark:text-slate-100"
           >
-            {field === 'name' ? '编辑名称' : '编辑性别'}
+            {field === 'name' ? '编辑姓名' : '编辑性别'}
           </h2>
           <button
             type="button"
@@ -227,65 +239,124 @@ export const PersonVitalEditModal: React.FC<PersonVitalEditModalProps> = ({
           <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
             {field === 'name' ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>姓氏</label>
-                    <Input
-                      value={surname}
-                      onChange={(e) => {
-                        setSurname(e.target.value);
-                        if (nameError) setNameError(null);
-                      }}
-                      placeholder="如：陈"
-                      className={controlInputClass}
-                    />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="min-w-0">
+                      <label htmlFor={surnameInputId} className={labelClass}>
+                        姓氏
+                      </label>
+                      <Input
+                        id={surnameInputId}
+                        data-lang="zh"
+                        autoComplete="off"
+                        maxLength={256}
+                        value={surname}
+                        onCompositionStart={() => {
+                          isSurnameComposingRef.current = true;
+                        }}
+                        onCompositionEnd={(e) => {
+                          isSurnameComposingRef.current = false;
+                          const nextValue = e.currentTarget.value;
+                          setSurname(nextValue);
+                          setRomSurname(toSurnamePinyin(nextValue));
+                        }}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          setSurname(nextValue);
+                          if (!isSurnameComposingRef.current) {
+                            setRomSurname(toSurnamePinyin(nextValue));
+                          }
+                          if (nameError) setNameError(null);
+                        }}
+                        placeholder="如：陈"
+                        className={controlInputClass}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label htmlFor={givenNameInputId} className={labelClass}>
+                        名字 <span className="text-[#C93B3B] ml-0.5">*</span>
+                      </label>
+                      <Input
+                        id={givenNameInputId}
+                        data-lang="zh"
+                        autoComplete="off"
+                        maxLength={256}
+                        value={name}
+                        onCompositionStart={() => {
+                          isGivenNameComposingRef.current = true;
+                        }}
+                        onCompositionEnd={(e) => {
+                          isGivenNameComposingRef.current = false;
+                          const nextValue = e.currentTarget.value;
+                          setName(nextValue);
+                          setRomName(toGivenNamePinyin(nextValue));
+                        }}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          setName(nextValue);
+                          if (!isGivenNameComposingRef.current) {
+                            setRomName(toGivenNamePinyin(nextValue));
+                          }
+                          if (nameError) setNameError(null);
+                        }}
+                        placeholder="请输入名字"
+                        className={controlInputClass}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelClass}>
-                      名字 <span className="text-[#C93B3B] ml-0.5">*</span>
-                    </label>
-                    <Input
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (nameError) setNameError(null);
-                      }}
-                      placeholder="请输入名字"
-                      className={controlInputClass}
-                    />
-                  </div>
-                </div>
 
-                {nameError && (
-                  <p className="-mt-3 text-[12px] text-[#C93B3B] font-medium">
-                    {nameError}
-                  </p>
-                )}
+                  {nameError && (
+                    <p className="-mt-2 text-[12px] text-[#C93B3B] font-medium">
+                      {nameError}
+                    </p>
+                  )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>罗马字 / 拼音姓氏</label>
-                    <Input
-                      value={romSurname}
-                      onChange={(e) => setRomSurname(e.target.value)}
-                      placeholder="如：Chen"
-                      className={controlInputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>罗马字 / 拼音名字</label>
-                    <Input
-                      value={romName}
-                      onChange={(e) => setRomName(e.target.value)}
-                      placeholder="如：Xingshu"
-                      className={controlInputClass}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="min-w-0">
+                      <label
+                        htmlFor={surnamePinyinInputId}
+                        className={labelClass}
+                      >
+                        姓氏拼音
+                      </label>
+                      <Input
+                        id={surnamePinyinInputId}
+                        data-lang="zh-Latn"
+                        autoComplete="off"
+                        maxLength={256}
+                        value={romSurname}
+                        onChange={(e) => setRomSurname(e.target.value)}
+                        placeholder="如：Chen"
+                        className={controlInputClass}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label
+                        htmlFor={givenNamePinyinInputId}
+                        className={labelClass}
+                      >
+                        名字拼音
+                      </label>
+                      <Input
+                        id={givenNamePinyinInputId}
+                        data-lang="zh-Latn"
+                        autoComplete="off"
+                        maxLength={256}
+                        value={romName}
+                        onChange={(e) => setRomName(e.target.value)}
+                        placeholder="如：Wenzhao"
+                        className={controlInputClass}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className={labelClass}>字 / 号 / 别名</label>
+                  <label htmlFor={aliasesInputId} className={labelClass}>
+                    字 / 号 / 别名
+                  </label>
                   <Input
+                    id={aliasesInputId}
                     value={aliasesText}
                     onChange={(e) => setAliasesText(e.target.value)}
                     placeholder="多个别名请用顿号或逗号分隔，如：字伯宣、号清溪"

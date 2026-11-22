@@ -21,10 +21,18 @@ function matchAdminSegment(candidateName: string, inputSeg: string): boolean {
   return Boolean(candShort && inputShort && candShort === inputShort);
 }
 
+/**
+ * Parse a legacy or API text string (e.g. '江西省/九江市/德安县', '美国/加利福尼亚/旧金山',
+ * or archival text '庐陵郡太和县南溪里') into a canonical GenealogyPlace with standard codes.
+ */
 export function parsePlaceText(
-  raw: string | null | undefined
+  raw: string | GenealogyPlace | null | undefined
 ): GenealogyPlace | null {
-  const trimmed = raw?.trim();
+  if (!raw) return null;
+  if (typeof raw === 'object') {
+    return raw;
+  }
+  const trimmed = raw.trim();
   if (!trimmed) return null;
 
   const directMatch = matchRegionFromText(trimmed);
@@ -45,13 +53,14 @@ export function parsePlaceText(
       if (country) {
         idx = 1;
       } else {
-        country = countries.find((c) => c.name === '中国') || countries[0];
+        country = countries.find((c) => c.code === 'CN') || countries[0];
       }
 
       if (idx === segments.length && country) {
         return {
           schemaVersion: 1,
           kind: 'structured',
+          countryCode: country.code,
           country: country.name,
           originalText: null,
         };
@@ -68,7 +77,9 @@ export function parsePlaceText(
           return {
             schemaVersion: 1,
             kind: 'structured',
+            countryCode: country.code,
             country: country.name,
+            provinceCode: prov.code,
             province: prov.name,
             originalText: null,
           };
@@ -88,8 +99,11 @@ export function parsePlaceText(
             return {
               schemaVersion: 1,
               kind: 'structured',
+              countryCode: country.code,
               country: country.name,
+              provinceCode: prov.code,
               province: prov.name,
+              cityCode: cityMatch.code,
               city: cityMatch.name,
               originalText: null,
             };
@@ -102,9 +116,13 @@ export function parsePlaceText(
               return {
                 schemaVersion: 1,
                 kind: 'structured',
+                countryCode: country.code,
                 country: country.name,
+                provinceCode: prov.code,
                 province: prov.name,
+                cityCode: cityMatch.code,
                 city: cityMatch.name,
+                districtCode: distMatch.code,
                 district: distMatch.name,
                 originalText: null,
               };
@@ -121,8 +139,11 @@ export function parsePlaceText(
             return {
               schemaVersion: 1,
               kind: 'structured',
+              countryCode: country.code,
               country: country.name,
+              provinceCode: prov.code,
               province: prov.name,
+              districtCode: distMatch.code,
               district: distMatch.name,
               originalText: null,
             };
@@ -140,29 +161,16 @@ export function parsePlaceText(
 }
 
 export function readGenealogyPlace(
-  person: PersonRecord | null | undefined,
+  person: Pick<PersonRecord, 'birth' | 'death'> | null | undefined,
   field: PersonPlaceField
 ): GenealogyPlace | null {
   if (!person) return null;
 
-  const structured =
-    field === 'birth'
-      ? person.birth?.structuredPlace
-      : field === 'burial'
-        ? person.death?.structuredBurialPlace
-        : person.death?.structuredPlace;
-  if (structured) {
-    return structured;
-  }
-
-  const rawText =
-    field === 'birth'
-      ? person.birth?.place
-      : field === 'burial'
-        ? person.death?.burialPlace ?? person.burialPlace
-        : person.death?.place;
-
-  return parsePlaceText(rawText);
+  return field === 'birth'
+    ? (person.birth?.structuredPlace ?? null)
+    : field === 'burial'
+      ? (person.death?.structuredBurialPlace ?? null)
+      : (person.death?.structuredPlace ?? null);
 }
 
 export function writeGenealogyPlace(
@@ -170,14 +178,11 @@ export function writeGenealogyPlace(
   field: PersonPlaceField,
   nextPlace: GenealogyPlace | null
 ): PersonRecord {
-  const display = formatGenealogyPlace(nextPlace).trim() || undefined;
-
   if (field === 'birth') {
     return {
       ...person,
       birth: {
         ...(person.birth || {}),
-        place: display ?? '',
         structuredPlace: nextPlace ?? undefined,
       },
     };
@@ -186,10 +191,8 @@ export function writeGenealogyPlace(
   if (field === 'burial') {
     return {
       ...person,
-      burialPlace: display,
       death: {
         ...(person.death || {}),
-        burialPlace: display ?? '',
         structuredBurialPlace: nextPlace ?? undefined,
       },
     };
@@ -199,29 +202,15 @@ export function writeGenealogyPlace(
     ...person,
     death: {
       ...(person.death || {}),
-      place: display ?? '',
       structuredPlace: nextPlace ?? undefined,
     },
   };
 }
 
 export function getPersonPlaceDisplay(
-  person: PersonRecord | null | undefined,
+  person: Pick<PersonRecord, 'birth' | 'death'> | null | undefined,
   field: PersonPlaceField
 ): string {
-  if (!person) return '';
-  const structured =
-    field === 'birth'
-      ? person.birth?.structuredPlace
-      : field === 'burial'
-        ? person.death?.structuredBurialPlace
-        : person.death?.structuredPlace;
-  if (structured) {
-    return formatGenealogyPlace(structured);
-  }
-  return field === 'birth'
-    ? person.birth?.place?.trim() || ''
-    : field === 'burial'
-      ? person.death?.burialPlace?.trim() || person.burialPlace?.trim() || ''
-      : person.death?.place?.trim() || '';
+  const structured = readGenealogyPlace(person, field);
+  return structured ? formatGenealogyPlace(structured) : '';
 }

@@ -3,9 +3,19 @@ import { persist } from 'zustand/middleware';
 import { TreeItem } from '../components/common/Tree/types';
 import { findItemDeep, removeItem, setProperty } from '../components/common/Tree/utilities';
 import { createAppStorage } from './storageAdapter';
-import { LineageViewMode, PersonRecord } from '../features/lineage/types';
+import {
+  LineageViewMode,
+  PersonLifeEvent,
+  PersonRecord,
+} from '../features/lineage/types';
 import { createSeedPersonsForChart } from '../features/lineage/lineageData';
-import { syncDerivedRankSnapshots } from '../features/lineage/utils/personHelpers';
+import { parseQuickDateInput } from '../features/date-input';
+import type { GenealogyDate } from '../features/date-input/date.types';
+import { parsePlaceText, type GenealogyPlace } from '../features/place-input';
+import {
+  SPOUSE_RANK_ORDER,
+  normalizeEventType,
+} from '../features/lineage/utils/personHelpers';
 
 export const DEFAULT_LINEAGE_TREE: TreeItem[] = [
   {
@@ -130,7 +140,7 @@ export function makeChartStorageKey(projectId: string, chartId: string): string 
 }
 
 function cloneDefaultTree(): TreeItem[] {
-  return JSON.parse(JSON.stringify(DEFAULT_LINEAGE_TREE));
+  return structuredClone(DEFAULT_LINEAGE_TREE);
 }
 
 function preserveCollapsedChildren(
@@ -183,22 +193,15 @@ function collectDescendantIds(persons: PersonRecord[], rootId: string): Set<stri
   return toDelete;
 }
 
-function formatSpouseDisplayName(p: PersonRecord): string {
-  const s = p.surname?.trim() || '';
-  const n = p.name?.trim() || '';
-  if (s && n && !n.startsWith(s)) return `${s}${n}`;
-  return n || s || '配偶';
-}
-
 export interface LineageChartMeta {
   name: string;
   surname?: string;
   hallName?: string;
   progenitor?: string;
-  region?: string;
+  region?: GenealogyPlace | null;
 }
 
-interface LineageState {
+export interface LineageState {
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   personsByChart: Record<string, PersonRecord[]>;
@@ -208,7 +211,12 @@ interface LineageState {
   setTree: (projectId: string, items: TreeItem[]) => void;
   initializeProjectLineage: (
     projectId: string,
-    params: { familyName: string; ancestor: string; surname?: string; region?: string }
+    params: {
+      familyName: string;
+      ancestor: string;
+      surname?: string;
+      region?: GenealogyPlace | string | null;
+    }
   ) => void;
   selectNode: (projectId: string, nodeId: string) => void;
   addGroup: (projectId: string, name?: string) => string;
@@ -286,6 +294,620 @@ interface LineageState {
   ) => void;
 }
 
+function legacyTextToGenealogyDate(raw?: string | null): GenealogyDate | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  const parsed = parseQuickDateInput(trimmed);
+  if (parsed.ok && parsed.value) return parsed.value;
+  return {
+    schemaVersion: 1,
+    kind: 'phrase',
+    originalText: trimmed,
+  };
+}
+
+function migrateTreeNodesRegion(items: TreeItem[]): TreeItem[] {
+  return items.map((item) => ({
+    ...item,
+    data: item.data
+      ? {
+          ...item.data,
+          ...(item.data.region !== undefined
+            ? { region: parsePlaceText(item.data.region) ?? undefined }
+            : {}),
+        }
+      : item.data,
+    children: item.children ? migrateTreeNodesRegion(item.children) : [],
+  }));
+}
+
+interface LegacySpouseInput {
+  id?: string;
+  relationLabel?: string;
+  prefix?: string;
+  name?: string;
+  clanOrigin?: string;
+  birthDate?: string;
+  deathDate?: string;
+  burialPlace?: string;
+  remarks?: string;
+}
+
+/**
+ * Losslessly upgrade persisted PersonRecord[] from versions <4 into canonical SSOT PersonRecord[]:
+ * - Promotes embedded `spouses[]` entries into independent spouse PersonRecord nodes (collision-safe IDs).
+ * - Resolves child `motherName` -> `motherId` matching the mother's node ID.
+ * - Converts legacy string date/place/career/alias/age/page fields into canonical nested fields.
+ * - Deletes all legacy shadow keys from returned records.
+ */
+export function migrateChartPersonsV4(rawPersons: unknown[]): PersonRecord[] {
+  if (!Array.isArray(rawPersons)) return [];
+
+  const records: Array<Record<string, any>> = rawPersons.filter(
+    (item): item is Record<string, any> => Boolean(item && typeof item === 'object')
+  );
+
+  const usedIds = new Set<string>(
+    records.map((r) => String(r.id || '')).filter(Boolean)
+  );
+  const promotedSpouses: PersonRecord[] = [];
+  const spousesByPartnerMap = new Map<string, PersonRecord[]>();
+
+  const registerSpouseNode = (partnerId: string, sp: PersonRecord) => {
+    const list = spousesByPartnerMap.get(partnerId);
+    if (list) list.push(sp);
+    else spousesByPartnerMap.set(partnerId, [sp]);
+  };
+
+  // Index any pre-existing independent spouse nodes
+  for (const r of records) {
+    if (r.spouseOfId) {
+      registerSpouseNode(String(r.spouseOfId), r as PersonRecord);
+    }
+  }
+
+  const nextCanonicalRecords: PersonRecord[] = [];
+
+  for (const raw of records) {
+    const birthRaw = raw.birth && typeof raw.birth === 'object' ? raw.birth : {};
+    const deathRaw = raw.death && typeof raw.death === 'object' ? raw.death : {};
+    const careerRaw = raw.career && typeof raw.career === 'object' ? raw.career : {};
+    const seqRaw =
+      raw.sequenceMeta && typeof raw.sequenceMeta === 'object' ? raw.sequenceMeta : {};
+    const privRaw =
+      raw.privateInfo && typeof raw.privateInfo === 'object' ? raw.privateInfo : {};
+
+    // Aliases
+    const aliasSet = new Set<string>();
+    if (Array.isArray(raw.aliases)) {
+      raw.aliases.forEach((a: unknown) => {
+        if (typeof a === 'string' && a.trim()) aliasSet.add(a.trim());
+      });
+    }
+    if (typeof raw.courtesyName === 'string' && raw.courtesyName.trim()) {
+      raw.courtesyName
+        .split(/[、,，;；\s]+/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .forEach((s: string) => aliasSet.add(s));
+    }
+
+    // Education history (carried forward into v5 migration)
+    const eduHistory: Array<Record<string, any>> = Array.isArray(careerRaw.educationHistory)
+      ? careerRaw.educationHistory
+          .map((e: any, idx: number) => ({
+            id: e.id || `edu-${idx + 1}`,
+            structuredPeriod:
+              e.structuredPeriod ?? legacyTextToGenealogyDate(e.period),
+            level: e.level?.trim() || undefined,
+            school: e.school?.trim() || undefined,
+            major: e.major?.trim() || undefined,
+            graduationStatus: e.graduationStatus?.trim() || undefined,
+          }))
+          .filter((e: Record<string, any>) =>
+            Boolean(
+              e.structuredPeriod || e.level || e.school || e.major || e.graduationStatus
+            )
+          )
+      : [];
+
+    if (
+      eduHistory.length === 0 &&
+      (careerRaw.school || careerRaw.major || careerRaw.educationLevel || careerRaw.educationPeriod)
+    ) {
+      eduHistory.push({
+        id: 'edu-1',
+        structuredPeriod: legacyTextToGenealogyDate(careerRaw.educationPeriod),
+        level: careerRaw.educationLevel?.trim() || undefined,
+        school: careerRaw.school?.trim() || undefined,
+        major: careerRaw.major?.trim() || undefined,
+        graduationStatus: careerRaw.graduationStatus?.trim() || undefined,
+      });
+    }
+
+    // Career history (carried forward into v5 migration)
+    const careerHistory: Array<Record<string, any>> = Array.isArray(careerRaw.careerHistory)
+      ? careerRaw.careerHistory
+          .map((c: any, idx: number) => ({
+            id: c.id || `career-${idx + 1}`,
+            structuredPeriod:
+              c.structuredPeriod ?? legacyTextToGenealogyDate(c.period),
+            structuredPlace: c.structuredPlace ?? parsePlaceText(c.location) ?? undefined,
+            organization: c.organization?.trim() || undefined,
+            position: c.position?.trim() || undefined,
+          }))
+          .filter((c: Record<string, any>) =>
+            Boolean(
+              c.structuredPeriod || c.structuredPlace || c.organization || c.position
+            )
+          )
+      : [];
+
+    if (
+      careerHistory.length === 0 &&
+      (careerRaw.profession || careerRaw.title || raw.officialTitle)
+    ) {
+      careerHistory.push({
+        id: 'career-1',
+        organization: careerRaw.profession?.trim() || undefined,
+        position:
+          careerRaw.title?.trim() || raw.officialTitle?.trim() || undefined,
+      });
+    }
+
+    // Events (carried forward into v5 migration)
+    const migratedEvents: Array<Record<string, any>> | undefined = Array.isArray(raw.events)
+      ? raw.events.map((ev: any) => ({
+          id: ev.id,
+          type: ev.type,
+          customTypeLabel: ev.customTypeLabel,
+          structuredDate:
+            ev.structuredDate ?? legacyTextToGenealogyDate(ev.date),
+          structuredPlace:
+            ev.structuredPlace ?? parsePlaceText(ev.place) ?? undefined,
+          description: ev.description,
+          relatedPersonId: ev.relatedPersonId,
+          relatedPersonName: ev.relatedPersonName,
+          organization: ev.organization,
+          position: ev.position,
+          educationLevel: ev.educationLevel,
+          deathCause: ev.deathCause,
+        }))
+      : undefined;
+
+    const birthDate =
+      birthRaw.structuredDate ?? legacyTextToGenealogyDate(birthRaw.date ?? raw.birthDate);
+    const birthPlace =
+      birthRaw.structuredPlace ?? parsePlaceText(birthRaw.place) ?? undefined;
+    const deathDate =
+      deathRaw.structuredDate ?? legacyTextToGenealogyDate(deathRaw.date ?? raw.deathDate);
+    const deathPlace =
+      deathRaw.structuredPlace ?? parsePlaceText(deathRaw.place) ?? undefined;
+    const burialDate =
+      deathRaw.structuredBurialDate ??
+      legacyTextToGenealogyDate(deathRaw.burialDate);
+    const burialPlace =
+      deathRaw.structuredBurialPlace ??
+      parsePlaceText(deathRaw.burialPlace ?? raw.burialPlace) ??
+      undefined;
+    const rawManualAge = deathRaw.manualAge ?? deathRaw.age ?? raw.age;
+    const manualAge =
+      typeof rawManualAge === 'number' && Number.isFinite(rawManualAge)
+        ? Math.round(rawManualAge)
+        : undefined;
+
+    const originalPage =
+      typeof seqRaw.originalPage === 'number'
+        ? seqRaw.originalPage
+        : typeof raw.biographyPage === 'number'
+          ? raw.biographyPage
+          : undefined;
+
+    const legalName =
+      raw.legalName?.trim() || privRaw.idCardName?.trim() || undefined;
+
+    const spouseSiblingOrder =
+      raw.spouseOfId && raw.siblingOrder === undefined && raw.spouseRelationLabel
+        ? SPOUSE_RANK_ORDER[String(raw.spouseRelationLabel).trim()]
+        : raw.siblingOrder;
+
+    const canonical: PersonRecord = {
+      id: String(raw.id),
+      branchId: String(raw.branchId || 'default'),
+      ...(raw.avatarUrl ? { avatarUrl: raw.avatarUrl } : {}),
+      ...(raw.surname ? { surname: raw.surname } : {}),
+      name: String(raw.name || '未命名'),
+      ...(raw.nameSuffix ? { nameSuffix: raw.nameSuffix } : {}),
+      ...(raw.romanizedName ? { romanizedName: raw.romanizedName } : {}),
+      ...(legalName ? { legalName } : {}),
+      ...(aliasSet.size > 0 ? { aliases: Array.from(aliasSet) } : {}),
+      ...(raw.childhoodName ? { childhoodName: raw.childhoodName } : {}),
+      gender: raw.gender || 'male',
+      status: raw.status || 'deceased',
+      generation: typeof raw.generation === 'number' ? raw.generation : 1,
+      ...(raw.generationWord ? { generationWord: raw.generationWord } : {}),
+      ...(raw.hangOrder ? { hangOrder: raw.hangOrder } : {}),
+      ...(spouseSiblingOrder !== undefined
+        ? { siblingOrder: spouseSiblingOrder }
+        : {}),
+      fatherId: raw.fatherId ?? null,
+      ...(raw.motherId ? { motherId: raw.motherId } : {}),
+      ...(raw.spouseOfId ? { spouseOfId: raw.spouseOfId } : {}),
+      ...(raw.relationType ? { relationType: raw.relationType } : {}),
+      ...(raw.fatherRelationType
+        ? { fatherRelationType: raw.fatherRelationType }
+        : {}),
+      ...(raw.motherRelationType
+        ? { motherRelationType: raw.motherRelationType }
+        : {}),
+      ...(raw.relationTitle ? { relationTitle: raw.relationTitle } : {}),
+      ...(raw.relationPrefix ? { relationPrefix: raw.relationPrefix } : {}),
+      ...(raw.relationNotes ? { relationNotes: raw.relationNotes } : {}),
+      ...(raw.lineageRemarks ? { lineageRemarks: raw.lineageRemarks } : {}),
+      ...(raw.branchLabel ? { branchLabel: raw.branchLabel } : {}),
+      ...(raw.headingLine ? { headingLine: raw.headingLine } : {}),
+      ...(birthDate || birthPlace || birthRaw.summary
+        ? {
+            birth: {
+              ...(birthDate ? { structuredDate: birthDate } : {}),
+              ...(birthPlace ? { structuredPlace: birthPlace } : {}),
+              ...(birthRaw.summary ? { summary: birthRaw.summary } : {}),
+            },
+          }
+        : {}),
+      ...(eduHistory.length > 0 ||
+      careerHistory.length > 0 ||
+      careerRaw.resume ||
+      careerRaw.lifeSummary
+        ? {
+            career: {
+              ...(eduHistory.length > 0 ? { educationHistory: eduHistory } : {}),
+              ...(careerHistory.length > 0 ? { careerHistory: careerHistory } : {}),
+              ...(careerRaw.resume ? { resume: careerRaw.resume } : {}),
+              ...(careerRaw.lifeSummary ? { lifeSummary: careerRaw.lifeSummary } : {}),
+            },
+          }
+        : {}),
+      ...(deathDate ||
+      deathPlace ||
+      burialDate ||
+      burialPlace ||
+      deathRaw.cause ||
+      deathRaw.summary ||
+      manualAge !== undefined
+        ? {
+            death: {
+              ...(deathDate ? { structuredDate: deathDate } : {}),
+              ...(deathPlace ? { structuredPlace: deathPlace } : {}),
+              ...(burialDate ? { structuredBurialDate: burialDate } : {}),
+              ...(burialPlace ? { structuredBurialPlace: burialPlace } : {}),
+              ...(deathRaw.cause ? { cause: deathRaw.cause } : {}),
+              ...(deathRaw.summary ? { summary: deathRaw.summary } : {}),
+              ...(manualAge !== undefined ? { manualAge } : {}),
+            },
+          }
+        : {}),
+      ...(migratedEvents && migratedEvents.length > 0
+        ? { events: migratedEvents as unknown as PersonLifeEvent[] }
+        : {}),
+      ...(seqRaw.mainLabel ||
+      seqRaw.mainNumber !== undefined ||
+      seqRaw.subLabel ||
+      seqRaw.subNumber !== undefined ||
+      originalPage !== undefined
+        ? {
+            sequenceMeta: {
+              ...(seqRaw.mainLabel ? { mainLabel: seqRaw.mainLabel } : {}),
+              ...(seqRaw.mainNumber !== undefined
+                ? { mainNumber: seqRaw.mainNumber }
+                : {}),
+              ...(seqRaw.subLabel ? { subLabel: seqRaw.subLabel } : {}),
+              ...(seqRaw.subNumber !== undefined
+                ? { subNumber: seqRaw.subNumber }
+                : {}),
+              ...(originalPage !== undefined ? { originalPage } : {}),
+            },
+          }
+        : {}),
+      ...(privRaw.idCardNum || privRaw.mobile || privRaw.address
+        ? {
+            privateInfo: {
+              ...(privRaw.idCardNum ? { idCardNum: privRaw.idCardNum } : {}),
+              ...(privRaw.mobile ? { mobile: privRaw.mobile } : {}),
+              ...(privRaw.address ? { address: privRaw.address } : {}),
+            },
+          }
+        : {}),
+      ...(raw.biography ? { biography: raw.biography } : {}),
+      ...(raw.biographyOrder !== undefined
+        ? { biographyOrder: raw.biographyOrder }
+        : {}),
+      ...(raw.notes ? { notes: raw.notes } : {}),
+    };
+
+    nextCanonicalRecords.push(canonical);
+
+    // Promote embedded legacy spouses[] if not already backed by an independent node
+    if (!raw.spouseOfId && Array.isArray(raw.spouses) && raw.spouses.length > 0) {
+      const existingSpouses = spousesByPartnerMap.get(canonical.id) || [];
+      raw.spouses.forEach((sp: LegacySpouseInput, spIdx: number) => {
+        const cleanSpName = sp?.name?.trim();
+        if (!cleanSpName) return;
+
+        const alreadyExists =
+          (sp.id && existingSpouses.some((e) => e.id === sp.id)) ||
+          existingSpouses.some((e) => {
+            const eFull = `${e.surname || ''}${e.name}`.trim();
+            return e.name.trim() === cleanSpName || eFull === cleanSpName;
+          });
+        if (alreadyExists) return;
+
+        let newId = sp.id && !usedIds.has(sp.id)
+          ? sp.id
+          : `${canonical.id}-sp-${spIdx + 1}`;
+        while (usedIds.has(newId)) {
+          newId = `${newId}-m`;
+        }
+        usedIds.add(newId);
+
+        const rankOrder = sp.relationLabel
+          ? SPOUSE_RANK_ORDER[sp.relationLabel.trim()]
+          : undefined;
+        const spBirthDate = legacyTextToGenealogyDate(sp.birthDate);
+        const spDeathDate = legacyTextToGenealogyDate(sp.deathDate);
+        const spBurialPlace = parsePlaceText(sp.burialPlace) ?? undefined;
+        const spGender: 'male' | 'female' | 'unknown' =
+          canonical.gender === 'female' ? 'male' : 'female';
+        const isDeceased = Boolean(spDeathDate || spBurialPlace || canonical.status === 'deceased');
+
+        const promoted: PersonRecord = {
+          id: newId,
+          branchId: canonical.branchId,
+          name: cleanSpName,
+          gender: spGender,
+          status: isDeceased ? 'deceased' : 'living',
+          generation: canonical.generation,
+          fatherId: null,
+          spouseOfId: canonical.id,
+          siblingOrder: rankOrder ?? existingSpouses.length + spIdx + 1,
+          relationType: spGender === 'male' ? '丈夫' : '妻子',
+          ...(sp.prefix ? { relationPrefix: sp.prefix.trim() } : {}),
+          ...(sp.remarks ? { lineageRemarks: sp.remarks.trim() } : {}),
+          ...(sp.clanOrigin ? { notes: sp.clanOrigin.trim() } : {}),
+          ...(spBirthDate ? { birth: { structuredDate: spBirthDate } } : {}),
+          ...(spDeathDate || spBurialPlace
+            ? {
+                death: {
+                  ...(spDeathDate ? { structuredDate: spDeathDate } : {}),
+                  ...(spBurialPlace ? { structuredBurialPlace: spBurialPlace } : {}),
+                },
+              }
+            : {}),
+        };
+        promotedSpouses.push(promoted);
+        existingSpouses.push(promoted);
+        registerSpouseNode(canonical.id, promoted);
+      });
+    }
+  }
+
+  const allMerged = [...nextCanonicalRecords, ...promotedSpouses];
+  const rawMotherNameById = new Map<string, string>();
+  for (const raw of records) {
+    if (typeof raw.motherName === 'string' && raw.motherName.trim()) {
+      rawMotherNameById.set(String(raw.id), raw.motherName.trim());
+    }
+  }
+
+  return allMerged.map((person) => {
+    if (person.spouseOfId || person.motherId || !person.fatherId) return person;
+    const legacyMotherName = rawMotherNameById.get(person.id);
+    if (!legacyMotherName) return person;
+    const fatherSpouses = spousesByPartnerMap.get(person.fatherId) || [];
+    const matched = fatherSpouses.find((sp) => {
+      const full = `${sp.surname || ''}${sp.name}`.trim();
+      return sp.name.trim() === legacyMotherName || full === legacyMotherName;
+    });
+    if (!matched) return person;
+    return {
+      ...person,
+      motherId: matched.id,
+    };
+  });
+}
+
+/**
+ * Losslessly upgrade persisted PersonRecord[] from v4 into v5 unified 4-field events:
+ * - Converts `career.educationHistory[]` -> `events[]` (`type: 'education'`)
+ * - Converts `career.careerHistory[]` -> `events[]` (`type: 'career'`)
+ * - Folds `career.resume` / `career.lifeSummary` into `biography`
+ * - Collapses all special-case event fields (`customTypeLabel`, `organization`, `position`,
+ *   `educationLevel`, `relatedPersonName`, `deathCause`) into uniform `description`
+ * - Maps legacy event types (`burial` -> `death`, `honor` -> `career`)
+ * - Removes `career` and all legacy event sub-keys completely
+ */
+export function migrateChartPersonsV5(rawPersons: unknown[]): PersonRecord[] {
+  if (!Array.isArray(rawPersons)) return [];
+
+  return rawPersons
+    .filter((item): item is Record<string, any> => Boolean(item && typeof item === 'object'))
+    .map((raw) => {
+      const nextEvents: PersonLifeEvent[] = [];
+      const usedEventIds = new Set<string>();
+
+      const pushUniqueEvent = (ev: PersonLifeEvent) => {
+        if (!ev.structuredDate && !ev.structuredPlace && !ev.description?.trim()) {
+          return;
+        }
+        let nextId = ev.id || `ev-${nextEvents.length + 1}`;
+        while (usedEventIds.has(nextId)) {
+          nextId = `${nextId}-m`;
+        }
+        usedEventIds.add(nextId);
+        nextEvents.push({
+          id: nextId,
+          type: ev.type,
+          ...(ev.structuredDate ? { structuredDate: ev.structuredDate } : {}),
+          ...(ev.structuredPlace ? { structuredPlace: ev.structuredPlace } : {}),
+          ...(ev.description?.trim() ? { description: ev.description.trim() } : {}),
+        });
+      };
+
+      const careerRaw =
+        raw.career && typeof raw.career === 'object' ? raw.career : null;
+
+      if (careerRaw) {
+        if (Array.isArray(careerRaw.educationHistory)) {
+          careerRaw.educationHistory.forEach((edu: any, idx: number) => {
+            if (!edu || typeof edu !== 'object') return;
+            const date =
+              edu.structuredPeriod ?? legacyTextToGenealogyDate(edu.period);
+            const desc = [
+              edu.school?.trim(),
+              edu.major?.trim(),
+              edu.level?.trim(),
+              edu.graduationStatus?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            pushUniqueEvent({
+              id: edu.id || `ev-edu-${idx + 1}`,
+              type: 'education',
+              structuredDate: date ?? undefined,
+              description: desc || undefined,
+            });
+          });
+        }
+
+        if (Array.isArray(careerRaw.careerHistory)) {
+          careerRaw.careerHistory.forEach((job: any, idx: number) => {
+            if (!job || typeof job !== 'object') return;
+            const date =
+              job.structuredPeriod ?? legacyTextToGenealogyDate(job.period);
+            const place =
+              job.structuredPlace ?? parsePlaceText(job.location) ?? undefined;
+            const desc = [job.organization?.trim(), job.position?.trim()]
+              .filter(Boolean)
+              .join(' · ');
+            pushUniqueEvent({
+              id: job.id || `ev-career-${idx + 1}`,
+              type: 'career',
+              structuredDate: date ?? undefined,
+              structuredPlace: place,
+              description: desc || undefined,
+            });
+          });
+        }
+      }
+
+      if (Array.isArray(raw.events)) {
+        raw.events.forEach((ev: any, idx: number) => {
+          if (!ev || typeof ev !== 'object') return;
+          const rawType = ev.type;
+          const normalizedType = normalizeEventType(rawType);
+          const date = ev.structuredDate ?? legacyTextToGenealogyDate(ev.date);
+          const place =
+            ev.structuredPlace ?? parsePlaceText(ev.place) ?? undefined;
+
+          const parts: string[] = [];
+          const pushPart = (val: unknown) => {
+            if (typeof val !== 'string') return;
+            const trimmed = val.trim();
+            if (!trimmed) return;
+            if (!parts.includes(trimmed)) parts.push(trimmed);
+          };
+
+          if (rawType === 'burial') pushPart('安葬');
+          if (rawType === 'honor') pushPart('功名');
+          pushPart(ev.customTypeLabel);
+          pushPart(ev.relatedPersonName);
+          pushPart(ev.organization);
+          pushPart(ev.position);
+          pushPart(ev.educationLevel);
+          if (typeof ev.deathCause === 'string' && ev.deathCause.trim()) {
+            pushPart(`死因：${ev.deathCause.trim()}`);
+          }
+          pushPart(ev.description);
+
+          pushUniqueEvent({
+            id: ev.id || `ev-${idx + 1}`,
+            type: normalizedType,
+            structuredDate: date ?? undefined,
+            structuredPlace: place,
+            description: parts.join(' · ') || undefined,
+          });
+        });
+      }
+
+      let mergedBiography =
+        typeof raw.biography === 'string' ? raw.biography.trim() : '';
+      if (careerRaw) {
+        const extraBioParts = [
+          typeof careerRaw.resume === 'string' ? careerRaw.resume.trim() : '',
+          typeof careerRaw.lifeSummary === 'string'
+            ? careerRaw.lifeSummary.trim()
+            : '',
+        ].filter((txt) => txt && !mergedBiography.includes(txt));
+        if (extraBioParts.length > 0) {
+          mergedBiography = [mergedBiography, ...extraBioParts]
+            .filter(Boolean)
+            .join('\n');
+        }
+      }
+
+      const { career: _droppedCareer, events: _droppedEvents, ...rest } = raw;
+      return {
+        ...(rest as PersonRecord),
+        ...(mergedBiography ? { biography: mergedBiography } : {}),
+        ...(nextEvents.length > 0 ? { events: nextEvents } : {}),
+      };
+    });
+}
+
+export function migrateLineagePersistedState(
+  persistedState: unknown,
+  version: number
+): Partial<LineageState> {
+  const state = (persistedState as Partial<LineageState>) || {};
+  let nextState: Partial<LineageState> = { ...state };
+
+  if (version < 3) {
+    nextState.selectedPersonIdByChart = {};
+  }
+
+  if (version < 4) {
+    if (nextState.treesByProject) {
+      const nextTrees: Record<string, TreeItem[]> = {};
+      for (const [projId, tree] of Object.entries(nextState.treesByProject)) {
+        nextTrees[projId] = Array.isArray(tree) ? migrateTreeNodesRegion(tree) : [];
+      }
+      nextState.treesByProject = nextTrees;
+    }
+
+    if (nextState.personsByChart) {
+      const nextPersonsByChart: Record<string, PersonRecord[]> = {};
+      for (const [key, list] of Object.entries(nextState.personsByChart)) {
+        nextPersonsByChart[key] = Array.isArray(list)
+          ? migrateChartPersonsV4(list)
+          : [];
+      }
+      nextState.personsByChart = nextPersonsByChart;
+    }
+  }
+
+  if (version < 5 && nextState.personsByChart) {
+    const nextPersonsByChart: Record<string, PersonRecord[]> = {};
+    for (const [key, list] of Object.entries(nextState.personsByChart)) {
+      nextPersonsByChart[key] = Array.isArray(list)
+        ? migrateChartPersonsV5(list)
+        : [];
+    }
+    nextState.personsByChart = nextPersonsByChart;
+  }
+
+  return nextState;
+}
+
 export const useLineageStore = create<LineageState>()(
   persist(
     (set, get) => ({
@@ -308,7 +930,10 @@ export const useLineageStore = create<LineageState>()(
           };
         }),
 
-      initializeProjectLineage: (projectId, { familyName, ancestor, surname, region }) =>
+      initializeProjectLineage: (
+        projectId,
+        { familyName, ancestor, surname, region }
+      ) =>
         set((state) => {
           if (state.treesByProject[projectId]?.length) {
             return state;
@@ -316,7 +941,7 @@ export const useLineageStore = create<LineageState>()(
           const cleanFamily = familyName.trim() || '家族';
           const cleanAncestor = ancestor.trim() || '始迁祖';
           const cleanSurname = surname?.trim() || undefined;
-          const cleanRegion = region?.trim() || undefined;
+          const cleanRegion = parsePlaceText(region) ?? undefined;
           const chartId = `lineage-chart-${Date.now()}`;
           const chartName = `${cleanFamily}总世系`;
           const key = makeChartStorageKey(projectId, chartId);
@@ -342,13 +967,11 @@ export const useLineageStore = create<LineageState>()(
             name: cleanAncestor,
             generation: 1,
             gender: 'male',
-            rank: '始迁祖',
             relationTitle: '始迁祖',
             status: 'deceased',
             fatherId: null,
-            spouses: [],
             biography: `「${cleanFamily}」始迁祖，可点击节点上方或右侧档案面板继续添录配偶、子嗣与生平传记。`,
-            biographyPage: 1,
+            sequenceMeta: { originalPage: 1 },
             biographyOrder: 1,
           };
 
@@ -413,7 +1036,7 @@ export const useLineageStore = create<LineageState>()(
         const cleanSurname = meta.surname?.trim() || undefined;
         const cleanHall = meta.hallName?.trim() || undefined;
         const cleanProgenitor = meta.progenitor?.trim() || undefined;
-        const cleanRegion = meta.region?.trim() || undefined;
+        const cleanRegion = parsePlaceText(meta.region) ?? undefined;
 
         const current = get().treesByProject[projectId] || cloneDefaultTree();
         const newChart: TreeItem = {
@@ -488,10 +1111,10 @@ export const useLineageStore = create<LineageState>()(
           const cleanSurname = meta.surname?.trim() || '';
           const cleanHall = meta.hallName?.trim() || '';
           const cleanProgenitor = meta.progenitor?.trim() || '';
-          const cleanRegion = meta.region?.trim() || '';
+          const cleanRegion = parsePlaceText(meta.region) ?? undefined;
 
           const updatedTree = setProperty(
-            JSON.parse(JSON.stringify(current)),
+            structuredClone(current),
             chartId,
             'data',
             (data) => ({
@@ -500,7 +1123,7 @@ export const useLineageStore = create<LineageState>()(
               surname: cleanSurname || undefined,
               hallName: cleanHall || undefined,
               progenitor: cleanProgenitor || undefined,
-              region: cleanRegion || undefined,
+              region: cleanRegion,
             })
           );
 
@@ -513,7 +1136,7 @@ export const useLineageStore = create<LineageState>()(
             const rootId = `${chartId}-root-1`;
             const hasExplicitRoot = existingPersons.some((p) => p.id === rootId);
             const firstGenRoots = existingPersons.filter(
-              (p) => p.generation === 1 && !p.fatherId
+              (p) => p.generation === 1 && !p.fatherId && !p.spouseOfId
             );
             const targetRootId = hasExplicitRoot
               ? rootId
@@ -562,7 +1185,7 @@ export const useLineageStore = create<LineageState>()(
           const trimmed = name.trim();
           if (!trimmed) return state;
           const updated = setProperty(
-            JSON.parse(JSON.stringify(current)),
+            structuredClone(current),
             id,
             'data',
             (data) => ({ ...data, name: trimmed })
@@ -595,9 +1218,7 @@ export const useLineageStore = create<LineageState>()(
                   const srcPersons =
                     state.personsByChart[srcKey] ||
                     createSeedPersonsForChart(String(item.id), item.data?.name);
-                  nextPersonsByChart[dstKey] = JSON.parse(
-                    JSON.stringify(srcPersons)
-                  );
+                  nextPersonsByChart[dstKey] = structuredClone(srcPersons);
                 }
               } else if (item.children?.length) {
                 result.push({
@@ -624,10 +1245,7 @@ export const useLineageStore = create<LineageState>()(
         set((state) => {
           const current =
             state.treesByProject[projectId] || cloneDefaultTree();
-          const nextTree = removeItem(
-            JSON.parse(JSON.stringify(current)),
-            id
-          );
+          const nextTree = removeItem(structuredClone(current), id);
           const currentSelected = state.selectedNodeIdByProject[projectId];
           const nextSelected =
             currentSelected === id
@@ -671,31 +1289,13 @@ export const useLineageStore = create<LineageState>()(
             state.personsByChart[key] ||
             createSeedPersonsForChart(chartId, chartName, surname);
 
-          let nextPersons = [...currentPersons, person];
-          if (person.spouseOfId) {
-            const partnerId = person.spouseOfId;
-            const spouseEntry = {
-              id: person.id,
-              relationLabel: person.spouseRelationLabel || '配偶',
-              name: formatSpouseDisplayName(person),
-            };
-            nextPersons = nextPersons.map((p) =>
-              p.id === partnerId
-                ? {
-                    ...p,
-                    spouses: [...(p.spouses || []), spouseEntry],
-                  }
-                : p
-            );
-          }
-
-          const syncedPersons = syncDerivedRankSnapshots(nextPersons);
+          const nextPersons = [...currentPersons, person];
           const shouldSelect = options?.select !== false;
 
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncedPersons,
+              [key]: nextPersons,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -712,30 +1312,7 @@ export const useLineageStore = create<LineageState>()(
             state.personsByChart[key] ||
             createSeedPersonsForChart(chartId, chartName, surname);
 
-          let nextPersons = [...currentPersons, ...personsToAdd];
-          personsToAdd.forEach((person) => {
-            if (person.spouseOfId) {
-              const partnerId = person.spouseOfId;
-              const spouseEntry = {
-                id: person.id,
-                relationLabel: person.spouseRelationLabel || '配偶',
-                name: formatSpouseDisplayName(person),
-              };
-              nextPersons = nextPersons.map((p) =>
-                p.id === partnerId
-                  ? {
-                      ...p,
-                      spouses: [
-                        ...(p.spouses || []).filter((s) => s.id !== person.id),
-                        spouseEntry,
-                      ],
-                    }
-                  : p
-              );
-            }
-          });
-
-          const syncedPersons = syncDerivedRankSnapshots(nextPersons);
+          const nextPersons = [...currentPersons, ...personsToAdd];
           const resolvedSelectId =
             options && 'selectId' in options
               ? options.selectId ?? null
@@ -744,7 +1321,7 @@ export const useLineageStore = create<LineageState>()(
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncedPersons,
+              [key]: nextPersons,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -763,13 +1340,13 @@ export const useLineageStore = create<LineageState>()(
           let updatedList = currentPersons.map((p) =>
             p.id === personId ? { ...p, ...updates } : p
           );
-          let target = updatedList.find((p) => p.id === personId);
+          const target = updatedList.find((p) => p.id === personId);
 
           // When updating a spouse's sequence order, normalize all spouses of the same partner into 1..N
           if (target?.spouseOfId && updates.siblingOrder !== undefined) {
             const partnerId = target.spouseOfId;
             const otherSpouses = updatedList
-              .filter((p) => p.spouseOfId === partnerId && p.id !== target!.id)
+              .filter((p) => p.spouseOfId === partnerId && p.id !== target.id)
               .sort((a, b) => {
                 const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
                 const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
@@ -792,80 +1369,12 @@ export const useLineageStore = create<LineageState>()(
               const newOrder = spouseOrderMap.get(p.id);
               return newOrder !== undefined ? { ...p, siblingOrder: newOrder } : p;
             });
-            target = updatedList.find((p) => p.id === personId);
           }
-
-          const syncedList =
-            target && target.spouseOfId
-              ? updatedList.map((p) => {
-                  if (p.id !== target!.spouseOfId) return p;
-                  const existing = p.spouses || [];
-                  const hasEntry = existing.some((s) => s.id === target!.id);
-                  const nextSpouses = hasEntry
-                    ? existing.map((s) =>
-                        s.id === target!.id
-                          ? {
-                              ...s,
-                              relationLabel:
-                                target!.spouseRelationLabel ||
-                                s.relationLabel ||
-                                '配偶',
-                              name: formatSpouseDisplayName(target!),
-                            }
-                          : s
-                      )
-                    : [
-                        ...existing,
-                        {
-                          id: target!.id,
-                          relationLabel: target!.spouseRelationLabel || '配偶',
-                          name: formatSpouseDisplayName(target!),
-                        },
-                      ];
-
-                  const spouseRankOrder: Record<string, number> = {
-                    原配: 1,
-                    元配: 1,
-                    正室: 1,
-                    继配: 2,
-                    次配: 2,
-                    再配: 2,
-                    三配: 3,
-                    四配: 4,
-                    五配: 5,
-                    六配: 6,
-                  };
-                  const orderLookup = new Map<string, number>();
-                  updatedList.forEach((sp) => {
-                    if (sp.spouseOfId === p.id) {
-                      const rankOrder = sp.spouseRelationLabel
-                        ? spouseRankOrder[sp.spouseRelationLabel.trim()]
-                        : undefined;
-                      orderLookup.set(
-                        sp.id,
-                        rankOrder ?? sp.siblingOrder ?? sp.biographyOrder ?? 50
-                      );
-                    }
-                  });
-                  const sortedSpouses = [...nextSpouses].sort((a, b) => {
-                    const orderA =
-                      (a.id ? orderLookup.get(a.id) : undefined) ??
-                      spouseRankOrder[a.relationLabel || ''] ??
-                      999;
-                    const orderB =
-                      (b.id ? orderLookup.get(b.id) : undefined) ??
-                      spouseRankOrder[b.relationLabel || ''] ??
-                      999;
-                    return orderA - orderB;
-                  });
-                  return { ...p, spouses: sortedSpouses };
-                })
-              : updatedList;
 
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncDerivedRankSnapshots(syncedList),
+              [key]: updatedList,
             },
           };
         }),
@@ -880,32 +1389,19 @@ export const useLineageStore = create<LineageState>()(
           const remaining = currentPersons
             .filter((p) => !toDelete.has(p.id))
             .map((p) => {
-              const hasDeletedSpouse = p.spouses?.some(
-                (s) => s.id && toDelete.has(s.id)
-              );
-              const hasDeletedMother = Boolean(
-                p.motherId && toDelete.has(p.motherId)
-              );
-              if (!hasDeletedSpouse && !hasDeletedMother) {
+              if (!p.motherId || !toDelete.has(p.motherId)) {
                 return p;
               }
               return {
                 ...p,
-                ...(hasDeletedMother ? { motherId: undefined } : {}),
-                ...(hasDeletedSpouse
-                  ? {
-                      spouses: p.spouses.filter(
-                        (s) => !(s.id && toDelete.has(s.id))
-                      ),
-                    }
-                  : {}),
+                motherId: undefined,
               };
             });
           const currentSel = state.selectedPersonIdByChart[key];
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncDerivedRankSnapshots(remaining),
+              [key]: remaining,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -930,7 +1426,7 @@ export const useLineageStore = create<LineageState>()(
             createSeedPersonsForChart(chartId, chartName, surname);
 
           const siblings = currentPersons
-            .filter((p) => p.fatherId === parentId)
+            .filter((p) => p.fatherId === parentId && !p.spouseOfId)
             .sort((a, b) => {
               const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
               const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
@@ -964,7 +1460,7 @@ export const useLineageStore = create<LineageState>()(
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncDerivedRankSnapshots(nextPersons),
+              [key]: nextPersons,
             },
           };
         }),
@@ -1005,7 +1501,6 @@ export const useLineageStore = create<LineageState>()(
                 ...p,
                 generation: (p.generation || 1) + genBump,
                 fatherId: resolvedParent.id,
-                fatherName: resolvedParent.name,
                 relationTitle:
                   p.relationTitle === '始迁祖' ? undefined : p.relationTitle,
               };
@@ -1025,7 +1520,7 @@ export const useLineageStore = create<LineageState>()(
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncDerivedRankSnapshots(nextPersons),
+              [key]: nextPersons,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -1068,23 +1563,17 @@ export const useLineageStore = create<LineageState>()(
           const cleaned = remaining.map((p) => {
             const isChild = p.fatherId === personId;
             const shiftUp = shouldShiftBack && shiftIds.has(p.id) ? -1 : 0;
-            const hasDeletedSpouse = p.spouses?.some((s) => s.id === personId);
             const hasDeletedMother = p.motherId === personId;
-            if (!isChild && shiftUp === 0 && !hasDeletedSpouse && !hasDeletedMother) {
+            if (!isChild && shiftUp === 0 && !hasDeletedMother) {
               return p;
             }
             return {
               ...p,
-              ...(isChild ? { fatherId: null, fatherName: undefined } : {}),
+              ...(isChild ? { fatherId: null } : {}),
               ...(shiftUp !== 0
                 ? { generation: Math.max(1, (p.generation || 2) + shiftUp) }
                 : {}),
               ...(hasDeletedMother ? { motherId: undefined } : {}),
-              ...(hasDeletedSpouse
-                ? {
-                    spouses: (p.spouses || []).filter((s) => s.id !== personId),
-                  }
-                : {}),
             };
           });
 
@@ -1092,7 +1581,7 @@ export const useLineageStore = create<LineageState>()(
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncDerivedRankSnapshots(cleaned),
+              [key]: cleaned,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -1103,19 +1592,16 @@ export const useLineageStore = create<LineageState>()(
     }),
     {
       name: 'nocoapp:lineage',
-      version: 3,
+      version: 5,
       storage: createAppStorage(),
-      migrate: (persistedState: unknown, version: number) => {
-        const state = (persistedState as Partial<LineageState>) || {};
-        if (version < 3) {
-          return {
-            ...state,
-            selectedPersonIdByChart: {},
-          };
-        }
-        return state;
-      },
+      partialize: (state) => ({
+        treesByProject: state.treesByProject,
+        selectedNodeIdByProject: state.selectedNodeIdByProject,
+        personsByChart: state.personsByChart,
+        viewModeByProject: state.viewModeByProject,
+      }),
+      migrate: (persistedState: unknown, version: number) =>
+        migrateLineagePersistedState(persistedState, version),
     }
   )
 );
-

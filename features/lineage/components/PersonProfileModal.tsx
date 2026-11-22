@@ -1,10 +1,10 @@
 import React, { useEffect, useId, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Pencil, User, X } from 'lucide-react';
-import { formatGenealogyDate } from '../../date-input/date-format';
-import { formatGenealogyPlace } from '../../place-input';
+import { formatGenealogyDate, getPersonDateDisplay } from '../../date-input';
+import { formatGenealogyPlace, getPersonPlaceDisplay } from '../../place-input';
 import { PersonRecord } from '../types';
-import { computeAutoRankLabel, parseAliasList } from '../utils/personHelpers';
+import { computeAutoRankLabel, getPersonAliases, normalizeEventType } from '../utils/personHelpers';
 import {
   EVENT_TYPE_LABELS,
   buildImmediateFamilyGroups,
@@ -103,7 +103,7 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
 
   if (!isOpen || !person) return null;
 
-  const aliases = parseAliasList(person.aliases, person.courtesyName);
+  const aliases = getPersonAliases(person);
   const autoRank = computeAutoRankLabel(person, allPersons);
   const birthLine = formatHeaderBirthLine(person);
   const ageVal = calculateAgeDisplay(person);
@@ -116,37 +116,13 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
         : '未知';
   const statusLabel = person.status === 'living' ? '存（健在）' : '歿（已故）';
 
-  const birthDateDisplay = (
-    person.birth?.structuredDate
-      ? formatGenealogyDate(person.birth.structuredDate)
-      : person.birth?.date || person.birthDate || ''
-  ).trim();
-  const birthPlaceDisplay = (
-    person.birth?.structuredPlace
-      ? formatGenealogyPlace(person.birth.structuredPlace)
-      : person.birth?.place || ''
-  ).trim();
+  const birthDateDisplay = getPersonDateDisplay(person, 'birth').trim();
+  const birthPlaceDisplay = getPersonPlaceDisplay(person, 'birth').trim();
 
-  const deathDateDisplay = (
-    person.death?.structuredDate
-      ? formatGenealogyDate(person.death.structuredDate)
-      : person.death?.date || person.deathDate || ''
-  ).trim();
-  const deathPlaceDisplay = (
-    person.death?.structuredPlace
-      ? formatGenealogyPlace(person.death.structuredPlace)
-      : person.death?.place || ''
-  ).trim();
-  const burialDateDisplay = (
-    person.death?.structuredBurialDate
-      ? formatGenealogyDate(person.death.structuredBurialDate)
-      : person.death?.burialDate || ''
-  ).trim();
-  const burialPlaceDisplay = (
-    person.death?.structuredBurialPlace
-      ? formatGenealogyPlace(person.death.structuredBurialPlace)
-      : person.death?.burialPlace || person.burialPlace || ''
-  ).trim();
+  const deathDateDisplay = getPersonDateDisplay(person, 'death').trim();
+  const deathPlaceDisplay = getPersonPlaceDisplay(person, 'death').trim();
+  const burialDateDisplay = getPersonDateDisplay(person, 'burial').trim();
+  const burialPlaceDisplay = getPersonPlaceDisplay(person, 'burial').trim();
 
   const romanizedFull = [
     person.romanizedName?.surname,
@@ -156,42 +132,7 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  const educationRows =
-    person.career?.educationHistory && person.career.educationHistory.length > 0
-      ? person.career.educationHistory
-      : person.career?.school ||
-          person.career?.educationLevel ||
-          person.career?.educationPeriod
-        ? [
-            {
-              id: 'legacy-edu',
-              period: person.career?.educationPeriod,
-              level: [person.career?.educationLevel, person.career?.graduationStatus]
-                .filter(Boolean)
-                .join(' · '),
-              school: [person.career?.school, person.career?.major]
-                .filter(Boolean)
-                .join(' · '),
-            },
-          ]
-        : [];
-
-  const careerRows =
-    person.career?.careerHistory && person.career.careerHistory.length > 0
-      ? person.career.careerHistory
-      : person.career?.profession ||
-          person.career?.title ||
-          person.officialTitle
-        ? [
-            {
-              id: 'legacy-career',
-              period: '',
-              location: '',
-              organization: person.career?.profession || '',
-              position: person.career?.title || person.officialTitle || '',
-            },
-          ]
-        : [];
+  const lifeEvents = person.events || [];
 
   const sequenceDisplay = [
     person.sequenceMeta?.mainLabel
@@ -212,12 +153,10 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
     .filter(Boolean)
     .join(' / ');
 
-  const originalPageDisplay =
-    person.sequenceMeta?.originalPage ?? person.biographyPage;
+  const originalPageDisplay = person.sequenceMeta?.originalPage;
 
   const hasPrivateInfo = Boolean(
-    person.privateInfo?.idCardName ||
-      person.privateInfo?.idCardNum ||
+    person.privateInfo?.idCardNum ||
       person.privateInfo?.mobile ||
       person.privateInfo?.address
   );
@@ -315,7 +254,7 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
               <ProfileField label="后缀称谓" value={person.nameSuffix} />
               <ProfileField
                 label="字 / 号 / 别名"
-                value={aliases.length > 0 ? aliases.join('、') : person.courtesyName}
+                value={aliases.join('、')}
               />
               <ProfileField label="常用名" value={person.legalName} />
               <ProfileField label="乳名 / 幼名" value={person.childhoodName} />
@@ -338,7 +277,7 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
                 value={`第 ${person.generation} 世`}
                 mono
               />
-              <ProfileField label="排行" value={person.rank || autoRank} />
+              <ProfileField label="排行" value={autoRank} />
               <ProfileField label="派语字辈" value={person.generationWord} />
               <ProfileField label="行第" value={person.hangOrder} />
               <ProfileField label="与父母/配偶关系" value={person.relationType} />
@@ -431,154 +370,48 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
 
           <hr className="border-0 border-t border-[#ECEEEE] dark:border-slate-700/70" />
 
-          {/* Section 4: 学业与职衔履历 */}
-          <section className="space-y-4">
+          {/* Section 4: 生平事件记录 */}
+          <section className="space-y-3">
             <h3 className="text-[14px] font-bold text-[#212225] dark:text-slate-100">
-              学业与职业经历
+              生平事件记录
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-[12px] font-medium text-[#56585A] dark:text-slate-400 mb-2">
-                  教育经历
-                </h4>
-                {educationRows.length > 0 ? (
-                  <ul className="space-y-2.5">
-                    {educationRows.map((edu, idx) => {
-                      const period = (
-                        edu.structuredPeriod
-                          ? formatGenealogyDate(edu.structuredPeriod)
-                          : edu.period || ''
-                      ).trim();
-                      return (
-                        <li
-                          key={edu.id || idx}
-                          className="text-[13.5px] text-[#212225] dark:text-slate-100 leading-relaxed"
-                        >
-                          <div className="font-medium">
-                            {edu.school || '未填写学校'}
-                            {edu.level ? ` · ${edu.level}` : ''}
-                          </div>
-                          {period && (
-                            <div className="text-[12px] text-[#56585A] dark:text-slate-400 tabular-nums">
-                              {period}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="text-[13.5px] text-[#8C9094] dark:text-slate-500">
-                    暂无教育经历记录
-                  </p>
-                )}
-              </div>
+            {lifeEvents.length > 0 ? (
+              <ul className="space-y-3">
+                {lifeEvents.map((ev, idx) => {
+                  const evDate = ev.structuredDate
+                    ? formatGenealogyDate(ev.structuredDate).trim()
+                    : '';
+                  const evPlace = ev.structuredPlace
+                    ? formatGenealogyPlace(ev.structuredPlace).trim()
+                    : '';
+                  const evLabel =
+                    EVENT_TYPE_LABELS[normalizeEventType(ev.type)] || '其他';
 
-              <div>
-                <h4 className="text-[12px] font-medium text-[#56585A] dark:text-slate-400 mb-2">
-                  职业与功名官阶
-                </h4>
-                {careerRows.length > 0 ? (
-                  <ul className="space-y-2.5">
-                    {careerRows.map((job, idx) => {
-                      const period = (
-                        job.structuredPeriod
-                          ? formatGenealogyDate(job.structuredPeriod)
-                          : job.period || ''
-                      ).trim();
-                      return (
-                        <li
-                          key={job.id || idx}
-                          className="text-[13.5px] text-[#212225] dark:text-slate-100 leading-relaxed"
-                        >
-                          <div className="font-medium">
-                            {[job.organization, job.position]
-                              .filter(Boolean)
-                              .join(' · ') || '未填写单位或职务'}
-                          </div>
-                          {(period || job.location) && (
-                            <div className="text-[12px] text-[#56585A] dark:text-slate-400 tabular-nums">
-                              {[period, job.location].filter(Boolean).join(' · ')}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="text-[13.5px] text-[#8C9094] dark:text-slate-500">
-                    暂无职业或功名记录
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {(person.career?.resume || person.career?.lifeSummary) && (
-              <dl className="grid grid-cols-1 gap-4 pt-1">
-                {person.career.resume && (
-                  <ProfileField label="履历详情" value={person.career.resume} />
-                )}
-                {person.career.lifeSummary && (
-                  <ProfileField
-                    label="生平记述"
-                    value={person.career.lifeSummary}
-                  />
-                )}
-              </dl>
-            )}
-
-            {person.events && person.events.length > 0 && (
-              <div className="pt-1">
-                <h4 className="text-[12px] font-medium text-[#56585A] dark:text-slate-400 mb-2">
-                  其他生平事件
-                </h4>
-                <ul className="space-y-2.5">
-                  {person.events.map((ev, idx) => {
-                    const evDate = (
-                      ev.structuredDate
-                        ? formatGenealogyDate(ev.structuredDate)
-                        : ev.date || ''
-                    ).trim();
-                    const evPlace = (
-                      ev.structuredPlace
-                        ? formatGenealogyPlace(ev.structuredPlace)
-                        : ev.place || ''
-                    ).trim();
-                    const evLabel =
-                      ev.type === 'other' && ev.customTypeLabel?.trim()
-                        ? ev.customTypeLabel.trim()
-                        : EVENT_TYPE_LABELS[ev.type] || '事件';
-                    const headline = [
-                      evLabel,
-                      ev.relatedPersonName?.trim(),
-                      ev.organization?.trim(),
-                      ev.position?.trim() || ev.educationLevel?.trim(),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ');
-
-                    return (
-                      <li
-                        key={ev.id || idx}
-                        className="text-[13.5px] text-[#212225] dark:text-slate-100 leading-relaxed"
-                      >
-                        <div className="font-medium">{headline}</div>
-                        {(evDate || evPlace) && (
-                          <div className="text-[12px] text-[#56585A] dark:text-slate-400 tabular-nums">
-                            {[evDate, evPlace].filter(Boolean).join(' · ')}
-                          </div>
-                        )}
-                        {ev.description?.trim() && (
-                          <div className="text-[12.5px] text-[#56585A] dark:text-slate-300 mt-0.5">
-                            {ev.description.trim()}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+                  return (
+                    <li
+                      key={ev.id || idx}
+                      className="text-[13.5px] text-[#212225] dark:text-slate-100 leading-relaxed"
+                    >
+                      <div className="font-semibold">{evLabel}</div>
+                      {(evDate || evPlace) && (
+                        <div className="text-[12px] text-[#56585A] dark:text-slate-400 tabular-nums">
+                          {[evDate, evPlace].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                      {ev.description?.trim() && (
+                        <div className="text-[13px] text-[#3B3E42] dark:text-slate-300 mt-0.5">
+                          {ev.description.trim()}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[13.5px] text-[#8C9094] dark:text-slate-500">
+                暂无生平事件记录
+              </p>
             )}
           </section>
 
@@ -686,10 +519,6 @@ export const PersonProfileModal: React.FC<PersonProfileModalProps> = ({
                   联系与证件资料
                 </h3>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                  <ProfileField
-                    label="实名姓名"
-                    value={person.privateInfo?.idCardName}
-                  />
                   <ProfileField
                     label="联系电话"
                     value={person.privateInfo?.mobile}

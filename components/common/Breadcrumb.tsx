@@ -25,6 +25,7 @@ import { ViewMode } from '../../types';
 import { useRouteContext } from '../../hooks/useRouteContext';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useLineageStore } from '../../store/useLineageStore';
+import { formatGenealogyPlace } from '../../features/place-input';
 
 const VIEW_BADGE_CONFIG: Partial<
   Record<
@@ -119,7 +120,7 @@ const Breadcrumb: React.FC = () => {
         surname: values.primarySurname?.trim(),
         ancestor: values.ancestor?.trim(),
         hallName: values.primaryName?.trim(),
-        originText: values.region?.trim() || undefined,
+        originText: formatGenealogyPlace(values.region).trim() || undefined,
         description: values.description.trim() || undefined,
         colorTheme: values.colorTheme,
         projectLevel: values.projectLevel ?? 1,

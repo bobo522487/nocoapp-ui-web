@@ -22,6 +22,7 @@ import { buildGenealogyGraph } from './utils/layoutBuilder';
 import { layoutWithElk } from './utils/elkLayout';
 import { GenealogyFlowNode, GenealogyFlowEdge } from './types';
 import { CanvasZoomBar } from './components/CanvasZoomBar';
+import { formatPersonAliases } from '../utils/personHelpers';
 import {
   Sparkles,
   RotateCcw,
@@ -399,7 +400,7 @@ export const GenealogyCanvas: React.FC<GenealogyCanvasProps> = ({
       return (
         p.name.toLowerCase().includes(q) ||
         fullName.toLowerCase().includes(q) ||
-        (p.courtesyName || '').toLowerCase().includes(q)
+        formatPersonAliases(p).toLowerCase().includes(q)
       );
     });
     if (match) {

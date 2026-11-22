@@ -6,7 +6,6 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import {
   PlaceInput,
-  formatGenealogyPlace,
   parsePlaceText,
   type GenealogyPlace,
 } from '../../place-input';
@@ -77,14 +76,12 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
       return;
     }
 
-    const region = formatGenealogyPlace(regionPlace).trim();
-
     onSubmit({
       name: name.trim(),
       surname: surname.trim(),
       hallName: hallName.trim() || undefined,
       progenitor: progenitor.trim(),
-      region: region || undefined,
+      region: regionPlace ?? null,
     });
   };
 

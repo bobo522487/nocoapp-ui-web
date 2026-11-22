@@ -105,7 +105,7 @@ function extractYearLabel(
     year?: number;
     dynastyName?: string;
     reignName?: string;
-    originalText?: string;
+    originalText?: string | null;
   } | null
 ): string {
   if (structuredDate) {

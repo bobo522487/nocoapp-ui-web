@@ -1,6 +1,6 @@
 # 云谱前端（apps/web）
 
-云谱工作区前端，基于 React 19 + Vite 6 + TypeScript + Tailwind 4 + Zustand + React Router 6。
+云谱工作区前端，基于 React 19 + Vite 8 + TypeScript + Tailwind 4 + Zustand + React Router 6。
 
 ## 本地运行
 

@@ -186,7 +186,7 @@ export function getChildCount(items: TreeItem[], id: UniqueIdentifier) {
   return item ? countChildren(item.children) : 0;
 }
 
-function countChildren(items: TreeItem[]) {
+function countChildren(items: TreeItem[]): number {
   return items.reduce((acc, item) => {
     if (item.children.length) {
       return acc + 1 + countChildren(item.children);

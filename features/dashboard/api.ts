@@ -102,6 +102,18 @@ export type CreateProjectPayload = {
   projectLevel?: number;
 };
 
+export type UpdateProjectPayload = {
+  name?: string;
+  status?: ProjectStatus;
+  surname?: string | null;
+  ancestor?: string | null;
+  hallName?: string | null;
+  originText?: string | null;
+  description?: string | null;
+  colorTheme?: ProjectColorTheme;
+  projectLevel?: number;
+};
+
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -234,7 +246,7 @@ export const createProjectRequest = (
 
 export const updateProjectRequest = (
   projectId: string,
-  payload: Partial<CreateProjectPayload> & { expectedUpdatedAt: string },
+  payload: UpdateProjectPayload & { expectedUpdatedAt: string },
 ) =>
   apiRequest<{ project: ProjectRecord }>(`/api/v1/projects/${projectId}`, {
     method: 'PATCH',

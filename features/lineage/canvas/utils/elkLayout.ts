@@ -25,7 +25,7 @@ export async function layoutWithElk(
       'elk.edgeRouting': 'ORTHOGONAL',
     },
     children: graphNodes.map((node) => {
-      const isCard = node.type === 'person' || node.type === 'quickAdd';
+      const isCard = node.type === 'person';
       const isUnion = node.type === 'union';
       const width = isCard ? FS_CARD_W : isUnion ? 32 : 8;
       const height = isCard ? FS_CARD_H : isUnion ? 32 : 8;

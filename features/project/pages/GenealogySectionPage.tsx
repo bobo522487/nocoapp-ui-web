@@ -23,7 +23,6 @@ import {
   makeChartStorageKey,
   useLineageStore,
 } from '../../../store/useLineageStore';
-import { GenealogyBookPreview } from '../../dashboard/components/GenealogyBookPreview';
 import { createSeedPersonsForChart } from '../../lineage/lineageData';
 import { PersonLifeEvent, PersonRecord } from '../../lineage/types';
 import { LineageTreeView } from '../../lineage/components/LineageTreeView';
@@ -1281,52 +1280,6 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
                 </p>
               </div>
             )}
-          </div>
-        ) : section === 'books' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 items-start">
-            <div className="rounded-xl border border-border bg-[hsl(var(--surface-subtle))] p-6 flex flex-col items-center justify-center">
-              <GenealogyBookPreview
-                projectName={activeProject?.name || '家族'}
-                primaryName={activeProject?.primaryName || ''}
-                primarySurname={activeProject?.primarySurname || ''}
-                region={activeProject?.region || ''}
-                projectState={activeProject?.projectState || '0'}
-                projectLevel={activeProject?.projectLevel || 1}
-                colorTheme={activeProject?.colorTheme || 'sky'}
-              />
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-              <div className="space-y-1">
-                <h2 className="text-[15px] font-semibold text-foreground">
-                  {config.emptyTitle}
-                </h2>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">
-                  {config.emptyDesc}
-                </p>
-              </div>
-
-              <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
-                {config.outlineItems.map((item, idx) => (
-                  <div
-                    key={item.name}
-                    className="px-4 py-3 flex items-start justify-between gap-4 bg-background"
-                  >
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="text-[13px] font-semibold text-foreground">
-                        0{idx + 1}. {item.name}
-                      </div>
-                      <div className="text-[12px] text-muted-foreground">
-                        {item.desc}
-                      </div>
-                    </div>
-                    <span className="text-[12px] text-muted-foreground whitespace-nowrap shrink-0">
-                      占位规划
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         ) : section === 'articles' ? (
           selectedArticleNode?.type === 'folder' ? (

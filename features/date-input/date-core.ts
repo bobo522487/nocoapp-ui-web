@@ -670,13 +670,14 @@ export function convertCalendarPoint(
     }
 
     if (refYear !== null) {
+      const resolvedRefYear = refYear;
       let matchedEra = REIGN_ERAS.find(
-        (era) => era.startYear <= refYear && refYear <= era.endYear
+        (era) => era.startYear <= resolvedRefYear && resolvedRefYear <= era.endYear
       );
       if (
         cleaned.calendar === 'gregorian' &&
-        refYear >= 1912 &&
-        refYear <= 1949
+        resolvedRefYear >= 1912 &&
+        resolvedRefYear <= 1949
       ) {
         matchedEra = findEraById('minguo') || matchedEra;
       }

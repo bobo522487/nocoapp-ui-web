@@ -7,8 +7,12 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
-import { RegionCascader } from '../../dashboard/components/RegionCascader';
-import { DEFAULT_REGION_PATH } from '../../dashboard/data/regions';
+import {
+  PlaceInput,
+  formatGenealogyPlace,
+  parsePlaceText,
+  type GenealogyPlace,
+} from '../../place-input';
 import { useRouteContext } from '../../../hooks/useRouteContext';
 import {
   ASSET_COLOR_PALETTES,
@@ -35,8 +39,8 @@ const ProjectSettingsPage: React.FC = () => {
   const [primaryName, setPrimaryName] = useState(
     activeProject?.primaryName || ''
   );
-  const [region, setRegion] = useState(
-    activeProject?.region || DEFAULT_REGION_PATH
+  const [regionPlace, setRegionPlace] = useState<GenealogyPlace | null>(() =>
+    parsePlaceText(activeProject?.region)
   );
   const [projectState, setProjectState] = useState<'0' | '1'>(
     activeProject?.projectState || '0'
@@ -61,7 +65,7 @@ const ProjectSettingsPage: React.FC = () => {
       setPrimarySurname(activeProject.primarySurname || '');
       setAncestor(activeProject.ancestor || '');
       setPrimaryName(activeProject.primaryName || '');
-      setRegion(activeProject.region || DEFAULT_REGION_PATH);
+      setRegionPlace(parsePlaceText(activeProject.region));
       setProjectState(activeProject.projectState || '0');
       setProjectLevel(activeProject.projectLevel || 1);
       setDescription(activeProject.description || '');
@@ -73,12 +77,13 @@ const ProjectSettingsPage: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeProject || !name.trim()) return;
+    const formattedRegion = formatGenealogyPlace(regionPlace).trim();
     updateProject(activeProject.id, {
       name: name.trim(),
       primarySurname: primarySurname.trim() || undefined,
       ancestor: ancestor.trim() || undefined,
       primaryName: primaryName.trim() || undefined,
-      region: region.trim() || undefined,
+      region: formattedRegion || undefined,
       projectState,
       projectLevel,
       description: description.trim(),
@@ -160,10 +165,13 @@ const ProjectSettingsPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="project-settings-region">地区</Label>
-              <RegionCascader
+              <PlaceInput
                 id="project-settings-region"
-                value={region}
-                onChange={setRegion}
+                label="所在地区"
+                value={regionPlace}
+                onChange={setRegionPlace}
+                placeholder="输入省市区县（如 江西泰和）或原始地名，或点右侧选择"
+                className="h-9 text-[13px] bg-background"
               />
             </div>
 
@@ -206,7 +214,7 @@ const ProjectSettingsPage: React.FC = () => {
                         size={16}
                         className={
                           star <= projectLevel
-                            ? 'fill-amber-400 text-amber-400'
+                            ? 'fill-primary text-primary'
                             : 'text-muted-foreground/35'
                         }
                       />

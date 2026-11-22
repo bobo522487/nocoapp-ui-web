@@ -129,6 +129,7 @@ const Breadcrumb: React.FC = () => {
           familyName: values.name,
           ancestor: values.ancestor,
           surname: values.primarySurname,
+          region: values.region,
         });
       }
       syncProject(result.project);
@@ -152,6 +153,7 @@ const Breadcrumb: React.FC = () => {
           familyName: values.name,
           ancestor: values.ancestor,
           surname: values.primarySurname,
+          region: values.region,
         });
       }
       setIsCreateProjectOpen(false);
@@ -238,7 +240,7 @@ const Breadcrumb: React.FC = () => {
                   value={projSearch}
                   onChange={(e) => setProjSearch(e.target.value)}
                   placeholder="切换家族..."
-                  className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-8 pl-7 pr-2 text-xs rounded-md border border-input bg-card text-foreground placeholder:text-muted-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
                   autoFocus
                 />
               </div>

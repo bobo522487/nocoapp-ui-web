@@ -261,7 +261,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
             title="段落样式"
             value={currentHeadingValue}
             onChange={(e) => handleHeadingChange(e.target.value)}
-            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
           >
             <option value="p">正文</option>
             <option value="h1">标题 1</option>
@@ -281,7 +281,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
             title="字体"
             value={currentFontFamily}
             onChange={(e) => handleFontFamilyChange(e.target.value)}
-            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[116px]"
+            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)] max-w-[116px]"
           >
             <option value="">宋体（默认）</option>
             {FONT_FAMILIES.map((f) => (
@@ -303,7 +303,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
             title="字号"
             value={currentFontSize}
             onChange={(e) => handleFontSizeChange(e.target.value)}
-            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)] tabular-nums"
           >
             {FONT_SIZES.map((s) => (
               <option key={s.value} value={s.value}>

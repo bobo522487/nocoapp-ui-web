@@ -285,7 +285,7 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
               setChartId(e.target.value);
               setFocusedPersonId('');
             }}
-            className="flex-1 min-w-0 h-8 rounded-md border border-input bg-background px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="flex-1 min-w-0 h-8 rounded-md border border-input bg-card px-2.5 text-[12px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
           >
             {chartOptions.map((c) => (
               <option key={c.id} value={c.id}>

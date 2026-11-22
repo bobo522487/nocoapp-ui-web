@@ -199,7 +199,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                     </td>
                     <td className="py-3 px-4">
                       {p.officialTitle ? (
-                        <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
+                        <span className="inline-flex items-center gap-1 text-primary font-medium">
                           <Award size={12} className="shrink-0" />
                           {p.officialTitle}
                         </span>

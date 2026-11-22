@@ -6,58 +6,55 @@ export interface PersonNodeData extends Record<string, unknown> {
   generation: number;
   clanSurname?: string;
   isSelected?: boolean;
-  isEditingName?: boolean;
+  isFirstAncestor?: boolean;
+  canAddParent?: boolean;
+  isAddMenuOpen?: boolean;
   hasChildren?: boolean;
   isCollapsed?: boolean;
   childrenCount?: number;
   biographyPage?: number;
   biographyOrder?: number;
   onSelect?: (personId: string) => void;
-  onAddChild?: (personId: string) => void;
+  onAddChild?: (personId: string, gender?: 'male' | 'female') => void;
+  onAddSibling?: (personId: string, gender?: 'male' | 'female') => void;
   onAddSpouse?: (personId: string) => void;
+  onAddParent?: (personId: string) => void;
+  onToggleAddMenu?: (personId: string | null) => void;
   onDelete?: (personId: string) => void;
   onToggleCollapse?: (personId: string) => void;
-  onCommitName?: (personId: string, name: string, openDrawer: boolean) => void;
-  onCancelEditing?: (personId: string) => void;
 }
 
 export interface UnionNodeData extends Record<string, unknown> {
   unionId: string;
   fatherId: string;
+  fatherName?: string;
   spouseName?: string;
   spouseId?: string;
   generation: number;
+  hasChildren?: boolean;
+  isCollapsed?: boolean;
+  childrenCount?: number;
+  onToggleCollapse?: (personId: string) => void;
 }
 
-export interface QuickAddNodeData extends Record<string, unknown> {
-  kind: 'spouse' | 'sibling' | 'child';
+export interface ClanHeaderNodeData extends Record<string, unknown> {
   label: string;
-  targetPersonId: string;
-  onAction?: () => void;
 }
 
-export interface GenHeaderNodeData extends Record<string, unknown> {
-  generation: number;
-  label: string;
-  count?: number;
-  onFilterGeneration?: (gen: number) => void;
-}
-
-export type PersonFlowNode = Node<PersonNodeData, 'person' | 'bookPerson'>;
+export type PersonFlowNode = Node<PersonNodeData, 'person'>;
 export type UnionFlowNode = Node<UnionNodeData, 'union'>;
-export type QuickAddFlowNode = Node<QuickAddNodeData, 'quickAdd'>;
-export type GenHeaderFlowNode = Node<GenHeaderNodeData, 'genHeader'>;
+export type ClanHeaderFlowNode = Node<ClanHeaderNodeData, 'clanHeader'>;
 
 export type GenealogyFlowNode =
   | PersonFlowNode
   | UnionFlowNode
-  | QuickAddFlowNode
-  | GenHeaderFlowNode;
+  | ClanHeaderFlowNode;
 
 export type GenealogyFlowEdge = Edge<{
   relationship?:
     | 'marriage'
     | 'bloodline'
+    | 'bloodline_stem'
     | 'adoption'
     | 'ghost_marriage'
     | 'ghost_bloodline';

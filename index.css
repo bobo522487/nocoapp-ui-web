@@ -42,73 +42,77 @@
   --animate-accordion-up: accordion-up 0.2s ease-out;
 }
 
-/* Warm Archival Ink Editorial — Curated Light Archival & Dark Ink Pair */
+/* Cool Archival Blue-Teal (#057091) — Unified Light & Desaturated Dark Slate Theme */
 :root {
-  /* Light Archival (宣纸明韵) — 60% Rice Paper Canvas, 30% Ivory & Linen Surfaces, 10% Vermilion Seal */
-  --background: 38 36% 94.5%;
-  --foreground: 36 9% 11%;
-  --card: 39 42% 97.4%;
-  --card-foreground: 36 9% 11%;
-  --popover: 40 44% 98.4%;
-  --popover-foreground: 36 9% 11%;
-  --primary: 10 70% 32%;
-  --primary-foreground: 38 44% 97%;
-  --secondary: 38 25% 90.5%;
-  --secondary-foreground: 36 9% 15%;
-  --muted: 38 22% 90%;
-  --muted-foreground: 33 7% 38%;
-  --placeholder: 34 8% 64%;
-  --accent: 12 36% 91.5%;
-  --accent-foreground: 10 70% 27%;
-  --destructive: 0 72% 45%;
+  /* Light Mode — 60% Cool Off-White Canvas, 30% Pure White Cards, 10% Blue-Teal (#057091) */
+  --background: 180 6% 96%;
+  --foreground: 220 10% 14%;
+  --card: 0 0% 99.6%;
+  --card-foreground: 220 10% 14%;
+  --popover: 0 0% 99.6%;
+  --popover-foreground: 220 10% 14%;
+  --primary: 194 93% 29%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 180 6% 94%;
+  --secondary-foreground: 220 10% 16%;
+  --muted: 180 6% 93%;
+  --muted-foreground: 210 5% 38%;
+  --placeholder: 206 5% 53%;
+  --accent: 194 52% 94%;
+  --accent-foreground: 194 93% 24%;
+  --destructive: 0 72% 46%;
   --destructive-foreground: 0 0% 98%;
-  --border: 38 22% 84.5%;
-  --input: 38 20% 81%;
-  --ring: 10 70% 32%;
+  --border: 180 5% 85.5%;
+  --input: 204 5% 78%;
+  --ring: 194 93% 29%;
   --radius: 0.5rem;
 
-  /* Archival Surface, Hairline & Micro-Shadow Tokens */
-  --surface-subtle: 38 28% 91.2%;
-  --surface-hover: 38 24% 87.5%;
-  --surface-active: 14 36% 91.5%;
-  --border-subtle: 38 22% 88.5%;
-  --border-strong: 37 18% 72%;
-  --shadow-control: 0 1px 2px 0 rgb(31 29 26 / 0.05);
-  --shadow-card-hover: 0 3px 10px -2px rgb(31 29 26 / 0.08), 0 1px 3px -1px rgb(31 29 26 / 0.04);
-  --shadow-popover: 0 10px 28px -4px rgb(31 29 26 / 0.12), 0 2px 8px -1px rgb(31 29 26 / 0.06);
+  /* Cool Surface, Hairline, Shadow & 2px-Focus-Halo Tokens */
+  --surface-subtle: 180 6% 96.3%;
+  --surface-hover: 194 20% 92.5%;
+  --surface-active: 194 52% 94%;
+  --border-subtle: 180 5% 90%;
+  --border-strong: 204 5% 69%;
+  --shadow-control: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-card-hover: 0 4px 12px -2px rgb(15 23 42 / 0.09), 0 1px 4px -1px rgb(15 23 42 / 0.05);
+  --shadow-popover: 0 12px 28px -4px rgb(15 23 42 / 0.13), 0 2px 8px -1px rgb(15 23 42 / 0.06);
+  --shadow-focus-halo: 0 0 0 4px rgb(5 112 145 / 0.16);
 }
 
 .dark {
-  /* Dark Ink (墨石夜览) — 60% Sumi-Ink Canvas, 30% Slate Ink Surfaces, 10% Warm Cinnabar */
-  --background: 30 11% 7.5%;
-  --foreground: 38 30% 92%;
-  --card: 30 11% 10.5%;
-  --card-foreground: 38 30% 92%;
-  --popover: 30 12% 11.5%;
-  --popover-foreground: 38 30% 92%;
-  --primary: 11 66% 62%;
-  --primary-foreground: 30 14% 7%;
-  --secondary: 30 10% 15.5%;
-  --secondary-foreground: 38 26% 90%;
-  --muted: 30 10% 15.5%;
-  --muted-foreground: 35 9% 62%;
-  --placeholder: 34 8% 43%;
-  --accent: 11 28% 18%;
-  --accent-foreground: 12 68% 76%;
-  --destructive: 0 62% 54%;
+  /* Dark Mode — 60% Deep Slate Blue-Gray Canvas, 30% Elevated Slate Surfaces, 10% Desaturated Soft Teal */
+  --background: 214 18% 10.5%;
+  --foreground: 210 20% 93%;
+  --card: 214 16% 14%;
+  --card-foreground: 210 20% 93%;
+  --popover: 214 16% 16.5%;
+  --popover-foreground: 210 20% 93%;
+  --primary: 194 54% 58%;
+  --primary-foreground: 214 25% 9%;
+  --secondary: 214 15% 18.5%;
+  --secondary-foreground: 210 20% 91%;
+  --muted: 214 15% 18.5%;
+  --muted-foreground: 214 13% 65%;
+  --placeholder: 214 11% 48%;
+  --accent: 194 34% 21%;
+  --accent-foreground: 194 60% 76%;
+  --destructive: 0 56% 56%;
   --destructive-foreground: 0 0% 98%;
-  --border: 32 12% 17.5%;
-  --input: 32 12% 20.5%;
-  --ring: 11 66% 62%;
+  --border: 215 16% 23%;
+  --input: 215 16% 28.5%;
+  --ring: 194 58% 60%;
 
-  --surface-subtle: 30 11% 12%;
-  --surface-hover: 30 10% 16.5%;
-  --surface-active: 11 28% 18.5%;
-  --border-subtle: 32 12% 14.5%;
-  --border-strong: 32 12% 27%;
-  --shadow-control: 0 1px 2px 0 rgb(0 0 0 / 0.32);
-  --shadow-card-hover: 0 4px 14px -2px rgb(0 0 0 / 0.45), 0 1px 3px -1px rgb(0 0 0 / 0.28);
-  --shadow-popover: 0 12px 32px -4px rgb(0 0 0 / 0.62), 0 2px 8px -1px rgb(0 0 0 / 0.38);
+  --surface-subtle: 214 16% 17%;
+  --surface-hover: 214 16% 21.5%;
+  --surface-active: 194 36% 20%;
+  --border-subtle: 215 16% 20%;
+  --border-strong: 215 15% 36%;
+  --shadow-control: 0 1px 2px 0 rgb(0 0 0 / 0.34);
+  --shadow-card: 0 2px 6px -1px rgb(0 0 0 / 0.36), 0 1px 2px 0 rgb(0 0 0 / 0.24);
+  --shadow-card-hover: 0 6px 16px -2px rgb(0 0 0 / 0.46), 0 2px 6px -1px rgb(0 0 0 / 0.30);
+  --shadow-popover: 0 14px 34px -4px rgb(0 0 0 / 0.64), 0 3px 10px -1px rgb(0 0 0 / 0.40);
+  --shadow-focus-halo: 0 0 0 4px rgb(88 177 205 / 0.20);
 }
 
 @keyframes accordion-down {
@@ -220,6 +224,25 @@
   color: hsl(var(--foreground));
 }
 .react-flow__pane {
+  background-color: hsl(var(--background)) !important;
+}
+/* Lineage canvas stage inherits global blue-teal tokens cleanly */
+.fs-lineage-theme {
+  --background: 180 5% 92.2%;
+  --fs-edge-stroke: #9EA1A3;
+}
+
+.dark .fs-lineage-theme {
+  --background: 214 18% 10.5%;
+  --fs-edge-stroke: #5E6973;
+}
+
+.fs-card-tree-stage.react-flow,
+.fs-card-tree-stage .react-flow__pane {
+  background-color: #EAECEC !important;
+}
+.dark .fs-card-tree-stage.react-flow,
+.dark .fs-card-tree-stage .react-flow__pane {
   background-color: hsl(var(--background)) !important;
 }
 .react-flow__controls {

@@ -71,8 +71,8 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
     desc: string;
     icon: React.ElementType;
   }[] = [
-    { id: 'light', label: '宣纸明韵', desc: '温润宣纸底色与朱砂印记', icon: Sun },
-    { id: 'dark', label: '墨石夜览', desc: '深松烟墨夜览低眩光护眼', icon: Moon },
+    { id: 'light', label: '青蓝明韵', desc: '纯净冷白与浅灰底色，青蓝主色标识', icon: Sun },
+    { id: 'dark', label: '深石板夜览', desc: '深石板青灰护眼底色与柔化青蓝高亮', icon: Moon },
     { id: 'system', label: '跟随系统', desc: '依据设备明暗设置自动切换', icon: Monitor },
   ];
 
@@ -192,9 +192,9 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
               <div className="space-y-6">
                 <div className="space-y-3">
                   <div>
-                    <Label>宣纸与墨石双态主题</Label>
+                    <Label>青蓝明韵与深石板夜览双态主题</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      专为长时间宗谱编修调校的低眩光宣纸亮色与松烟墨夜览配色。
+                      专为长时间宗谱编修调校的纯净冷白亮色与低刺眼深石板夜览配色。
                     </p>
                   </div>
 
@@ -217,10 +217,10 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
                           <div
                             className={`w-11 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
                               opt.id === 'dark'
-                                ? 'bg-[#141210] border-[#2F2A24] text-[#DD725A]'
+                                ? 'bg-[#161B21] border-[#2C3540] text-[#58B1CD]'
                                 : opt.id === 'light'
-                                  ? 'bg-[#FAF7F2] border-[#E5DFD3] text-[#8C2D19]'
-                                  : 'bg-gradient-to-br from-[#FAF7F2] via-[#FAF7F2] to-[#141210] border-border text-foreground'
+                                  ? 'bg-[#F5F6F6] border-[#D8DADA] text-[#057091]'
+                                  : 'bg-gradient-to-br from-[#F5F6F6] via-[#F5F6F6] to-[#161B21] border-border text-foreground'
                             }`}
                           >
                             <Icon size={15} />

@@ -544,7 +544,7 @@ export const EditCatalogDocModal: React.FC<EditCatalogDocModalProps> = ({
                 id="catalogDocSource"
                 value={selectedSourceId}
                 onChange={(e) => setSelectedSourceId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full h-9 rounded-md border border-input bg-card px-3 text-[13px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
               >
                 {allArticles.map((art) => (
                   <option key={art.id} value={art.id}>
@@ -678,7 +678,7 @@ export const MoveNodeModal: React.FC<MoveNodeModalProps> = ({
                     onChange={() => setSelectedKey(secKey)}
                     className="accent-[hsl(var(--primary))]"
                   />
-                  <FolderOpen size={14} className="text-amber-500 shrink-0" />
+                  <FolderOpen size={14} className="text-primary shrink-0" />
                   <span className="truncate">{sec.label}（顶级目录）</span>
                 </label>
 
@@ -1058,7 +1058,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setPickerTarget('start')}
-                      className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-left text-[13px] flex items-center justify-between hover:border-primary/60 transition-colors cursor-pointer"
+                      className="flex-1 h-9 px-3 rounded-md border border-input bg-card text-left text-[13px] flex items-center justify-between hover:border-primary/60 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] transition-all duration-150 cursor-pointer"
                     >
                       <span
                         className={
@@ -1119,7 +1119,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setPickerTarget('end')}
-                        className="w-full h-8 px-3 rounded-md border border-input bg-background text-left text-[12px] flex items-center justify-between hover:border-primary/60 transition-colors cursor-pointer"
+                        className="w-full h-8 px-3 rounded-md border border-input bg-card text-left text-[12px] flex items-center justify-between hover:border-primary/60 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] transition-all duration-150 cursor-pointer"
                       >
                         <span
                           className={
@@ -1162,16 +1162,16 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                   欧式版心 · 排版位置演示
                 </div>
                 <div
-                  className="w-[240px] h-[320px] bg-[#fdfaf2] text-[#2a2118] border border-[#b9ad97] p-3 flex flex-col shadow-sm select-none"
+                  className="w-[240px] h-[320px] bg-[#F8FAFB] text-[#1E293B] border border-[#CBD5E1] p-3 flex flex-col shadow-sm select-none"
                   style={{
                     fontFamily:
                       '"Noto Serif SC", "Songti SC", "SimSun", serif',
                   }}
                 >
-                  <div className="border-2 border-double border-[#3a2d22] flex-1 flex overflow-hidden">
+                  <div className="border-2 border-double border-[#057091]/60 flex-1 flex overflow-hidden">
                     {/* Right column: Total title */}
                     <div
-                      className="w-8 border-l border-[#3a2d22] flex items-center justify-center text-[11px] font-bold tracking-widest py-2 overflow-hidden"
+                      className="w-8 border-l border-[#057091]/45 flex items-center justify-center text-[11px] font-bold tracking-widest py-2 overflow-hidden"
                       style={{
                         writingMode: 'vertical-rl',
                         textOrientation: 'upright',
@@ -1180,17 +1180,17 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                       {totalTitle || book.bookName || '宗谱世系'}
                     </div>
                     {/* Center: 5-tier European table preview */}
-                    <div className="flex-1 grid grid-rows-5 divide-y divide-[#b8aa93] text-[10px]">
+                    <div className="flex-1 grid grid-rows-5 divide-y divide-[#CBD5E1] text-[10px]">
                       {['一世', '二世', '三世', '四世', '五世'].map(
                         (tier, idx) => (
                           <div
                             key={tier}
                             className="flex items-center justify-between px-2"
                           >
-                            <span className="text-[#7c231c] font-semibold">
+                            <span className="text-[#057091] font-semibold">
                               {tier}
                             </span>
-                            <span className="text-[#4a3e33]">
+                            <span className="text-[#475569]">
                               {idx === 0
                                 ? startMemberName || '始祖'
                                 : '承嗣略注'}
@@ -1200,7 +1200,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                       )}
                     </div>
                     {/* Left Spine / 版心 */}
-                    <div className="w-7 border-r border-[#3a2d22] flex flex-col items-center justify-between py-2 bg-[#f8f3e8] text-[9px]">
+                    <div className="w-7 border-r border-[#057091]/45 flex flex-col items-center justify-between py-2 bg-[#EEF5F7] text-[9px]">
                       <span
                         className="font-semibold truncate max-h-20"
                         style={{
@@ -1212,7 +1212,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                       </span>
                       <FishtailOrnament style={book.layoutConfig.fishtailStyle} />
                       <span
-                        className="text-[#7c231c] font-semibold truncate max-h-20"
+                        className="text-[#057091] font-semibold truncate max-h-20"
                         style={{
                           writingMode: 'vertical-rl',
                           textOrientation: 'upright',
@@ -1220,7 +1220,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
                       >
                         {eyebrowTitle || '世系谱眉'}
                       </span>
-                      <span className="text-[8px] text-[#6d5f4e]">第一页</span>
+                      <span className="text-[8px] text-[#64748B]">第一页</span>
                     </div>
                   </div>
                 </div>
@@ -1486,7 +1486,7 @@ export const CatalogBlockedModal: React.FC<CatalogBlockedModalProps> = ({
       />
       <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl">
         <div className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-          <AlertTriangle size={17} className="text-amber-500 shrink-0" />
+          <AlertTriangle size={17} className="text-primary shrink-0" />
           <span>操作提示</span>
         </div>
         <p className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">

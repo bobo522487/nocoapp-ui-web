@@ -131,7 +131,7 @@ const RadioGroupItem = React.forwardRef<HTMLButtonElement, RadioGroupItemProps>(
           }
         }}
         className={cn(
-          'aspect-square h-3.5 w-3.5 rounded-full border border-input bg-card text-primary shadow-[var(--shadow-control)] transition-colors duration-150 flex items-center justify-center shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50',
+          'aspect-square h-3.5 w-3.5 rounded-full border border-input bg-card text-primary shadow-[var(--shadow-control)] transition-all duration-150 flex items-center justify-center shrink-0 cursor-pointer focus:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] disabled:cursor-not-allowed disabled:opacity-50',
           isChecked && 'border-primary bg-primary/10',
           className
         )}

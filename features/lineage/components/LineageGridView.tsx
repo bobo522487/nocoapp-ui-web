@@ -52,7 +52,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
             >
               <div className="px-4 py-3 bg-[hsl(var(--surface-subtle))] border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-foreground tabular-nums">
-                  {gen === 1 && <Crown size={15} className="text-amber-500" />}
+                  {gen === 1 && <Crown size={15} className="text-primary" />}
                   <span>第 {gen} 世</span>
                 </div>
                 <span className="text-xs text-muted-foreground font-medium tabular-nums">
@@ -75,7 +75,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                         onClick={() => onSelectPerson(p.id)}
                         className={`p-3 rounded-lg border transition-all duration-150 cursor-pointer ${
                           isSelected
-                            ? 'border-primary bg-[hsl(var(--surface-active))] ring-1 ring-primary shadow-sm'
+                            ? 'border-primary bg-[hsl(var(--surface-active))] ring-1 ring-primary shadow-[var(--shadow-focus-halo)]'
                             : 'border-border/80 bg-background/85 hover:border-primary/40 hover:bg-[hsl(var(--surface-hover))/0.45]'
                         }`}
                       >
@@ -103,7 +103,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                         </div>
 
                         {p.officialTitle && (
-                          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 font-medium truncate">
+                          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-primary font-medium truncate">
                             <Award size={11} className="shrink-0" />
                             <span className="truncate">{p.officialTitle}</span>
                           </div>

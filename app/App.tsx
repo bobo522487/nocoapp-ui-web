@@ -26,7 +26,6 @@ import RegisterPage from '../features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
 import OnboardingPage from '../features/auth/pages/OnboardingPage';
 import { useAuthStore } from '../features/auth/useAuthStore';
-import MockModeIndicator from '../components/MockModeIndicator';
 import { useResizable } from '../hooks/useResizable';
 import { useRouteContext } from '../hooks/useRouteContext';
 import {
@@ -299,7 +298,6 @@ const App: React.FC = () => {
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>
-      <MockModeIndicator />
     </HashRouter>
   );
 };

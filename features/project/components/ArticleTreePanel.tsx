@@ -128,9 +128,9 @@ export const ArticleTreePanel: React.FC = () => {
   const renderIcon = (item: FlattenedItem) => {
     if (item.type === 'folder') {
       return item.collapsed ? (
-        <Folder size={15} className="text-amber-500/85" />
+        <Folder size={15} className="text-primary/85" />
       ) : (
-        <FolderOpen size={15} className="text-amber-500/85" />
+        <FolderOpen size={15} className="text-primary/85" />
       );
     }
     return <FileText size={14} className="text-primary/80" />;

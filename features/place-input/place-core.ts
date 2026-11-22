@@ -1,5 +1,4 @@
 import { regionData } from 'element-china-area-data';
-import { REGION_TREE, type RegionNode } from '../dashboard/data/regions';
 import type { PersonRecord } from '../lineage/types';
 import type {
   ClanPlaceStat,
@@ -105,21 +104,6 @@ const SPECIAL_CHINA_PROVINCES: PlaceRegionProvince[] = [
   },
 ];
 
-function convertRegionNodeToProvince(node: RegionNode): PlaceRegionProvince {
-  return {
-    code: node.code,
-    name: node.name,
-    cities: (node.children ?? []).map((city) => ({
-      code: city.code,
-      name: city.name,
-      districts: (city.children ?? []).map((dist) => ({
-        code: dist.code,
-        name: dist.name,
-      })),
-    })),
-  };
-}
-
 let cachedCountries: PlaceRegionCountry[] | null = null;
 
 export function getAllPlaceCountries(): PlaceRegionCountry[] {
@@ -145,16 +129,12 @@ export function getAllPlaceCountries(): PlaceRegionCountry[] {
     provinces: [...mainlandProvinces, ...SPECIAL_CHINA_PROVINCES],
   };
 
-  const overseas: PlaceRegionCountry[] = REGION_TREE.filter(
-    (c) => c.name !== '中国'
-  ).map((country) => ({
-    code: country.code,
-    name: country.name,
-    provinces: (country.children ?? []).map(convertRegionNodeToProvince),
-  }));
-
-  cachedCountries = [china, ...overseas];
+  cachedCountries = [china];
   return cachedCountries;
+}
+
+export function getChinaProvinces(): PlaceRegionProvince[] {
+  return getAllPlaceCountries()[0]?.provinces ?? [];
 }
 
 const TRADITIONAL_TO_SIMPLIFIED_MAP: Record<string, string> = {
@@ -306,7 +286,7 @@ export function normalizePlaceSearchText(raw: string): string {
     .trim();
 }
 
-function stripAdminSuffix(name: string): string {
+export function stripAdminSuffix(name: string): string {
   return name
     .replace(
       /(特别行政区|维吾尔自治区|壮族自治区|回族自治区|自治区|自治州|布依族苗族自治州|苗族侗族自治州|藏族羌族自治州|彝族自治州|土家族苗族自治州|林区|地区|省|市|县|区|盟|旗)$/g,
@@ -335,109 +315,91 @@ let cachedRegionIndex: FlattenedRegionEntry[] | null = null;
 
 export function getFlattenedRegionIndex(): FlattenedRegionEntry[] {
   if (cachedRegionIndex) return cachedRegionIndex;
-  const countries = getAllPlaceCountries();
+  const provinces = getChinaProvinces();
   const entries: FlattenedRegionEntry[] = [];
 
-  for (const country of countries) {
-    const cLabel = country.name;
-    // Skip standalone "中国" entry from polluting short queries unless specifically searched
-    if (country.name !== '中国') {
-      entries.push({
-        country: country.name,
-        level: 1,
-        fullLabel: cLabel,
-        hierarchyMeta: '国家/地区',
-        leafName: country.name,
-        leafShort: country.name,
-        normalizedFull: normalizePlaceSearchText(cLabel),
-        normalizedLeaf: normalizePlaceSearchText(country.name),
-        normalizedLeafShort: normalizePlaceSearchText(country.name),
-        normalizedSegments: [normalizePlaceSearchText(country.name)],
-      });
-    }
+  for (const prov of provinces) {
+    const pFull = prov.name;
+    const pShort = stripAdminSuffix(prov.name) || prov.name;
+    entries.push({
+      country: '中国',
+      province: prov.name,
+      level: 2,
+      fullLabel: pFull,
+      hierarchyMeta: '省级',
+      leafName: prov.name,
+      leafShort: pShort,
+      normalizedFull: normalizePlaceSearchText(pFull),
+      normalizedLeaf: normalizePlaceSearchText(prov.name),
+      normalizedLeafShort: normalizePlaceSearchText(pShort),
+      normalizedSegments: [
+        normalizePlaceSearchText(prov.name),
+        normalizePlaceSearchText(pShort),
+      ],
+    });
 
-    for (const prov of country.provinces) {
-      const pFull = `${country.name}${prov.name}`;
-      const pShort = stripAdminSuffix(prov.name) || prov.name;
-      entries.push({
-        country: country.name,
-        province: prov.name,
-        level: 2,
-        fullLabel: pFull,
-        hierarchyMeta: `${country.name} · 省级`,
-        leafName: prov.name,
-        leafShort: pShort,
-        normalizedFull: normalizePlaceSearchText(pFull),
-        normalizedLeaf: normalizePlaceSearchText(prov.name),
-        normalizedLeafShort: normalizePlaceSearchText(pShort),
-        normalizedSegments: [
-          normalizePlaceSearchText(country.name),
-          normalizePlaceSearchText(prov.name),
-          normalizePlaceSearchText(pShort),
-        ],
-      });
+    for (const city of prov.cities) {
+      const isHolder = Boolean(
+        city.isInternalHolder || isPlaceholderCityName(city.name)
+      );
+      const storedCity = isHolder ? undefined : city.name;
+      if (!isHolder) {
+        const cityFull = `${prov.name}${city.name}`;
+        const cityShort = stripAdminSuffix(city.name) || city.name;
+        entries.push({
+          country: '中国',
+          province: prov.name,
+          city: storedCity,
+          level: 3,
+          fullLabel: cityFull,
+          hierarchyMeta: `${prov.name}`,
+          leafName: city.name,
+          leafShort: cityShort,
+          normalizedFull: normalizePlaceSearchText(cityFull),
+          normalizedLeaf: normalizePlaceSearchText(city.name),
+          normalizedLeafShort: normalizePlaceSearchText(cityShort),
+          normalizedSegments: [
+            normalizePlaceSearchText(prov.name),
+            normalizePlaceSearchText(pShort),
+            normalizePlaceSearchText(city.name),
+            normalizePlaceSearchText(cityShort),
+          ],
+        });
+      }
 
-      for (const city of prov.cities) {
-        const isHolder = Boolean(city.isInternalHolder || isPlaceholderCityName(city.name));
-        const storedCity = isHolder ? undefined : city.name;
-        if (!isHolder) {
-          const cityFull = `${country.name}${prov.name}${city.name}`;
-          const cityShort = stripAdminSuffix(city.name) || city.name;
-          entries.push({
-            country: country.name,
-            province: prov.name,
-            city: storedCity,
-            level: 3,
-            fullLabel: cityFull,
-            hierarchyMeta: `${prov.name}`,
-            leafName: city.name,
-            leafShort: cityShort,
-            normalizedFull: normalizePlaceSearchText(cityFull),
-            normalizedLeaf: normalizePlaceSearchText(city.name),
-            normalizedLeafShort: normalizePlaceSearchText(cityShort),
-            normalizedSegments: [
-              normalizePlaceSearchText(country.name),
-              normalizePlaceSearchText(prov.name),
-              normalizePlaceSearchText(pShort),
-              normalizePlaceSearchText(city.name),
-              normalizePlaceSearchText(cityShort),
-            ],
-          });
-        }
-
-        for (const dist of city.districts) {
-          const distFull = storedCity
-            ? `${country.name}${prov.name}${storedCity}${dist.name}`
-            : `${country.name}${prov.name}${dist.name}`;
-          const distShort = stripAdminSuffix(dist.name) || dist.name;
-          entries.push({
-            country: country.name,
-            province: prov.name,
-            city: storedCity,
-            district: dist.name,
-            level: 4,
-            fullLabel: distFull,
-            hierarchyMeta: storedCity ? `${prov.name} · ${storedCity}` : prov.name,
-            leafName: dist.name,
-            leafShort: distShort,
-            normalizedFull: normalizePlaceSearchText(distFull),
-            normalizedLeaf: normalizePlaceSearchText(dist.name),
-            normalizedLeafShort: normalizePlaceSearchText(distShort),
-            normalizedSegments: [
-              normalizePlaceSearchText(country.name),
-              normalizePlaceSearchText(prov.name),
-              normalizePlaceSearchText(pShort),
-              ...(storedCity
-                ? [
-                    normalizePlaceSearchText(storedCity),
-                    normalizePlaceSearchText(stripAdminSuffix(storedCity) || storedCity),
-                  ]
-                : []),
-              normalizePlaceSearchText(dist.name),
-              normalizePlaceSearchText(distShort),
-            ],
-          });
-        }
+      for (const dist of city.districts) {
+        const distFull = storedCity
+          ? `${prov.name}${storedCity}${dist.name}`
+          : `${prov.name}${dist.name}`;
+        const distShort = stripAdminSuffix(dist.name) || dist.name;
+        entries.push({
+          country: '中国',
+          province: prov.name,
+          city: storedCity,
+          district: dist.name,
+          level: 4,
+          fullLabel: distFull,
+          hierarchyMeta: storedCity ? `${prov.name} · ${storedCity}` : prov.name,
+          leafName: dist.name,
+          leafShort: distShort,
+          normalizedFull: normalizePlaceSearchText(distFull),
+          normalizedLeaf: normalizePlaceSearchText(dist.name),
+          normalizedLeafShort: normalizePlaceSearchText(distShort),
+          normalizedSegments: [
+            normalizePlaceSearchText(prov.name),
+            normalizePlaceSearchText(pShort),
+            ...(storedCity
+              ? [
+                  normalizePlaceSearchText(storedCity),
+                  normalizePlaceSearchText(
+                    stripAdminSuffix(storedCity) || storedCity
+                  ),
+                ]
+              : []),
+            normalizePlaceSearchText(dist.name),
+            normalizePlaceSearchText(distShort),
+          ],
+        });
       }
     }
   }
@@ -455,21 +417,19 @@ export function formatGenealogyPlace(
   }
 
   const cityClean = isPlaceholderCityName(place.city) ? '' : place.city?.trim() || '';
+  const countryClean =
+    place.country?.trim() && place.country.trim() !== '中国'
+      ? place.country.trim()
+      : '';
   const adminParts = [
-    place.country?.trim() || '',
+    countryClean,
     place.province?.trim() || '',
     cityClean,
     place.district?.trim() || '',
   ].filter(Boolean);
 
   const base = adminParts.join('');
-  const detail = place.detail?.trim() || '';
-  if (!base && !detail) {
-    return place.originalText?.trim() || '';
-  }
-  if (!detail) return base;
-  if (!base) return detail;
-  return `${base}${detail}`;
+  return base || place.originalText?.trim() || '';
 }
 
 export function cloneGenealogyPlace(place: GenealogyPlace): GenealogyPlace {
@@ -480,11 +440,9 @@ export function createEmptyStructuredPlace(): GenealogyPlace {
   return {
     schemaVersion: 1,
     kind: 'structured',
-    country: '中国',
     province: '',
     city: '',
     district: '',
-    detail: null,
     originalText: null,
   };
 }
@@ -502,14 +460,14 @@ export function finalizeGenealogyPlace(
     };
   }
 
-  const country = draft.country?.trim() || '';
   const province = draft.province?.trim() || '';
   const city = isPlaceholderCityName(draft.city) ? '' : draft.city?.trim() || '';
   const district = draft.district?.trim() || '';
-  const detail = draft.detail?.trim() || null;
   const originalText = draft.originalText?.trim() || null;
 
-  if (!country && !province && !city && !district && !detail) {
+  const hasMeaningfulRegion = Boolean(province || city || district);
+
+  if (!hasMeaningfulRegion) {
     if (!originalText) return null;
     return {
       schemaVersion: 1,
@@ -521,11 +479,9 @@ export function finalizeGenealogyPlace(
   return {
     schemaVersion: 1,
     kind: 'structured',
-    country: country || undefined,
     province: province || undefined,
     city: city || undefined,
     district: district || undefined,
-    detail,
     originalText,
   };
 }
@@ -557,9 +513,10 @@ export function extractClanPlaceStats(
 
   for (const p of persons) {
     recordPlace(p.birth?.place, p.birth?.structuredPlace);
+    recordPlace(p.death?.place, p.death?.structuredPlace);
     recordPlace(
       p.death?.burialPlace || p.burialPlace,
-      p.death?.structuredPlace
+      p.death?.structuredBurialPlace
     );
   }
 
@@ -635,53 +592,25 @@ export function matchRegionFromText(raw: string): GenealogyPlace | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  // Support slash-delimited legacy paths e.g. "中国/贵州省/贵阳市/观山湖区"
+  // Support slash-delimited or simplified/traditional full administrative paths
   const normJoined = normalizePlaceSearchText(trimmed);
   if (!normJoined) return null;
+  const cleanNorm = normJoined.startsWith('中国')
+    ? normJoined.slice(2)
+    : normJoined;
+  if (!cleanNorm) return null;
 
   const entries = getFlattenedRegionIndex();
-  // Exact full match first
-  const exact = entries.find((e) => e.normalizedFull === normJoined);
+  const exact = entries.find((e) => e.normalizedFull === cleanNorm);
   if (exact) {
     return {
       schemaVersion: 1,
       kind: 'structured',
-      country: exact.country,
       province: exact.province,
       city: exact.city,
       district: exact.district,
-      detail: null,
       originalText: null,
     };
-  }
-
-  // Check if text starts with a full administrative prefix + remaining detail
-  const sortedByLen = [...entries]
-    .filter((e) => e.level >= 2 && e.normalizedFull.length >= 3)
-    .sort((a, b) => b.normalizedFull.length - a.normalizedFull.length);
-
-  const simplifiedRaw = toSimplifiedPlaceText(trimmed);
-  for (const entry of sortedByLen) {
-    // Try matching with or without leading "中国"
-    const candidates = [entry.fullLabel];
-    if (entry.country === '中国' && entry.fullLabel.startsWith('中国')) {
-      candidates.push(entry.fullLabel.slice(2));
-    }
-    for (const prefix of candidates) {
-      if (simplifiedRaw.startsWith(prefix)) {
-        const rest = trimmed.slice(prefix.length).trim();
-        return {
-          schemaVersion: 1,
-          kind: 'structured',
-          country: entry.country,
-          province: entry.province,
-          city: entry.city,
-          district: entry.district,
-          detail: rest || null,
-          originalText: null,
-        };
-      }
-    }
   }
 
   return null;
@@ -755,74 +684,25 @@ export function generatePlaceSuggestions(
     }
   }
 
-  // 2. Prefix + suffix detail match (e.g. "泰和县 澄江镇" or "中国贵州省贵阳市观山湖区百花湖")
+  // 2. Multi-level administrative region search
   const entries = getFlattenedRegionIndex();
-  const prefixMatch = matchRegionFromText(trimmed);
-  if (prefixMatch && prefixMatch.kind === 'structured' && prefixMatch.detail) {
-    const label = formatGenealogyPlace(prefixMatch);
-    const metaBase = [prefixMatch.province, prefixMatch.city, prefixMatch.district]
-      .filter(Boolean)
-      .join(' · ');
-    pushItem({
-      kind: 'region',
-      primaryLabel: label,
-      metaLabel: `标准区划含详址 · ${metaBase}`,
-      value: prefixMatch,
-    });
-  }
+  const regionJoinedNorm =
+    joinedNorm.startsWith('中国') && joinedNorm.length > 2
+      ? joinedNorm.slice(2)
+      : joinedNorm;
+  const regionTokens =
+    rawTokens[0] === '中国'
+      ? rawTokens.slice(1)
+      : rawTokens.length > 0 &&
+          rawTokens[0].startsWith('中国') &&
+          rawTokens[0].length > 2
+        ? [rawTokens[0].slice(2), ...rawTokens.slice(1)]
+        : rawTokens;
 
-  // 3. Space-separated "地区 + 详细地址" match (e.g. "观山湖 金钗穴" or "江西 泰和 澄江镇")
-  if (rawTokens.length >= 2) {
-    const separatorMatches = Array.from(trimmed.matchAll(/[\s,，、]+/g));
-    // Try splitting from longest prefix down to first prefix so "江西 泰和 澄江镇" prefers "江西 泰和" + "澄江镇"
-    for (let i = separatorMatches.length - 1; i >= 0; i -= 1) {
-      const m = separatorMatches[i];
-      if (m.index === undefined || m.index <= 0) continue;
-      const headRaw = trimmed.slice(0, m.index).trim();
-      const tailRaw = trimmed.slice(m.index + m[0].length).trim();
-      const headTokens = headRaw
-        .split(/[\s/,，、]+/)
-        .map((t) => normalizePlaceSearchText(t))
-        .filter(Boolean);
-      const headNorm = normalizePlaceSearchText(headRaw);
-      if (headNorm.length >= 2 && tailRaw) {
-        let bestHead: FlattenedRegionEntry | null = null;
-        let bestHeadScore = 0;
-        for (const entry of entries) {
-          const sc = scoreRegionMatch(entry, headTokens, headNorm);
-          if (sc > bestHeadScore) {
-            bestHeadScore = sc;
-            bestHead = entry;
-          }
-        }
-        if (bestHead && bestHeadScore >= 700) {
-          const combinedPlace: GenealogyPlace = {
-            schemaVersion: 1,
-            kind: 'structured',
-            country: bestHead.country,
-            province: bestHead.province,
-            city: bestHead.city,
-            district: bestHead.district,
-            detail: tailRaw,
-            originalText: null,
-          };
-          pushItem({
-            kind: 'region',
-            primaryLabel: formatGenealogyPlace(combinedPlace),
-            metaLabel: `标准区划附详址 · ${bestHead.leafName}`,
-            value: combinedPlace,
-          });
-          break;
-        }
-      }
-    }
-  }
-
-  // 4. Multi-level administrative region search
-  if (joinedNorm) {
+  if (regionJoinedNorm) {
     const scoredRegions: Array<{ entry: FlattenedRegionEntry; score: number }> = [];
     for (const entry of entries) {
-      const score = scoreRegionMatch(entry, rawTokens, joinedNorm);
+      const score = scoreRegionMatch(entry, regionTokens, regionJoinedNorm);
       if (score > 0) {
         scoredRegions.push({ entry, score });
       }
@@ -836,11 +716,9 @@ export function generatePlaceSuggestions(
       const value: GenealogyPlace = {
         schemaVersion: 1,
         kind: 'structured',
-        country: entry.country,
         province: entry.province,
         city: entry.city,
         district: entry.district,
-        detail: null,
         originalText: null,
       };
       pushItem({
@@ -875,14 +753,24 @@ export function isLosslessPlaceCarry(
   rawQuery: string,
   candidate: PlaceSuggestionItem
 ): boolean {
-  const qNorm = normalizePlaceSearchText(rawQuery);
+  const rawNorm = normalizePlaceSearchText(rawQuery);
+  const qNorm =
+    rawNorm.startsWith('中国') && rawNorm.length > 2 ? rawNorm.slice(2) : rawNorm;
   if (!qNorm) return true;
   const candNorm = normalizePlaceSearchText(candidate.primaryLabel);
   if (candNorm.includes(qNorm)) return true;
 
-  const tokens = rawQuery
+  const rawTokens = rawQuery
     .split(/[\s/,，、]+/)
     .map((t) => normalizePlaceSearchText(t))
     .filter(Boolean);
+  const tokens =
+    rawTokens[0] === '中国'
+      ? rawTokens.slice(1)
+      : rawTokens.length > 0 &&
+          rawTokens[0].startsWith('中国') &&
+          rawTokens[0].length > 2
+        ? [rawTokens[0].slice(2), ...rawTokens.slice(1)]
+        : rawTokens;
   return tokens.length > 0 && tokens.every((t) => candNorm.includes(t));
 }

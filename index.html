@@ -7,6 +7,23 @@
     <meta name="description" content="云谱 — 宗谱与世系协作工作区" />
     <meta property="og:title" content="云谱 · 工作区" />
     <meta property="og:description" content="云谱 — 宗谱与世系协作工作区" />
+    <script>
+      window.addEventListener(
+        'error',
+        function (e) {
+          var m = e && e.message;
+          if (
+            typeof m === 'string' &&
+            (m.indexOf('ResizeObserver loop completed with undelivered notifications') !== -1 ||
+              m.indexOf('ResizeObserver loop limit exceeded') !== -1)
+          ) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        },
+        true
+      );
+    </script>
 
     <!-- Fonts: Fraunces + Noto Serif SC (Editorial Headings), Plus Jakarta Sans + Noto Sans SC (Crisp UI), JetBrains Mono (Tabular Metrics) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

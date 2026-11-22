@@ -5,6 +5,7 @@ import { findItemDeep, removeItem, setProperty } from '../components/common/Tree
 import { createAppStorage } from './storageAdapter';
 import { LineageViewMode, PersonRecord } from '../features/lineage/types';
 import { createSeedPersonsForChart } from '../features/lineage/lineageData';
+import { syncDerivedRankSnapshots } from '../features/lineage/utils/personHelpers';
 
 export const DEFAULT_LINEAGE_TREE: TreeItem[] = [
   {
@@ -207,7 +208,7 @@ interface LineageState {
   setTree: (projectId: string, items: TreeItem[]) => void;
   initializeProjectLineage: (
     projectId: string,
-    params: { familyName: string; ancestor: string; surname?: string }
+    params: { familyName: string; ancestor: string; surname?: string; region?: string }
   ) => void;
   selectNode: (projectId: string, nodeId: string) => void;
   addGroup: (projectId: string, name?: string) => string;
@@ -235,6 +236,14 @@ interface LineageState {
     surname?: string,
     options?: { select?: boolean }
   ) => void;
+  addPersonsBatch: (
+    projectId: string,
+    chartId: string,
+    persons: PersonRecord[],
+    chartName?: string,
+    surname?: string,
+    options?: { selectId?: string | null }
+  ) => void;
   updatePerson: (
     projectId: string,
     chartId: string,
@@ -256,6 +265,22 @@ interface LineageState {
     parentId: string,
     childId: string,
     direction: 'up' | 'down',
+    chartName?: string,
+    surname?: string
+  ) => void;
+  addParentForPerson: (
+    projectId: string,
+    chartId: string,
+    childId: string,
+    parentPerson: PersonRecord,
+    chartName?: string,
+    surname?: string,
+    options?: { select?: boolean }
+  ) => void;
+  removePersonOnly: (
+    projectId: string,
+    chartId: string,
+    personId: string,
     chartName?: string,
     surname?: string
   ) => void;
@@ -283,7 +308,7 @@ export const useLineageStore = create<LineageState>()(
           };
         }),
 
-      initializeProjectLineage: (projectId, { familyName, ancestor, surname }) =>
+      initializeProjectLineage: (projectId, { familyName, ancestor, surname, region }) =>
         set((state) => {
           if (state.treesByProject[projectId]?.length) {
             return state;
@@ -291,6 +316,7 @@ export const useLineageStore = create<LineageState>()(
           const cleanFamily = familyName.trim() || '家族';
           const cleanAncestor = ancestor.trim() || '始迁祖';
           const cleanSurname = surname?.trim() || undefined;
+          const cleanRegion = region?.trim() || undefined;
           const chartId = `lineage-chart-${Date.now()}`;
           const chartName = `${cleanFamily}总世系`;
           const key = makeChartStorageKey(projectId, chartId);
@@ -303,6 +329,7 @@ export const useLineageStore = create<LineageState>()(
                 name: chartName,
                 ...(cleanSurname ? { surname: cleanSurname } : {}),
                 progenitor: cleanAncestor,
+                ...(cleanRegion ? { region: cleanRegion } : {}),
               },
               children: [],
             },
@@ -662,16 +689,66 @@ export const useLineageStore = create<LineageState>()(
             );
           }
 
+          const syncedPersons = syncDerivedRankSnapshots(nextPersons);
           const shouldSelect = options?.select !== false;
 
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: nextPersons,
+              [key]: syncedPersons,
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
               [key]: shouldSelect ? person.id : null,
+            },
+          };
+        }),
+
+      addPersonsBatch: (projectId, chartId, personsToAdd, chartName, surname, options) =>
+        set((state) => {
+          if (personsToAdd.length === 0) return state;
+          const key = makeChartStorageKey(projectId, chartId);
+          const currentPersons =
+            state.personsByChart[key] ||
+            createSeedPersonsForChart(chartId, chartName, surname);
+
+          let nextPersons = [...currentPersons, ...personsToAdd];
+          personsToAdd.forEach((person) => {
+            if (person.spouseOfId) {
+              const partnerId = person.spouseOfId;
+              const spouseEntry = {
+                id: person.id,
+                relationLabel: person.spouseRelationLabel || '配偶',
+                name: formatSpouseDisplayName(person),
+              };
+              nextPersons = nextPersons.map((p) =>
+                p.id === partnerId
+                  ? {
+                      ...p,
+                      spouses: [
+                        ...(p.spouses || []).filter((s) => s.id !== person.id),
+                        spouseEntry,
+                      ],
+                    }
+                  : p
+              );
+            }
+          });
+
+          const syncedPersons = syncDerivedRankSnapshots(nextPersons);
+          const resolvedSelectId =
+            options && 'selectId' in options
+              ? options.selectId ?? null
+              : personsToAdd[personsToAdd.length - 1]?.id ?? null;
+
+          return {
+            personsByChart: {
+              ...state.personsByChart,
+              [key]: syncedPersons,
+            },
+            selectedPersonIdByChart: {
+              ...state.selectedPersonIdByChart,
+              [key]: resolvedSelectId,
             },
           };
         }),
@@ -788,7 +865,7 @@ export const useLineageStore = create<LineageState>()(
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: syncedList,
+              [key]: syncDerivedRankSnapshots(syncedList),
             },
           };
         }),
@@ -803,21 +880,32 @@ export const useLineageStore = create<LineageState>()(
           const remaining = currentPersons
             .filter((p) => !toDelete.has(p.id))
             .map((p) => {
-              if (!p.spouses?.some((s) => s.id && toDelete.has(s.id))) {
+              const hasDeletedSpouse = p.spouses?.some(
+                (s) => s.id && toDelete.has(s.id)
+              );
+              const hasDeletedMother = Boolean(
+                p.motherId && toDelete.has(p.motherId)
+              );
+              if (!hasDeletedSpouse && !hasDeletedMother) {
                 return p;
               }
               return {
                 ...p,
-                spouses: p.spouses.filter(
-                  (s) => !(s.id && toDelete.has(s.id))
-                ),
+                ...(hasDeletedMother ? { motherId: undefined } : {}),
+                ...(hasDeletedSpouse
+                  ? {
+                      spouses: p.spouses.filter(
+                        (s) => !(s.id && toDelete.has(s.id))
+                      ),
+                    }
+                  : {}),
               };
             });
           const currentSel = state.selectedPersonIdByChart[key];
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: remaining,
+              [key]: syncDerivedRankSnapshots(remaining),
             },
             selectedPersonIdByChart: {
               ...state.selectedPersonIdByChart,
@@ -863,18 +951,152 @@ export const useLineageStore = create<LineageState>()(
             orderMap.set(sib.id, index + 1);
           });
 
+          const nextPersons = currentPersons.map((p) => {
+            const newOrder = orderMap.get(p.id);
+            if (newOrder === undefined) return p;
+            return {
+              ...p,
+              siblingOrder: newOrder,
+              biographyOrder: newOrder,
+            };
+          });
+
           return {
             personsByChart: {
               ...state.personsByChart,
-              [key]: currentPersons.map((p) => {
-                const newOrder = orderMap.get(p.id);
-                if (newOrder === undefined) return p;
-                return {
-                  ...p,
-                  siblingOrder: newOrder,
-                  biographyOrder: newOrder,
-                };
-              }),
+              [key]: syncDerivedRankSnapshots(nextPersons),
+            },
+          };
+        }),
+
+      addParentForPerson: (
+        projectId,
+        chartId,
+        childId,
+        parentPerson,
+        chartName,
+        surname,
+        options
+      ) =>
+        set((state) => {
+          const key = makeChartStorageKey(projectId, chartId);
+          const currentPersons =
+            state.personsByChart[key] ||
+            createSeedPersonsForChart(chartId, chartName, surname);
+
+          const child = currentPersons.find((p) => p.id === childId);
+          if (!child || child.spouseOfId) return state;
+
+          const needShiftDown = (child.generation || 1) <= 1;
+          const subtreeIds = needShiftDown
+            ? collectDescendantIds(currentPersons, childId)
+            : new Set<string>();
+
+          const resolvedParent: PersonRecord = {
+            ...parentPerson,
+            generation: needShiftDown ? 1 : Math.max(1, (child.generation || 2) - 1),
+            fatherId: null,
+          };
+
+          const updatedPersons = currentPersons.map((p) => {
+            const genBump = needShiftDown && subtreeIds.has(p.id) ? 1 : 0;
+            if (p.id === childId) {
+              return {
+                ...p,
+                generation: (p.generation || 1) + genBump,
+                fatherId: resolvedParent.id,
+                fatherName: resolvedParent.name,
+                relationTitle:
+                  p.relationTitle === '始迁祖' ? undefined : p.relationTitle,
+              };
+            }
+            if (genBump > 0) {
+              return {
+                ...p,
+                generation: (p.generation || 1) + genBump,
+              };
+            }
+            return p;
+          });
+
+          const nextPersons = [resolvedParent, ...updatedPersons];
+          const shouldSelect = options?.select !== false;
+
+          return {
+            personsByChart: {
+              ...state.personsByChart,
+              [key]: syncDerivedRankSnapshots(nextPersons),
+            },
+            selectedPersonIdByChart: {
+              ...state.selectedPersonIdByChart,
+              [key]: shouldSelect ? resolvedParent.id : null,
+            },
+          };
+        }),
+
+      removePersonOnly: (projectId, chartId, personId, chartName, surname) =>
+        set((state) => {
+          const key = makeChartStorageKey(projectId, chartId);
+          const currentPersons =
+            state.personsByChart[key] ||
+            createSeedPersonsForChart(chartId, chartName, surname);
+
+          const target = currentPersons.find((p) => p.id === personId);
+          if (!target) return state;
+
+          const directChildren = currentPersons.filter(
+            (p) => p.fatherId === personId && !p.spouseOfId
+          );
+          const remaining = currentPersons.filter((p) => p.id !== personId);
+          const hasOtherGen1 = remaining.some(
+            (p) => (p.generation || 1) <= 1 && !p.spouseOfId
+          );
+          const shouldShiftBack =
+            (target.generation || 1) === 1 &&
+            directChildren.length > 0 &&
+            !hasOtherGen1;
+
+          const shiftIds = new Set<string>();
+          if (shouldShiftBack) {
+            directChildren.forEach((c) => {
+              collectDescendantIds(remaining, c.id).forEach((id) =>
+                shiftIds.add(id)
+              );
+            });
+          }
+
+          const cleaned = remaining.map((p) => {
+            const isChild = p.fatherId === personId;
+            const shiftUp = shouldShiftBack && shiftIds.has(p.id) ? -1 : 0;
+            const hasDeletedSpouse = p.spouses?.some((s) => s.id === personId);
+            const hasDeletedMother = p.motherId === personId;
+            if (!isChild && shiftUp === 0 && !hasDeletedSpouse && !hasDeletedMother) {
+              return p;
+            }
+            return {
+              ...p,
+              ...(isChild ? { fatherId: null, fatherName: undefined } : {}),
+              ...(shiftUp !== 0
+                ? { generation: Math.max(1, (p.generation || 2) + shiftUp) }
+                : {}),
+              ...(hasDeletedMother ? { motherId: undefined } : {}),
+              ...(hasDeletedSpouse
+                ? {
+                    spouses: (p.spouses || []).filter((s) => s.id !== personId),
+                  }
+                : {}),
+            };
+          });
+
+          const currentSel = state.selectedPersonIdByChart[key];
+          return {
+            personsByChart: {
+              ...state.personsByChart,
+              [key]: syncDerivedRankSnapshots(cleaned),
+            },
+            selectedPersonIdByChart: {
+              ...state.selectedPersonIdByChart,
+              [key]: currentSel === personId ? null : currentSel,
             },
           };
         }),

@@ -81,9 +81,9 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
 
   const borderClass =
     cfg.borderStyle === 'double'
-      ? 'border-[3px] border-double border-[#3a2d22]'
+      ? 'border-[3px] border-double border-[#057091]/60'
       : cfg.borderStyle === 'single'
-        ? 'border border-[#3a2d22]'
+        ? 'border border-[#057091]/60'
         : 'border border-transparent';
 
   const densityBodyClass =
@@ -194,7 +194,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                 onChange={(e) =>
                   patch({ paperSize: e.target.value as BookPaperSize })
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full h-9 rounded-md border border-input bg-card px-3 text-[13px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
               >
                 {(Object.keys(PAPER_SIZE_LABELS) as BookPaperSize[]).map(
                   (key) => (
@@ -215,7 +215,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                 onChange={(e) =>
                   patch({ fontFamily: e.target.value as BookFontFamily })
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full h-9 rounded-md border border-input bg-card px-3 text-[13px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
               >
                 {(Object.keys(FONT_LABELS) as BookFontFamily[]).map((key) => (
                   <option key={key} value={key}>
@@ -234,7 +234,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                 onChange={(e) =>
                   patch({ borderStyle: e.target.value as BookBorderStyle })
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full h-9 rounded-md border border-input bg-card px-3 text-[13px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
               >
                 {(Object.keys(BORDER_LABELS) as BookBorderStyle[]).map((key) => (
                   <option key={key} value={key}>
@@ -253,7 +253,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                 onChange={(e) =>
                   patch({ density: e.target.value as BookDensity })
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                className="w-full h-9 rounded-md border border-input bg-card px-3 text-[13px] text-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
               >
                 {(Object.keys(DENSITY_LABELS) as BookDensity[]).map((key) => (
                   <option key={key} value={key}>
@@ -381,20 +381,20 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
 
         <div className="flex-1 min-h-0 flex items-center justify-center overflow-auto">
           <div
-            className="w-full max-w-[560px] aspect-[1.42/1] bg-[#fcf8ee] text-[#261d15] rounded-md border border-[#c8bc9f] shadow-lg grid grid-cols-[1fr_28px_1fr] p-3 md:p-4 select-none overflow-hidden"
+            className="w-full max-w-[560px] aspect-[1.42/1] bg-[#F8FAFB] text-[#1E293B] rounded-md border border-[#CBD5E1] shadow-lg grid grid-cols-[1fr_28px_1fr] p-3 md:p-4 select-none overflow-hidden"
             style={{ fontFamily: getFontStack(cfg.fontFamily) }}
           >
             {/* Left Page: Lineage Layout Sample */}
             <div className={`${borderClass} p-2.5 flex flex-col overflow-hidden`}>
-              <div className="flex items-center justify-between text-[9px] text-[#6d5d4b] border-b border-[#8f7f6a]/50 pb-1 mb-2 shrink-0">
+              <div className="flex items-center justify-between text-[9px] text-[#64748B] border-b border-[#057091]/30 pb-1 mb-2 shrink-0">
                 <span>{cfg.showHeaderName ? book.headerName : ''}</span>
-                <span className="font-semibold text-[#7c231c]">
+                <span className="font-semibold text-[#057091]">
                   {LINEAGE_STYLE_LABELS[cfg.lineageStyle]}世系示例
                 </span>
               </div>
 
               {cfg.lineageStyle === 'euler' && (
-                <div className="flex-1 grid grid-rows-4 divide-y divide-[#b8aa93] text-[10px]">
+                <div className="flex-1 grid grid-rows-4 divide-y divide-[#CBD5E1] text-[10px]">
                   {[
                     ['一世', '始祖公 · 字承先，居清河。'],
                     ['二世', '长房祖 · 始祖长子，配李氏。'],
@@ -402,10 +402,10 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                     ['四世', '文远公 · 庠生，修筑宗祠。'],
                   ].map(([gen, desc]) => (
                     <div key={gen} className="flex items-center gap-2 py-1">
-                      <span className="text-[#7c231c] font-bold shrink-0">
+                      <span className="text-[#057091] font-bold shrink-0">
                         {gen}
                       </span>
-                      <span className="text-[#3a2d22] truncate">{desc}</span>
+                      <span className="text-[#334155] truncate">{desc}</span>
                     </div>
                   ))}
                 </div>
@@ -413,50 +413,50 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
 
               {cfg.lineageStyle === 'su' && (
                 <div className="flex-1 flex flex-col justify-between py-1 text-[10px]">
-                  <div className="text-center border border-[#9e8e76] py-1 font-bold text-[#7c231c]">
+                  <div className="text-center border border-[#94A3B8] py-1 font-bold text-[#057091]">
                     一世 始祖公
                   </div>
-                  <div className="h-3 w-px bg-[#7c231c]/60 mx-auto" />
+                  <div className="h-3 w-px bg-[#057091]/60 mx-auto" />
                   <div className="grid grid-cols-2 gap-2 text-center">
-                    <div className="border border-[#9e8e76] p-1">
+                    <div className="border border-[#94A3B8] p-1">
                       二世 长房公
                     </div>
-                    <div className="border border-[#9e8e76] p-1">
+                    <div className="border border-[#94A3B8] p-1">
                       二世 次房公
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5 text-center text-[9px]">
-                    <div className="border border-[#c7b99e] p-1">三世 甲</div>
-                    <div className="border border-[#c7b99e] p-1">三世 乙</div>
-                    <div className="border border-[#c7b99e] p-1">三世 丙</div>
+                    <div className="border border-[#CBD5E1] p-1">三世 甲</div>
+                    <div className="border border-[#CBD5E1] p-1">三世 乙</div>
+                    <div className="border border-[#CBD5E1] p-1">三世 丙</div>
                   </div>
                 </div>
               )}
 
               {cfg.lineageStyle === 'modern_double' && (
                 <div className="flex-1 grid grid-cols-2 gap-2.5 text-[9.5px] leading-relaxed overflow-hidden">
-                  <div className="border-r border-dashed border-[#c7b99e] pr-2 space-y-1.5">
-                    <div className="font-bold text-[#7c231c]">[一世] 始祖公</div>
-                    <p className="text-[#45382c]">
+                  <div className="border-r border-dashed border-[#CBD5E1] pr-2 space-y-1.5">
+                    <div className="font-bold text-[#057091]">[一世] 始祖公</div>
+                    <p className="text-[#334155]">
                       字承先，勤俭持家，肇基一方，垂训后昆。
                     </p>
                   </div>
                   <div className="space-y-1.5">
-                    <div className="font-bold text-[#7c231c]">[二世] 长房公</div>
-                    <p className="text-[#45382c]">
+                    <div className="font-bold text-[#057091]">[二世] 长房公</div>
+                    <p className="text-[#334155]">
                       始祖长子，敦厚崇礼，乡里推重，子孙繁衍。
                     </p>
                   </div>
                 </div>
               )}
 
-              <div className="pt-1 mt-auto text-center text-[9px] text-[#6d5d4b] border-t border-[#8f7f6a]/40 shrink-0">
+              <div className="pt-1 mt-auto text-center text-[9px] text-[#64748B] border-t border-[#057091]/25 shrink-0">
                 {formatPageNumberLabel(2, cfg.pageNumberStyle)}
               </div>
             </div>
 
             {/* Center 版心 (Book Fold Spine) */}
-            <div className="border-y border-[#3a2d22]/40 bg-[#f4eee0] flex flex-col items-center justify-between py-3 px-0.5 text-[9px] text-[#3a2d22]">
+            <div className="border-y border-[#057091]/40 bg-[#EEF5F7] flex flex-col items-center justify-between py-3 px-0.5 text-[9px] text-[#1E293B]">
               <span
                 className="font-bold truncate max-h-20"
                 style={{
@@ -470,7 +470,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
               <FishtailOrnament style={cfg.fishtailStyle} />
 
               <span
-                className="text-[#7c231c] truncate max-h-16"
+                className="text-[#057091] truncate max-h-16"
                 style={{
                   writingMode: 'vertical-rl',
                   textOrientation: 'upright',
@@ -479,28 +479,28 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                 {cfg.showHallName ? book.hallName || '宗亲堂' : ''}
               </span>
 
-              <span className="text-[8px] text-[#6d5d4b]">
+              <span className="text-[8px] text-[#64748B]">
                 {book.volumeNo || '卷一'}
               </span>
             </div>
 
             {/* Right Page: Article Typography Sample */}
             <div className={`${borderClass} p-2.5 flex flex-col overflow-hidden`}>
-              <div className="flex items-center justify-between text-[9px] text-[#6d5d4b] border-b border-[#8f7f6a]/50 pb-1 mb-2 shrink-0">
+              <div className="flex items-center justify-between text-[9px] text-[#64748B] border-b border-[#057091]/30 pb-1 mb-2 shrink-0">
                 <span>谱序凡例</span>
                 <span>{cfg.showHallName ? book.hallName : ''}</span>
               </div>
 
               <div className={`flex-1 overflow-hidden ${densityBodyClass}`}>
-                <h4 className="font-bold text-[#7c231c] mb-1.5 text-[13px]">
+                <h4 className="font-bold text-[#057091] mb-1.5 text-[13px]">
                   重修族谱序
                 </h4>
-                <p className="indent-4 text-[#2c2219]">
+                <p className="indent-4 text-[#334155]">
                   夫木有本而枝叶茂，水有源而流泽长。人之有谱，犹国之有史，所以明世次、序昭穆、联宗谊而启后人也。兹依古礼体例，汇辑先世渊源与房支传略，谨成是编，以垂永久。
                 </p>
               </div>
 
-              <div className="pt-1 mt-auto text-center text-[9px] text-[#6d5d4b] border-t border-[#8f7f6a]/40 shrink-0">
+              <div className="pt-1 mt-auto text-center text-[9px] text-[#64748B] border-t border-[#057091]/25 shrink-0">
                 {formatPageNumberLabel(1, cfg.pageNumberStyle)}
               </div>
             </div>

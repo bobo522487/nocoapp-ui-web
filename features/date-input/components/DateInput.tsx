@@ -43,6 +43,7 @@ interface DropdownLayout {
   top?: number;
   bottom?: number;
   maxHeight: number;
+  fontSize: string;
 }
 
 const DEFAULT_CALENDARS: CalendarType[] = [
@@ -160,6 +161,9 @@ export const DateInput: React.FC<DateInputProps> = ({
     );
     const spaceBelow = viewportHeight - rect.bottom - 12;
     const spaceAbove = rect.top - 12;
+    const fontSize = inputRef.current
+      ? window.getComputedStyle(inputRef.current).fontSize || '12px'
+      : '12px';
 
     if (spaceBelow >= 200 || spaceBelow >= spaceAbove) {
       setDropdownLayout({
@@ -167,6 +171,7 @@ export const DateInput: React.FC<DateInputProps> = ({
         width: desiredWidth,
         top: rect.bottom + 4,
         maxHeight: Math.min(280, Math.max(120, spaceBelow)),
+        fontSize,
       });
     } else {
       setDropdownLayout({
@@ -174,6 +179,7 @@ export const DateInput: React.FC<DateInputProps> = ({
         width: desiredWidth,
         bottom: viewportHeight - rect.top + 4,
         maxHeight: Math.min(280, Math.max(120, spaceAbove)),
+        fontSize,
       });
     }
   }, []);
@@ -328,8 +334,9 @@ export const DateInput: React.FC<DateInputProps> = ({
               width: dropdownLayout.width,
               top: dropdownLayout.top,
               bottom: dropdownLayout.bottom,
+              fontSize: dropdownLayout.fontSize,
             }}
-            className="z-[105] bg-popover text-popover-foreground border border-border rounded-lg shadow-[var(--shadow-popover)] overflow-hidden transition-opacity duration-150"
+            className="fs-lineage-theme z-[105] bg-popover text-popover-foreground border border-[#D8DADA] dark:border-slate-700/80 rounded-[8px] shadow-[0_10px_28px_-4px_rgba(0,0,0,0.16),0_2px_8px_-1px_rgba(0,0,0,0.08)] overflow-hidden transition-opacity duration-150"
           >
             <div
               style={{ maxHeight: dropdownLayout.maxHeight }}
@@ -350,7 +357,7 @@ export const DateInput: React.FC<DateInputProps> = ({
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={() => selectSuggestion(item)}
                     className={cn(
-                      'px-3 py-2 flex items-center justify-between gap-3 text-xs cursor-pointer transition-colors duration-100',
+                      'px-3 py-2 flex items-center justify-between gap-3 cursor-pointer transition-colors duration-100',
                       selected
                         ? 'bg-[hsl(var(--surface-active))] text-foreground'
                         : 'hover:bg-[hsl(var(--surface-hover))] text-foreground'
@@ -364,7 +371,7 @@ export const DateInput: React.FC<DateInputProps> = ({
                         )}
                         aria-hidden="true"
                       >
-                        <Check size={12} strokeWidth={2.5} />
+                        <Check size={13} strokeWidth={2.5} />
                       </span>
                       <span
                         className={cn(
@@ -375,14 +382,14 @@ export const DateInput: React.FC<DateInputProps> = ({
                         {item.primaryLabel}
                       </span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                    <span className="text-[0.85em] text-muted-foreground whitespace-nowrap shrink-0">
                       {item.metaLabel}
                     </span>
                   </div>
                 );
               })}
             </div>
-            <div className="px-3 py-1.5 border-t border-border/60 bg-[hsl(var(--surface-subtle))] text-[10px] text-muted-foreground flex items-center justify-between gap-2">
+            <div className="px-3 py-1.5 border-t border-border/60 bg-[hsl(var(--surface-subtle))] text-[0.78em] text-muted-foreground flex items-center justify-between gap-2">
               <span>↑↓ 选择 · Enter 采纳 · Tab 确认首选</span>
               <span className="whitespace-nowrap">Esc 收起</span>
             </div>
@@ -510,9 +517,9 @@ export const DateInput: React.FC<DateInputProps> = ({
             }
           }}
           className={cn(
-            'flex h-8 w-full rounded-md border border-input bg-card pl-2.5 py-1 text-xs text-foreground shadow-[var(--shadow-control)] ring-offset-background transition-colors duration-150 outline-none placeholder:text-placeholder placeholder:font-normal hover:border-[hsl(var(--border-strong))] focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 tabular-nums',
+            'flex h-8 w-full rounded-[6px] border border-input bg-card pl-2.5 py-1 text-xs text-foreground shadow-[var(--shadow-control)] ring-offset-background transition-all duration-150 outline-none placeholder:text-placeholder placeholder:font-normal hover:border-[hsl(var(--border-strong))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] disabled:cursor-not-allowed disabled:opacity-50 tabular-nums',
             hasVisibleText && canEdit ? 'pr-14' : 'pr-8',
-            activeError ? 'border-destructive focus-visible:border-destructive' : '',
+            activeError ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive' : '',
             className
           )}
         />
@@ -534,7 +541,7 @@ export const DateInput: React.FC<DateInputProps> = ({
             }}
             aria-label={`清空${label}`}
             title="清空日期"
-            className="absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted/60 transition-colors cursor-pointer"
+            className="absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5 rounded flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:text-destructive hover:bg-muted/60 transition-colors cursor-pointer"
           >
             <X size={12} aria-hidden="true" />
           </button>
@@ -549,7 +556,7 @@ export const DateInput: React.FC<DateInputProps> = ({
           title="选择农历、年号、时辰或起止范围"
           onMouseDown={(e) => e.preventDefault()}
           onClick={handleOpenDialog}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-muted/60 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:text-[#057091] dark:hover:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
         >
           <Calendar size={13} aria-hidden="true" />
         </button>

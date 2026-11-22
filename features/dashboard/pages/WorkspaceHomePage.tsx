@@ -93,6 +93,7 @@ const WorkspaceHomePage: React.FC = () => {
           familyName: values.name,
           ancestor: values.ancestor,
           surname: values.primarySurname,
+          region: values.region,
         });
       }
       syncProject(created.project);

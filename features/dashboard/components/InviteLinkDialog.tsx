@@ -48,7 +48,7 @@ const InviteLinkDialog: React.FC<Props> = ({ inviteUrl, onClose }) => {
           该链接仅显示这一次，请立即复制并发送给受邀者。
         </p>
         <input
-          className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] text-foreground"
+          className="mt-3 w-full rounded-md border border-input bg-card px-3 py-2 text-[13px] text-foreground transition-all duration-150 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)]"
           value={inviteUrl}
           readOnly
           onFocus={(event) => event.currentTarget.select()}

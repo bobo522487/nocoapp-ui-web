@@ -33,8 +33,8 @@ export const BookCoverThumb: React.FC<BookCoverThumbProps> = ({
     <div
       className={`relative shrink-0 overflow-hidden select-none rounded-[4px] border shadow-xs ${dim} ${
         isThread
-          ? 'bg-[#253652] border-[#1b283f]'
-          : 'bg-[#7c231c] border-[#5f1813]'
+          ? 'bg-[#055873] border-[#033F54]'
+          : 'bg-[#057091] border-[#044B62]'
       }`}
     >
       {/* Subtle silk texture sheen */}
@@ -52,7 +52,7 @@ export const BookCoverThumb: React.FC<BookCoverThumbProps> = ({
           {[0, 1, 2, 3].map((dot) => (
             <span
               key={dot}
-              className="w-[2.5px] h-[5px] rounded-full bg-[#e8dcc8]/85 block"
+              className="w-[2.5px] h-[5px] rounded-full bg-[#D9EEF4]/85 block"
             />
           ))}
         </div>
@@ -60,10 +60,10 @@ export const BookCoverThumb: React.FC<BookCoverThumbProps> = ({
         <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-black/25 pointer-events-none" />
       )}
 
-      {/* White paper title slip (题签) */}
+      {/* Cool archival title slip (题签) */}
       <div
         title={bookName}
-        className={`absolute top-1.5 left-1.5 bg-[#f7f2e7] text-[#1e1914] border border-[#c7b99c] shadow-xs flex items-center justify-center overflow-hidden ${
+        className={`absolute top-1.5 left-1.5 bg-[#F7FAFA] text-[#1E293B] border border-[#057091]/40 shadow-xs flex items-center justify-center overflow-hidden ${
           size === 'sm'
             ? 'w-[22px] max-h-[50px] py-1 px-0.5'
             : 'w-[30px] max-h-[78px] py-1.5 px-1'
@@ -84,7 +84,7 @@ export const BookCoverThumb: React.FC<BookCoverThumbProps> = ({
       {/* Bottom volume mark */}
       {volumeNo && (
         <span
-          className={`absolute bottom-1 left-1.5 text-[#e8dcc8]/90 font-serif ${
+          className={`absolute bottom-1 left-1.5 text-[#D9EEF4]/90 font-serif ${
             size === 'sm' ? 'text-[7px]' : 'text-[9px]'
           }`}
         >
@@ -126,7 +126,7 @@ export const FishtailOrnament: React.FC<FishtailOrnamentProps> = ({
 
   if (style === 'double') {
     return (
-      <span className="inline-flex flex-col items-center gap-0.5 text-[#3a2d22]">
+      <span className="inline-flex flex-col items-center gap-0.5 text-[#057091]">
         {renderSingle('top', false)}
         {renderSingle('bottom', true)}
       </span>
@@ -134,7 +134,7 @@ export const FishtailOrnament: React.FC<FishtailOrnamentProps> = ({
   }
 
   return (
-    <span className="inline-flex items-center text-[#3a2d22]">
+    <span className="inline-flex items-center text-[#057091]">
       {renderSingle('single', flipped)}
     </span>
   );

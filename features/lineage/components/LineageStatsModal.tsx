@@ -238,11 +238,11 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
           {/* Row 1: 5 KPI Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Card 1: Total Entered Persons */}
-            <div className="col-span-2 sm:col-span-1 rounded-xl border border-orange-200/80 dark:border-orange-800/40 bg-orange-50/75 dark:bg-orange-950/25 p-4 flex flex-col justify-between min-h-[126px]">
-              <div className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">
+            <div className="col-span-2 sm:col-span-1 rounded-xl border border-primary/25 bg-primary/[0.08] p-4 flex flex-col justify-between min-h-[126px]">
+              <div className="text-[13px] font-semibold text-primary">
                 录入总人数
               </div>
-              <div className="text-[34px] leading-none font-bold text-orange-600 dark:text-orange-400 tabular-nums mt-3">
+              <div className="text-[34px] leading-none font-bold text-primary tabular-nums mt-3">
                 {stats.totalPersons}
               </div>
             </div>

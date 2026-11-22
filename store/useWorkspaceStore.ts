@@ -19,11 +19,11 @@ export const ASSET_COLOR_PALETTES: Record<
   { tileBg: string; darkTileBg: string; fillDark: string; fillLight: string; label: string }
 > = {
   sky: {
-    tileBg: '#EAF1F4',
-    darkTileBg: 'rgba(91, 138, 160, 0.16)',
-    fillDark: '#26495C',
-    fillLight: '#5B8AA0',
-    label: '霁青',
+    tileBg: '#EAF4F7',
+    darkTileBg: 'rgba(88, 177, 205, 0.16)',
+    fillDark: '#057091',
+    fillLight: '#3E9EB8',
+    label: '青蓝',
   },
   pink: {
     tileBg: '#F6EAE8',
@@ -67,7 +67,7 @@ const INITIAL_WORKSPACES: Workspace[] = [
     id: 'ws-personal',
     name: '个人空间',
     kind: 'personal',
-    color: '#8C2D19',
+    color: '#057091',
     plan: '免费版',
     createdAt: '2026-01-12',
   },
@@ -75,7 +75,7 @@ const INITIAL_WORKSPACES: Workspace[] = [
     id: 'ws-team',
     name: '宗亲修谱空间',
     kind: 'team',
-    color: '#2D5A4A',
+    color: '#2C7A92',
     plan: '团队版',
     createdAt: '2026-03-04',
   },
@@ -151,7 +151,7 @@ const INITIAL_MEMBERS: WorkspaceMember[] = [
     email: 'bobo522487@gmail.com',
     role: '所有者',
     joinedAt: '2026-01-12',
-    avatarColor: '#8C2D19',
+    avatarColor: '#057091',
   },
   {
     id: 'mem-2',
@@ -160,7 +160,7 @@ const INITIAL_MEMBERS: WorkspaceMember[] = [
     email: 'linxiao@yunpu.cn',
     role: '编辑者',
     joinedAt: '2026-02-18',
-    avatarColor: '#1E40AF',
+    avatarColor: '#2C7A92',
   },
   {
     id: 'mem-3',
@@ -169,7 +169,7 @@ const INITIAL_MEMBERS: WorkspaceMember[] = [
     email: 'bobo522487@gmail.com',
     role: '所有者',
     joinedAt: '2026-03-04',
-    avatarColor: '#8C2D19',
+    avatarColor: '#057091',
   },
   {
     id: 'mem-4',
@@ -298,9 +298,9 @@ interface WorkspaceState {
   markAllNotificationsRead: () => void;
 }
 
-const AVATAR_COLORS = ['#8C2D19', '#1E40AF', '#047857', '#B45309', '#9D174D'];
+const AVATAR_COLORS = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#475569'];
 
-const ORG_COLORS = ['#3B5BDB', '#0CA678', '#F76707', '#7048E8', '#E64980'];
+const ORG_COLORS = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#58B1CD'];
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
@@ -411,7 +411,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }),
 
       createWorkspace: (name) => {
-        const colors = ['#3B5BDB', '#0CA678', '#F76707', '#7048E8', '#E64980'];
+        const colors = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#58B1CD'];
         const newWs: Workspace = {
           id: `ws-${Date.now()}`,
           name: name.trim(),

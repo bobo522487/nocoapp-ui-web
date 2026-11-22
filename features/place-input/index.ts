@@ -10,11 +10,13 @@ export {
   formatGenealogyPlace,
   generatePlaceSuggestions,
   getAllPlaceCountries,
+  getChinaProvinces,
   isLosslessPlaceCarry,
   matchRegionFromText,
   toSimplifiedPlaceText,
 } from './place-core';
 export {
+  parsePlaceText,
   readGenealogyPlace,
   writeGenealogyPlace,
   getPersonPlaceDisplay,

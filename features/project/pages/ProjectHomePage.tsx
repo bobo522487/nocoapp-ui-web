@@ -264,7 +264,7 @@ const ProjectHomePage: React.FC = () => {
                         size={14}
                         className={
                           star <= projectLevel
-                            ? 'fill-amber-400 text-amber-400'
+                            ? 'fill-primary text-primary'
                             : 'text-muted-foreground/30'
                         }
                       />

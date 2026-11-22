@@ -18,40 +18,40 @@ const COVER_THEMES: Record<
   { coverBg: string; spineBg: string; borderTint: string; sealBg: string }
 > = {
   sky: {
-    coverBg: 'from-[#1D3557] via-[#26466D] to-[#162844]',
-    spineBg: '#112038',
-    borderTint: 'rgba(147, 197, 253, 0.3)',
-    sealBg: '#B91C1C',
+    coverBg: 'from-[#055A75] via-[#057091] to-[#033E52]',
+    spineBg: '#033344',
+    borderTint: 'rgba(125, 211, 236, 0.35)',
+    sealBg: '#057091',
   },
   indigo: {
-    coverBg: 'from-[#232B52] via-[#2D386B] to-[#192040]',
-    spineBg: '#121730',
-    borderTint: 'rgba(165, 180, 252, 0.3)',
-    sealBg: '#B91C1C',
+    coverBg: 'from-[#0D4A6B] via-[#136088] to-[#09354D]',
+    spineBg: '#072A3D',
+    borderTint: 'rgba(147, 197, 253, 0.32)',
+    sealBg: '#057091',
   },
   emerald: {
-    coverBg: 'from-[#163B33] via-[#1E4D42] to-[#102B25]',
-    spineBg: '#0B1F1B',
-    borderTint: 'rgba(110, 231, 183, 0.28)',
-    sealBg: '#B91C1C',
+    coverBg: 'from-[#0B4F5C] via-[#116878] to-[#083B45]',
+    spineBg: '#062E36',
+    borderTint: 'rgba(103, 232, 249, 0.3)',
+    sealBg: '#0383A4',
   },
   orange: {
-    coverBg: 'from-[#4A2511] via-[#5F3118] to-[#361A0B]',
-    spineBg: '#271207',
-    borderTint: 'rgba(253, 186, 116, 0.3)',
-    sealBg: '#991B1B',
+    coverBg: 'from-[#164A5E] via-[#1E6078] to-[#0F3645]',
+    spineBg: '#0B2A36',
+    borderTint: 'rgba(165, 216, 230, 0.3)',
+    sealBg: '#057091',
   },
   pink: {
-    coverBg: 'from-[#4E1D3B] via-[#63264B] to-[#38132A]',
-    spineBg: '#290D1E',
-    borderTint: 'rgba(249, 168, 212, 0.28)',
-    sealBg: '#9F1239',
+    coverBg: 'from-[#1C4866] via-[#245D82] to-[#13334A]',
+    spineBg: '#0E2738',
+    borderTint: 'rgba(186, 230, 253, 0.3)',
+    sealBg: '#057091',
   },
   violet: {
-    coverBg: 'from-[#332152] via-[#422B69] to-[#24163B]',
-    spineBg: '#1A102B',
-    borderTint: 'rgba(196, 181, 253, 0.3)',
-    sealBg: '#B91C1C',
+    coverBg: 'from-[#153E5C] via-[#1D5278] to-[#0E2C42]',
+    spineBg: '#0A2133',
+    borderTint: 'rgba(165, 216, 238, 0.3)',
+    sealBg: '#0383A4',
   },
 };
 
@@ -64,8 +64,8 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
   projectLevel,
   colorTheme,
 }) => {
-  const palette = ASSET_COLOR_PALETTES[colorTheme] || ASSET_COLOR_PALETTES.indigo;
-  const cover = COVER_THEMES[colorTheme] || COVER_THEMES.indigo;
+  const palette = ASSET_COLOR_PALETTES[colorTheme] || ASSET_COLOR_PALETTES.sky;
+  const cover = COVER_THEMES[colorTheme] || COVER_THEMES.sky;
   const hasTitle = Boolean(primaryName.trim());
   const displayTitle = hasTitle ? primaryName.trim() : '右侧输入主题名';
   const displaySurname = primarySurname.trim();
@@ -109,20 +109,20 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
         >
           {[0, 1, 2, 3].map((idx) => (
             <div key={idx} className="relative w-full flex items-center justify-center">
-              <span className="block w-full h-[1.5px] bg-[#E5DEC9]/80" />
-              <span className="absolute left-1 w-1.5 h-1.5 rounded-full bg-[#E5DEC9]/90 shadow-xs" />
+              <span className="block w-full h-[1.5px] bg-[#D9EEF4]/85" />
+              <span className="absolute left-1 w-1.5 h-1.5 rounded-full bg-[#D9EEF4]/95 shadow-xs" />
             </div>
           ))}
         </div>
 
-        {/* Left Vertical Ivory Title Slip (题签) */}
-        <div className="absolute top-7 left-6 w-[58px] min-h-[192px] max-h-[218px] bg-[#FAF6EC] rounded-[2px] shadow-[0_2px_6px_rgba(0,0,0,0.28)] p-1 flex flex-col items-center justify-center">
-          <div className="w-full h-full border border-[#3E352A]/45 rounded-[1px] px-1.5 py-3 flex items-center justify-center">
+        {/* Left Vertical Archival Title Slip (题签) */}
+        <div className="absolute top-7 left-6 w-[58px] min-h-[192px] max-h-[218px] bg-[#F7FAFA] rounded-[2px] shadow-[0_2px_6px_rgba(0,0,0,0.28)] p-1 flex flex-col items-center justify-center">
+          <div className="w-full h-full border border-[#057091]/45 rounded-[1px] px-1.5 py-3 flex items-center justify-center">
             <div
               className={`text-center tracking-[0.22em] leading-snug break-all ${
                 hasTitle
-                  ? 'text-[17px] font-bold text-[#1F1A14]'
-                  : 'text-[13px] font-medium text-[#8C8173]'
+                  ? 'text-[17px] font-bold text-[#1E293B]'
+                  : 'text-[13px] font-medium text-[#64748B]'
               }`}
               style={{
                 writingMode: 'vertical-rl',
@@ -134,25 +134,25 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
           </div>
         </div>
 
-        {/* Surname Vermilion Seal (朱文姓氏印章) */}
+        {/* Surname Blue-Teal Seal (青蓝姓氏印章) */}
         {displaySurname ? (
           <div
-            className="absolute top-8 right-9 w-9 h-9 rounded-[3px] border border-white/25 flex items-center justify-center shadow-sm"
+            className="absolute top-8 right-9 w-9 h-9 rounded-[3px] border border-white/30 flex items-center justify-center shadow-sm"
             style={{ backgroundColor: cover.sealBg }}
             title={`主姓氏：${displaySurname}`}
           >
-            <div className="w-7 h-7 border border-[#FDE8E8]/60 rounded-[2px] flex items-center justify-center">
-              <span className="text-[14px] font-bold text-[#FFF5F5] leading-none">
+            <div className="w-7 h-7 border border-[#E6F4F7]/65 rounded-[2px] flex items-center justify-center">
+              <span className="text-[14px] font-bold text-[#F5FBFD] leading-none">
                 {displaySurname.slice(0, 1)}
               </span>
             </div>
           </div>
         ) : (
           <div
-            className="absolute top-8 right-9 w-9 h-9 rounded-[3px] border border-dashed border-white/25 flex items-center justify-center"
+            className="absolute top-8 right-9 w-9 h-9 rounded-[3px] border border-dashed border-white/30 flex items-center justify-center"
             title="姓氏印章预览"
           >
-            <span className="text-[10px] font-medium text-white/45">姓</span>
+            <span className="text-[10px] font-medium text-white/50">姓</span>
           </div>
         )}
 
@@ -165,16 +165,16 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
                 size={11}
                 className={
                   star <= projectLevel
-                    ? 'fill-[#FBBF24] text-[#FBBF24]'
+                    ? 'fill-[#7DD3EC] text-[#7DD3EC]'
                     : 'text-white/25'
                 }
               />
             ))}
           </div>
-          <div className="text-[11px] font-medium text-white/85 truncate">
+          <div className="text-[11px] font-medium text-white/90 truncate">
             {projectName.trim() || '未命名家族'}
           </div>
-          <div className="text-[10px] text-white/60 truncate">
+          <div className="text-[10px] text-white/65 truncate">
             {displayRegion}
           </div>
         </div>

@@ -94,9 +94,9 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
   const layout = edition.layoutSnapshot;
   const borderClass =
     layout.borderStyle === 'double'
-      ? 'border-[3px] border-double border-[#3a2d22]'
+      ? 'border-[3px] border-double border-[#057091]/55 dark:border-[#58B1CD]/50'
       : layout.borderStyle === 'single'
-        ? 'border border-[#3a2d22]'
+        ? 'border border-[#057091]/55 dark:border-[#58B1CD]/50'
         : 'border border-transparent';
 
   const densityClass =
@@ -124,8 +124,8 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
         <div
           className={`flex-1 flex flex-col justify-between p-8 rounded-sm relative overflow-hidden ${
             isThread
-              ? 'bg-[#253652] text-[#f5efe2]'
-              : 'bg-[#7c231c] text-[#f5efe2]'
+              ? 'bg-[#055873] text-[#F1F5F9]'
+              : 'bg-[#057091] text-[#F1F5F9]'
           }`}
         >
           {isThread && (
@@ -133,7 +133,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
               {[0, 1, 2, 3].map((dot) => (
                 <span
                   key={dot}
-                  className="w-2 h-3 rounded-full bg-[#e8dcc8]/80"
+                  className="w-2 h-3 rounded-full bg-[#D9EEF4]/85"
                 />
               ))}
             </div>
@@ -143,7 +143,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
             <div className="text-[13px] tracking-[0.2em] opacity-85">
               {page.hallName} · {book.volumeNo || '卷一'}
             </div>
-            <div className="bg-[#f7f2e7] text-[#1e1914] border-2 border-[#c7b99c] px-4 py-8 shadow-md">
+            <div className="bg-[#F7FAFA] text-[#1E293B] border-2 border-[#057091]/40 px-4 py-8 shadow-md">
               <div
                 className="text-[24px] font-bold tracking-[0.22em]"
                 style={{
@@ -167,8 +167,8 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
     if (page.type === 'toc') {
       return (
         <div className="flex-1 flex flex-col">
-          <div className="text-center pb-3 mb-4 border-b border-[#3a2d22]/40">
-            <h2 className="text-[20px] font-bold tracking-[0.2em] text-[#2a2118]">
+          <div className="text-center pb-3 mb-4 border-b border-[#057091]/35 dark:border-[#58B1CD]/35">
+            <h2 className="text-[20px] font-bold tracking-[0.2em] text-[#1E293B] dark:text-slate-100">
               谱 书 总 目
             </h2>
           </div>
@@ -179,7 +179,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                   key={`${entry.title}-${entry.pageNo}-${i}`}
                   type="button"
                   onClick={() => jumpToPageNumber(entry.pageNo)}
-                  className={`w-full flex items-baseline justify-between gap-3 py-1.5 border-b border-dashed border-[#c8bc9f] hover:text-[#7c231c] transition-colors text-left cursor-pointer ${
+                  className={`w-full flex items-baseline justify-between gap-3 py-1.5 border-b border-dashed border-[#CBD5E1] dark:border-slate-700 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-colors text-left cursor-pointer ${
                     entry.level === 2 ? 'pl-5 text-[13px]' : 'font-semibold text-[14px]'
                   }`}
                 >
@@ -189,13 +189,13 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                       : ''}
                     {entry.title}
                   </span>
-                  <span className="text-[12px] text-[#6d5d4b] tabular-nums shrink-0">
+                  <span className="text-[12px] text-[#64748B] dark:text-slate-400 tabular-nums shrink-0">
                     {formatPageNumberLabel(entry.pageNo, layout.pageNumberStyle)}
                   </span>
                 </button>
               ))
             ) : (
-              <div className="py-12 text-center text-[13px] text-[#7a6b58]">
+              <div className="py-12 text-center text-[13px] text-[#64748B] dark:text-slate-400">
                 暂无目录条目
               </div>
             )}
@@ -207,18 +207,18 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
     if (page.type === 'article') {
       return (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="mb-4 pb-2 border-b border-[#c8bc9f]">
-            <h2 className="text-[19px] font-bold text-[#7c231c]">
+          <div className="mb-4 pb-2 border-b border-[#CBD5E1] dark:border-slate-700">
+            <h2 className="text-[19px] font-bold text-[#057091] dark:text-[#58B1CD]">
               {page.title}
             </h2>
             {page.author && (
-              <div className="text-[12px] text-[#6d5d4b] mt-1">
+              <div className="text-[12px] text-[#64748B] dark:text-slate-400 mt-1">
                 {page.author}
               </div>
             )}
           </div>
           <div
-            className={`flex-1 overflow-y-auto pr-1 prose prose-sm max-w-none text-[#261d15] ${densityClass}`}
+            className={`flex-1 overflow-y-auto pr-1 prose prose-sm dark:prose-invert max-w-none text-[#1E293B] dark:text-slate-200 ${densityClass}`}
             dangerouslySetInnerHTML={{ __html: page.contentHtml || '' }}
           />
         </div>
@@ -228,34 +228,34 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
     if (page.type === 'lineage_index') {
       return (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <h2 className="text-[17px] font-bold text-[#7c231c] mb-3 pb-1.5 border-b border-[#c8bc9f]">
+          <h2 className="text-[17px] font-bold text-[#057091] dark:text-[#58B1CD] mb-3 pb-1.5 border-b border-[#CBD5E1] dark:border-slate-700">
             {page.title || '族丁检索表'}
           </h2>
           <div className="flex-1 overflow-y-auto">
             <table className="w-full text-[12px] border-collapse">
               <thead>
-                <tr className="border-b-2 border-[#3a2d22] text-[#5a4a39]">
+                <tr className="border-b-2 border-[#057091]/45 dark:border-[#58B1CD]/40 text-[#475569] dark:text-slate-300">
                   <th className="text-left py-1.5 px-2">世次</th>
                   <th className="text-left py-1.5 px-2">谱名</th>
                   <th className="text-left py-1.5 px-2">父讳</th>
                   <th className="text-right py-1.5 px-2">世系页码</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#dfd6c3]">
+              <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-700/80">
                 {(page.indexRows || []).map((row, idx) => (
                   <tr key={`${row.name}-${idx}`}>
-                    <td className="py-1.5 px-2 text-[#7c231c] tabular-nums">
+                    <td className="py-1.5 px-2 text-[#057091] dark:text-[#58B1CD] tabular-nums">
                       第{toChineseNumeral(row.generation)}世
                     </td>
                     <td className="py-1.5 px-2 font-semibold">{row.name}</td>
-                    <td className="py-1.5 px-2 text-[#5a4a39]">
+                    <td className="py-1.5 px-2 text-[#475569] dark:text-slate-300">
                       {row.fatherName}
                     </td>
                     <td className="py-1.5 px-2 text-right tabular-nums">
                       <button
                         type="button"
                         onClick={() => jumpToPageNumber(row.pageRef)}
-                        className="text-[#7c231c] hover:underline cursor-pointer"
+                        className="text-[#057091] dark:text-[#58B1CD] hover:underline cursor-pointer"
                       >
                         {formatPageNumberLabel(
                           row.pageRef,
@@ -280,7 +280,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
       );
       return (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <h2 className="text-[17px] font-bold text-[#7c231c] mb-3 pb-1.5 border-b border-[#c8bc9f]">
+          <h2 className="text-[17px] font-bold text-[#057091] dark:text-[#58B1CD] mb-3 pb-1.5 border-b border-[#CBD5E1] dark:border-slate-700">
             {page.title || '吊线图'}
           </h2>
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
@@ -290,19 +290,19 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                 <div
                   key={tp.id}
                   style={{ marginLeft: `${offset * 20}px` }}
-                  className="flex items-center gap-2 py-1 px-2.5 rounded border border-[#dfd6c3] bg-[#faf5e8] text-[12px]"
+                  className="flex items-center gap-2 py-1 px-2.5 rounded border border-[#CBD5E1] dark:border-slate-700 bg-[#EFF5F7] dark:bg-[#232A33] text-[12px]"
                 >
                   {offset > 0 && (
-                    <span className="text-[#9e8e76]" aria-hidden="true">
+                    <span className="text-[#64748B] dark:text-slate-400" aria-hidden="true">
                       └─
                     </span>
                   )}
-                  <span className="text-[#7c231c] font-semibold tabular-nums">
+                  <span className="text-[#057091] dark:text-[#58B1CD] font-semibold tabular-nums">
                     [{toChineseNumeral(tp.generation)}世]
                   </span>
-                  <span className="font-bold text-[#261d15]">{tp.name}</span>
+                  <span className="font-bold text-[#1E293B] dark:text-slate-100">{tp.name}</span>
                   {tp.rank && (
-                    <span className="text-[11px] text-[#6d5d4b]">
+                    <span className="text-[11px] text-[#64748B] dark:text-slate-400">
                       {tp.rank}
                     </span>
                   )}
@@ -320,11 +320,11 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between mb-3 pb-1.5 border-b border-[#c8bc9f]">
-          <h2 className="text-[17px] font-bold text-[#7c231c]">
+        <div className="flex items-center justify-between mb-3 pb-1.5 border-b border-[#CBD5E1] dark:border-slate-700">
+          <h2 className="text-[17px] font-bold text-[#057091] dark:text-[#58B1CD]">
             {page.title || '世系表'}
           </h2>
-          <span className="text-[11px] text-[#6d5d4b]">
+          <span className="text-[11px] text-[#64748B] dark:text-slate-400">
             {LINEAGE_STYLE_LABELS[style]}
           </span>
         </div>
@@ -335,17 +335,17 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-2.5 border border-[#dfd6c3] bg-[#faf5e8]/60 space-y-1"
+                  className="p-2.5 border border-[#CBD5E1] dark:border-slate-700 bg-[#EFF5F7]/75 dark:bg-[#232A33]/75 space-y-1"
                 >
-                  <div className="font-bold text-[14px] text-[#7c231c]">
+                  <div className="font-bold text-[14px] text-[#057091] dark:text-[#58B1CD]">
                     [第{toChineseNumeral(entry.generation)}世] {entry.name}
                   </div>
                   {entry.fatherName && (
-                    <div className="text-[11px] text-[#6d5d4b]">
+                    <div className="text-[11px] text-[#64748B] dark:text-slate-400">
                       父：{entry.fatherName}
                     </div>
                   )}
-                  <p className="text-[12px] leading-relaxed text-[#2e241b]">
+                  <p className="text-[12px] leading-relaxed text-[#334155] dark:text-slate-200">
                     {entry.summaryText}
                   </p>
                 </div>
@@ -356,18 +356,18 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="border-r-2 border-[#7c231c]/40 pr-3 py-1.5 border-b border-dashed border-[#dfd6c3]"
+                  className="border-r-2 border-[#057091]/45 dark:border-[#58B1CD]/45 pr-3 py-1.5 border-b border-dashed border-[#CBD5E1] dark:border-slate-700"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-[14px] text-[#261d15]">
+                    <span className="font-bold text-[14px] text-[#1E293B] dark:text-slate-100">
                       {entry.name}
                       {entry.courtesyName ? `（字${entry.courtesyName}）` : ''}
                     </span>
-                    <span className="text-[11px] text-[#7c231c] font-semibold">
+                    <span className="text-[11px] text-[#057091] dark:text-[#58B1CD] font-semibold">
                       第{toChineseNumeral(entry.generation)}世
                     </span>
                   </div>
-                  <p className="text-[12px] leading-relaxed text-[#3d3226] mt-1">
+                  <p className="text-[12px] leading-relaxed text-[#334155] dark:text-slate-300 mt-1">
                     {entry.fatherName ? `${entry.fatherName}之子。` : ''}
                     {entry.summaryText}
                   </p>
@@ -376,23 +376,23 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
             </div>
           ) : (
             // Euler 5-tier row style
-            <div className="divide-y divide-[#b8aa93] border border-[#b8aa93]">
+            <div className="divide-y divide-[#CBD5E1] dark:divide-slate-700 border border-[#CBD5E1] dark:border-slate-700">
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="grid grid-cols-[72px_1fr] divide-x divide-[#b8aa93]"
+                  className="grid grid-cols-[72px_1fr] divide-x divide-[#CBD5E1] dark:divide-slate-700"
                 >
-                  <div className="p-2 bg-[#f6f0e2] flex flex-col items-center justify-center text-center">
-                    <span className="text-[11px] font-bold text-[#7c231c]">
+                  <div className="p-2 bg-[#EFF5F7] dark:bg-[#232A33] flex flex-col items-center justify-center text-center">
+                    <span className="text-[11px] font-bold text-[#057091] dark:text-[#58B1CD]">
                       第{toChineseNumeral(entry.generation)}世
                     </span>
-                    <span className="text-[14px] font-bold text-[#261d15] mt-0.5">
+                    <span className="text-[14px] font-bold text-[#1E293B] dark:text-slate-100 mt-0.5">
                       {entry.name}
                     </span>
                   </div>
-                  <div className="p-2.5 text-[12px] leading-relaxed text-[#2e241b]">
+                  <div className="p-2.5 text-[12px] leading-relaxed text-[#334155] dark:text-slate-200">
                     {entry.fatherName && (
-                      <span className="font-semibold text-[#5a4a39]">
+                      <span className="font-semibold text-[#475569] dark:text-slate-300">
                         {entry.fatherName}之子。
                       </span>
                     )}
@@ -571,19 +571,19 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
             {visiblePages.map((page) => (
               <article
                 key={page.pageNo}
-                className="w-[540px] min-h-[720px] max-h-[760px] bg-[#fcf8ee] text-[#261d15] rounded-sm border border-[#c8bc9f] shadow-xl p-6 flex flex-col overflow-hidden"
+                className="w-[540px] min-h-[720px] max-h-[760px] bg-[#F8FAFB] dark:bg-[#1A2129] text-[#1E293B] dark:text-slate-100 rounded-sm border border-[#CBD5E1] dark:border-slate-700 shadow-xl p-6 flex flex-col overflow-hidden"
               >
                 {page.type === 'cover' ? (
                   renderPageContent(page)
                 ) : (
                   <div className={`${borderClass} flex-1 p-5 flex flex-col overflow-hidden`}>
                     {/* Running Header with Fishtail */}
-                    <div className="flex items-center justify-between gap-2 pb-2 mb-4 border-b border-[#3a2d22]/40 text-[11px] text-[#6d5d4b] shrink-0">
+                    <div className="flex items-center justify-between gap-2 pb-2 mb-4 border-b border-[#057091]/35 dark:border-[#58B1CD]/35 text-[11px] text-[#64748B] dark:text-slate-400 shrink-0">
                       <span className="truncate">
                         {layout.showHeaderName ? page.headerTitle : ''}
                       </span>
-                      <span className="flex items-center gap-1.5 text-[#7c231c] font-semibold shrink-0">
-                        <FishtailOrnament style={layout.fishtailStyle} />
+                      <span className="flex items-center gap-1.5 text-[#057091] dark:text-[#58B1CD] font-semibold shrink-0">
+                        <FishtailOrnament style={layout.fishtailStyle} className="text-[#057091] dark:text-[#58B1CD]" />
                         <span>{page.eyebrowTitle}</span>
                       </span>
                       <span className="truncate">
@@ -594,7 +594,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                     {renderPageContent(page)}
 
                     {/* Footer Page Number */}
-                    <div className="pt-2 mt-4 border-t border-[#3a2d22]/30 text-center text-[11px] text-[#6d5d4b] tabular-nums shrink-0">
+                    <div className="pt-2 mt-4 border-t border-[#057091]/25 dark:border-[#58B1CD]/25 text-center text-[11px] text-[#64748B] dark:text-slate-400 tabular-nums shrink-0">
                       {formatPageNumberLabel(
                         page.pageNo,
                         layout.pageNumberStyle

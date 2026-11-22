@@ -629,7 +629,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
 
   const dialogContent = (
     <div
-      className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center sm:p-4"
+      className="fs-lineage-theme fixed inset-0 z-[110] bg-black/50 backdrop-blur-[2px] flex items-center justify-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="date-dialog-title"
@@ -638,34 +638,34 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-card border-0 sm:border sm:border-border rounded-none sm:rounded-xl shadow-2xl w-full sm:max-w-[540px] h-full sm:h-auto sm:max-h-[88vh] flex flex-col overflow-hidden">
+      <div className="bg-[#FEFEFE] dark:bg-[#1E2329] text-[#212225] dark:text-slate-100 border-0 sm:border sm:border-[#D8DADA] dark:sm:border-slate-700/80 rounded-none sm:rounded-[12px] shadow-[0_14px_38px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] w-full sm:max-w-[560px] h-full sm:h-auto sm:max-h-[88vh] flex flex-col overflow-hidden">
         {/* Sticky Header */}
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between bg-[hsl(var(--surface-subtle))] shrink-0">
+        <div className="px-6 py-4 border-b border-[#E0E2E2] dark:border-slate-700/80 flex items-center justify-between bg-[#F5F6F6] dark:bg-[#252B33] shrink-0">
           <h3
             id="date-dialog-title"
-            className="font-semibold text-sm text-foreground"
+            className="font-bold text-[17px] text-[#212225] dark:text-slate-100"
           >
             {title}
           </h3>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 hover:text-[#212225] dark:hover:text-slate-100 transition-colors cursor-pointer"
             onClick={onClose}
             aria-label="关闭日期编辑器"
           >
-            <X size={15} />
-          </Button>
+            <X size={17} />
+          </button>
         </div>
 
+        <div className="h-[3px] w-full bg-[#057091] shrink-0" aria-hidden="true" />
+
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
           {/* 1. Main Calendar Tabs */}
           <div
             role="tablist"
             aria-label="历法选择"
-            className="flex items-center gap-1 p-1 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border/60"
+            className="flex items-center gap-1 p-1 rounded-[8px] bg-[#F5F6F6] dark:bg-[#252B33] border border-[#E0E2E2] dark:border-slate-700/80"
           >
             {hasGregorian && (
               <button
@@ -673,10 +673,10 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 role="tab"
                 aria-selected={activeMainTab === 'gregorian'}
                 onClick={() => handleSelectMainTab('gregorian')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   activeMainTab === 'gregorian'
-                    ? 'bg-card text-foreground shadow-[var(--shadow-control)]'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
+                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
                 }`}
               >
                 公历
@@ -688,10 +688,10 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 role="tab"
                 aria-selected={activeMainTab === 'chinese_lunisolar'}
                 onClick={() => handleSelectMainTab('chinese_lunisolar')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   activeMainTab === 'chinese_lunisolar'
-                    ? 'bg-card text-foreground shadow-[var(--shadow-control)]'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
+                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
                 }`}
               >
                 农历
@@ -703,10 +703,10 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 role="tab"
                 aria-selected={activeMainTab === 'historical'}
                 onClick={() => handleSelectMainTab('historical')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   activeMainTab === 'historical'
-                    ? 'bg-card text-foreground shadow-[var(--shadow-control)]'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
+                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
                 }`}
               >
                 历史纪年
@@ -718,10 +718,10 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 role="tab"
                 aria-selected={activeMainTab === 'phrase'}
                 onClick={() => handleSelectMainTab('phrase')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   activeMainTab === 'phrase'
-                    ? 'bg-card text-foreground shadow-[var(--shadow-control)]'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
+                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
                 }`}
               >
                 仅原文
@@ -1022,7 +1022,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-5 py-3 border-t border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-6 py-3.5 border-t border-[#E0E2E2] dark:border-slate-700/80 bg-[#FEFEFE] dark:bg-[#1E2329] flex items-center justify-between gap-2 shrink-0">
           <div>
             {(value || draft.originalText) && (
               <Button
@@ -1030,7 +1030,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={handleClearClick}
-                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive gap-1"
+                className="h-9 px-2.5 text-xs text-[#56585A] dark:text-slate-400 hover:text-destructive gap-1"
               >
                 <Trash2 size={12} />
                 <span>清空日期</span>
@@ -1038,25 +1038,22 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
+          <div className="flex items-center gap-2.5">
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={onClose}
-              className="h-8 px-3.5 text-xs"
+              className="h-9 px-4 rounded-[6px] text-[13px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer"
             >
               取消
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              size="sm"
               disabled={!validation.valid}
               onClick={handleConfirmClick}
-              className="h-8 px-4 text-xs"
+              className="h-9 px-5 rounded-[6px] text-[13px] font-semibold bg-[#057091] hover:bg-[#045B76] text-white disabled:opacity-45 disabled:pointer-events-none shadow-xs transition-colors cursor-pointer"
             >
               确定
-            </Button>
+            </button>
           </div>
         </div>
       </div>

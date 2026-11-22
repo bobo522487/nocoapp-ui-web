@@ -206,11 +206,11 @@ export const RegionCascader: React.FC<RegionCascaderProps> = ({
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
-        className={`flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-1.5 text-sm shadow-[var(--shadow-control)] transition-colors duration-150 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
+        className={`flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-control)] transition-all duration-150 text-left cursor-pointer focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] ${
           hasError
-            ? 'border-destructive focus-visible:border-destructive'
+            ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive'
             : isOpen
-            ? 'border-primary ring-2 ring-primary/20'
+            ? 'border-primary ring-1 ring-primary shadow-[var(--shadow-focus-halo)]'
             : 'border-input hover:border-[hsl(var(--border-strong))]'
         }`}
       >
@@ -259,7 +259,7 @@ export const RegionCascader: React.FC<RegionCascaderProps> = ({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="快速搜索国家、省份或城市..."
-                  className="w-full h-8 pl-8 pr-2.5 text-xs rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/25"
+                  className="w-full h-8 pl-8 pr-2.5 text-xs rounded-md border border-input bg-card text-foreground placeholder:text-muted-foreground transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
                   autoFocus
                 />
               </div>

@@ -107,7 +107,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
       death: burialPlaceValue
         ? {
             burialPlace: formattedBurialPlace || '',
-            structuredPlace: burialPlaceValue,
+            structuredBurialPlace: burialPlaceValue,
           }
         : undefined,
       biography: biography.trim() || undefined,
@@ -347,8 +347,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               value={burialPlaceValue}
               onChange={setBurialPlaceValue}
               clanPersons={existingPersons}
-              placeholder="输入省市区县或祖茔山名，点右侧细化坐向"
-              detailPlaceholder="例如：凤凰山下象鼻嘴，坐东向西"
+              placeholder="输入省市区县或原始地名，或点右侧选择"
             />
           </div>
 

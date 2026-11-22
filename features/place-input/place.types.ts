@@ -5,7 +5,6 @@ export interface GenealogyPlace {
   province?: string;
   city?: string;
   district?: string;
-  detail?: string | null;
   originalText?: string | null;
 }
 

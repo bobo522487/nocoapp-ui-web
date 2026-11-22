@@ -2,59 +2,79 @@ import assert from 'node:assert/strict';
 import type { PersonRecord } from '../lineage/types';
 import {
   extractClanPlaceStats,
+  finalizeGenealogyPlace,
   formatGenealogyPlace,
   generatePlaceSuggestions,
   isLosslessPlaceCarry,
   matchRegionFromText,
+  parsePlaceText,
   readGenealogyPlace,
   writeGenealogyPlace,
 } from './index';
 
 function runPlaceTests() {
-  // 1. Traditional & Simplified search -> 中国贵州省贵阳市观山湖区
+  // 1. Traditional & Simplified search -> 贵州省贵阳市观山湖区
   const s1 = generatePlaceSuggestions('觀山湖');
   assert.ok(s1.length > 0, 'Expected suggestions for 觀山湖');
-  assert.equal(s1[0].primaryLabel, '中国贵州省贵阳市观山湖区');
+  assert.equal(s1[0].primaryLabel, '贵州省贵阳市观山湖区');
   assert.equal(s1[0].value.kind, 'structured');
   assert.equal(s1[0].value.province, '贵州省');
   assert.equal(s1[0].value.city, '贵阳市');
   assert.equal(s1[0].value.district, '观山湖区');
 
   const s1Full = generatePlaceSuggestions('中國貴州省貴陽市觀山湖區');
-  assert.equal(s1Full[0].primaryLabel, '中国贵州省贵阳市观山湖区');
+  assert.equal(s1Full[0].primaryLabel, '贵州省贵阳市观山湖区');
 
-  // 2. Municipality flattening -> 中国北京市东城区 (no 市辖区)
+  // 2. Municipality flattening -> 北京市东城区 (no 市辖区)
   const s2 = generatePlaceSuggestions('东城');
-  assert.ok(s2.some((item) => item.primaryLabel === '中国北京市东城区'));
-  const dongcheng = s2.find((item) => item.primaryLabel === '中国北京市东城区')!;
+  assert.ok(s2.some((item) => item.primaryLabel === '北京市东城区'));
+  const dongcheng = s2.find((item) => item.primaryLabel === '北京市东城区')!;
   assert.equal(dongcheng.value.province, '北京市');
   assert.equal(dongcheng.value.city, undefined);
   assert.equal(dongcheng.value.district, '东城区');
-  assert.equal(formatGenealogyPlace(dongcheng.value), '中国北京市东城区');
+  assert.equal(formatGenealogyPlace(dongcheng.value), '北京市东城区');
 
-  // 3. Space-separated region + detail & full prefix + detail
-  const s3 = generatePlaceSuggestions('泰和 澄江镇');
-  const taiheDetail = s3.find(
-    (item) =>
-      item.value.kind === 'structured' &&
-      item.value.district === '泰和县' &&
-      item.value.detail === '澄江镇'
-  );
-  assert.ok(taiheDetail, 'Expected 泰和 澄江镇 to match structured region + detail');
-  assert.equal(taiheDetail.primaryLabel, '中国江西省吉安市泰和县澄江镇');
+  // 3. Exact standardized region match vs non-standard phrase preservation
+  const exactMatched = matchRegionFromText('贵州省贵阳市观山湖区');
+  assert.ok(exactMatched);
+  assert.equal(exactMatched.kind, 'structured');
+  assert.equal(formatGenealogyPlace(exactMatched), '贵州省贵阳市观山湖区');
 
-  const s3Multi = generatePlaceSuggestions('江西 泰和 澄江镇');
-  assert.equal(s3Multi[0].primaryLabel, '中国江西省吉安市泰和县澄江镇');
-  assert.equal(s3Multi[0].value.detail, '澄江镇');
+  const exactWithLeadingChina = matchRegionFromText('中国贵州省贵阳市观山湖区');
+  assert.ok(exactWithLeadingChina);
+  assert.equal(formatGenealogyPlace(exactWithLeadingChina), '贵州省贵阳市观山湖区');
 
-  const prefixMatched = matchRegionFromText('中国江西省吉安市泰和县澄江镇');
-  assert.ok(prefixMatched);
-  assert.equal(prefixMatched.province, '江西省');
-  assert.equal(prefixMatched.city, '吉安市');
-  assert.equal(prefixMatched.district, '泰和县');
-  assert.equal(prefixMatched.detail, '澄江镇');
+  const phraseNotTruncated = matchRegionFromText('江西省吉安市泰和县澄江镇');
+  assert.equal(phraseNotTruncated, null);
 
-  // 4. Clan frequent places extraction & prioritization
+  // 4. Single-page finalizeGenealogyPlace: region empty -> phrase; region selected -> structured
+  const finalizedPhrase = finalizeGenealogyPlace({
+    schemaVersion: 1,
+    kind: 'structured',
+    province: '',
+    city: '',
+    district: '',
+    originalText: '庐陵郡太和县南溪里',
+  });
+  assert.ok(finalizedPhrase);
+  assert.equal(finalizedPhrase.kind, 'phrase');
+  assert.equal(finalizedPhrase.originalText, '庐陵郡太和县南溪里');
+  assert.equal(formatGenealogyPlace(finalizedPhrase), '庐陵郡太和县南溪里');
+
+  const finalizedStructured = finalizeGenealogyPlace({
+    schemaVersion: 1,
+    kind: 'structured',
+    province: '贵州省',
+    city: '贵阳市',
+    district: '观山湖区',
+    originalText: '桐梓县狮子山金钗穴',
+  });
+  assert.ok(finalizedStructured);
+  assert.equal(finalizedStructured.kind, 'structured');
+  assert.equal(formatGenealogyPlace(finalizedStructured), '贵州省贵阳市观山湖区');
+  assert.equal(finalizedStructured.originalText, '桐梓县狮子山金钗穴');
+
+  // 5. Clan frequent places extraction & prioritization
   const mockPersons: PersonRecord[] = [
     {
       id: 'p1',
@@ -65,7 +85,7 @@ function runPlaceTests() {
       spouses: [],
       gender: 'male',
       status: 'deceased',
-      birth: { place: '中国江西省吉安市泰和县澄江镇' },
+      birth: { place: '江西省吉安市泰和县' },
       death: { burialPlace: '泰和县狮子山金钗穴，坐北朝南' },
     },
     {
@@ -77,8 +97,8 @@ function runPlaceTests() {
       spouses: [],
       gender: 'male',
       status: 'deceased',
-      birth: { place: '中国江西省吉安市泰和县澄江镇' },
-      death: { burialPlace: '中国贵州省贵阳市观山湖区' },
+      birth: { place: '江西省吉安市泰和县' },
+      death: { burialPlace: '贵州省贵阳市观山湖区' },
     },
     {
       id: 'p3',
@@ -89,19 +109,19 @@ function runPlaceTests() {
       spouses: [],
       gender: 'male',
       status: 'living',
-      birth: { place: '中国江西省吉安市泰和县澄江镇' },
+      birth: { place: '江西省吉安市泰和县' },
     },
   ];
   const clanStats = extractClanPlaceStats(mockPersons);
-  assert.equal(clanStats[0].label, '中国江西省吉安市泰和县澄江镇');
+  assert.equal(clanStats[0].label, '江西省吉安市泰和县');
   assert.equal(clanStats[0].count, 3);
 
   const sClan = generatePlaceSuggestions('泰和', { clanPlaces: clanStats });
   assert.equal(sClan[0].kind, 'clan');
-  assert.equal(sClan[0].primaryLabel, '中国江西省吉安市泰和县澄江镇');
+  assert.equal(sClan[0].primaryLabel, '江西省吉安市泰和县');
   assert.ok(sClan[0].metaLabel.includes('已用3次'));
 
-  // 5. Lossless blur guard: arbitrary burial phrase must not be overwritten, shorthand can auto-adopt
+  // 6. Lossless blur guard & legacy adapter round-trip
   assert.equal(isLosslessPlaceCarry('观山湖', s1[0]), true);
   const arbitrarySuggestions = generatePlaceSuggestions('老家后山，坐北朝南');
   assert.equal(arbitrarySuggestions[arbitrarySuggestions.length - 1].kind, 'phrase');
@@ -112,38 +132,67 @@ function runPlaceTests() {
     );
   }
 
-  // 6. Legacy adapter round-trip with birth.place & death.burialPlace / burialPlace
   const readBirth = readGenealogyPlace(mockPersons[0], 'birth');
   assert.ok(readBirth);
   assert.equal(readBirth.kind, 'structured');
-  assert.equal(readBirth.detail, '澄江镇');
+  assert.equal(readBirth.district, '泰和县');
 
-  const readBurial = readGenealogyPlace(mockPersons[0], 'death');
+  const readBurial = readGenealogyPlace(mockPersons[0], 'burial');
   assert.ok(readBurial);
   assert.equal(readBurial.kind, 'phrase');
   assert.equal(readBurial.originalText, '泰和县狮子山金钗穴，坐北朝南');
 
-  const updated = writeGenealogyPlace(mockPersons[0], 'death', {
-    schemaVersion: 1,
-    kind: 'structured',
-    country: '中国',
-    province: '贵州省',
-    city: '贵阳市',
-    district: '观山湖区',
-    detail: '狮子山金钗穴，坐北朝南',
-    originalText: '桐梓县狮子山金钗穴',
-  });
-  assert.equal(
-    updated.burialPlace,
-    '中国贵州省贵阳市观山湖区狮子山金钗穴，坐北朝南'
+  const updatedBurial = writeGenealogyPlace(
+    mockPersons[0],
+    'burial',
+    finalizedStructured
   );
+  assert.equal(updatedBurial.burialPlace, '贵州省贵阳市观山湖区');
+  assert.equal(updatedBurial.death?.burialPlace, '贵州省贵阳市观山湖区');
   assert.equal(
-    updated.death?.burialPlace,
-    '中国贵州省贵阳市观山湖区狮子山金钗穴，坐北朝南'
+    updatedBurial.death?.structuredBurialPlace?.originalText,
+    '桐梓县狮子山金钗穴'
   );
-  assert.equal(updated.death?.structuredPlace?.originalText, '桐梓县狮子山金钗穴');
 
-  console.log('All 6 place-input & combobox tests PASSED.');
+  const updatedDeath = writeGenealogyPlace(
+    updatedBurial,
+    'death',
+    finalizedStructured
+  );
+  assert.equal(updatedDeath.death?.place, '贵州省贵阳市观山湖区');
+  assert.equal(
+    updatedDeath.death?.structuredPlace?.originalText,
+    '桐梓县狮子山金钗穴'
+  );
+
+  // 7. parsePlaceText handles legacy slash-delimited paths and non-standard phrases
+  const legacySlash = parsePlaceText('江西省/九江市/德安县');
+  assert.ok(legacySlash);
+  assert.equal(legacySlash.kind, 'structured');
+  assert.equal(formatGenealogyPlace(legacySlash), '江西省九江市德安县');
+
+  const legacyMunicipality = parsePlaceText('北京市/市辖区/东城区');
+  assert.ok(legacyMunicipality);
+  assert.equal(legacyMunicipality.kind, 'structured');
+  assert.equal(legacyMunicipality.city, undefined);
+  assert.equal(formatGenealogyPlace(legacyMunicipality), '北京市东城区');
+
+  const legacyShort = parsePlaceText('中国/北京/东城');
+  assert.ok(legacyShort);
+  assert.equal(legacyShort.kind, 'structured');
+  assert.equal(formatGenealogyPlace(legacyShort), '北京市东城区');
+
+  const overseasPhrase = parsePlaceText('美国/加利福尼亚/旧金山');
+  assert.ok(overseasPhrase);
+  assert.equal(overseasPhrase.kind, 'phrase');
+  assert.equal(overseasPhrase.originalText, '美国/加利福尼亚/旧金山');
+
+  const legacyPhrase = parsePlaceText('庐陵郡太和县南溪里');
+  assert.ok(legacyPhrase);
+  assert.equal(legacyPhrase.kind, 'phrase');
+  assert.equal(legacyPhrase.originalText, '庐陵郡太和县南溪里');
+
+  console.log('All 7 simplified place-input tests PASSED.');
 }
 
 runPlaceTests();

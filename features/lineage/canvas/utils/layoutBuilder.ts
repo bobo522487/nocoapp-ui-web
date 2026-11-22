@@ -1,14 +1,15 @@
 import { PersonRecord } from '../../types';
+import { formatGivenName } from '../../utils/nameUtils';
 import {
   getDerivedChildren,
   getSpouseSortScore,
 } from '../../utils/personHelpers';
 import {
-  GenealogyFlowNode,
+  ClanHeaderFlowNode,
   GenealogyFlowEdge,
+  GenealogyFlowNode,
   PersonFlowNode,
   UnionFlowNode,
-  QuickAddFlowNode,
 } from '../types';
 
 export interface LayoutOptions {
@@ -16,24 +17,24 @@ export interface LayoutOptions {
   onAddChild?: (fatherId: string, gender?: 'male' | 'female') => void;
   onAddSibling?: (refPersonId: string, gender?: 'male' | 'female') => void;
   onAddSpouse?: (personId: string) => void;
+  onAddParent?: (personId: string) => void;
   onDeletePerson?: (id: string) => void;
   onToggleCollapse?: (personId: string) => void;
+  onToggleAddMenu?: (personId: string | null) => void;
   collapsedNodeIds?: Set<string>;
   selectedPersonId?: string | null;
-  editingPersonId?: string | null;
+  openMenuPersonId?: string | null;
   clanSurname?: string;
-  onCommitInlineName?: (personId: string, name: string, openDrawer: boolean) => void;
-  onCancelInlineName?: (personId: string) => void;
 }
 
-const CARD_W = 100;
-const CARD_H = 114;
-const X_STEP = 126; // 100px card + 26px gap
-const Y_STEP = 160; // 114px card + 46px bus gap
-
-const GHOST_SPOUSE_ID = '__ghost-spouse__';
-const GHOST_SIBLING_ID = '__ghost-sibling__';
-const GHOST_CHILD_ID = '__ghost-child__';
+export const FS_CARD_W = 123;
+export const FS_CARD_H = 220;
+export const FS_SPOUSE_GAP = 16;
+export const FS_SPOUSE_STEP_X = FS_CARD_W + FS_SPOUSE_GAP; // 139px
+export const FS_SIBLING_STEP_X = FS_CARD_W + 28; // 151px
+export const FS_BRANCH_GAP = 48;
+export const FS_GEN_STEP_Y = 320;
+export const FS_JUNCTION_OFFSET_Y = FS_CARD_H + 64; // 284px from card top (32px couple drop + 32px stem)
 
 export function buildGenealogyGraph(
   persons: PersonRecord[],
@@ -46,16 +47,16 @@ export function buildGenealogyGraph(
   const {
     collapsedNodeIds = new Set<string>(),
     onToggleCollapse,
+    onToggleAddMenu,
     onSelectPerson,
     onAddChild,
     onAddSibling,
     onAddSpouse,
+    onAddParent,
     onDeletePerson,
     selectedPersonId,
-    editingPersonId = null,
+    openMenuPersonId = null,
     clanSurname = '',
-    onCommitInlineName,
-    onCancelInlineName,
   } = options;
 
   const personMap = new Map<string, PersonRecord>();
@@ -63,7 +64,11 @@ export function buildGenealogyGraph(
 
   const rawChildrenMap = new Map<string, PersonRecord[]>();
   persons.forEach((person) => {
-    if (person.fatherId && !person.spouseOfId && personMap.has(person.fatherId)) {
+    if (
+      person.fatherId &&
+      !person.spouseOfId &&
+      personMap.has(person.fatherId)
+    ) {
       const list = rawChildrenMap.get(person.fatherId) || [];
       list.push(person);
       rawChildrenMap.set(person.fatherId, list);
@@ -71,6 +76,15 @@ export function buildGenealogyGraph(
   });
   rawChildrenMap.forEach((_, fatherId) => {
     rawChildrenMap.set(fatherId, getDerivedChildren(persons, fatherId));
+  });
+
+  const allSpousesByPartner = new Map<string, PersonRecord[]>();
+  persons.forEach((p) => {
+    if (p.spouseOfId && personMap.has(p.spouseOfId)) {
+      const list = allSpousesByPartner.get(p.spouseOfId) || [];
+      list.push(p);
+      allSpousesByPartner.set(p.spouseOfId, list);
+    }
   });
 
   function countDescendants(personId: string): number {
@@ -87,6 +101,11 @@ export function buildGenealogyGraph(
     const children = rawChildrenMap.get(personId) || [];
     children.forEach((c) => {
       hiddenPersonIds.add(c.id);
+      const childSpouses = allSpousesByPartner.get(c.id) || [];
+      childSpouses.forEach((sp) => {
+        hiddenPersonIds.add(sp.id);
+        markDescendantsHidden(sp.id);
+      });
       markDescendantsHidden(c.id);
     });
   }
@@ -130,97 +149,14 @@ export function buildGenealogyGraph(
             !(p.spouseOfId && allVisibleIds.has(p.spouseOfId))
         );
 
-  // Determine selection-driven ghost add cards (配偶 / 兄妹 / 子女)
-  const selectedRaw =
-    selectedPersonId && allVisibleIds.has(selectedPersonId)
-      ? personMap.get(selectedPersonId) || null
-      : null;
-  const selectedIsSpouse = Boolean(
-    selectedRaw?.spouseOfId && allVisibleIds.has(selectedRaw.spouseOfId)
-  );
-  const activeMainPersonId = selectedRaw
-    ? selectedIsSpouse
-      ? selectedRaw.spouseOfId!
-      : selectedRaw.id
-    : null;
-  const activeMainPerson = activeMainPersonId
-    ? personMap.get(activeMainPersonId) || null
-    : null;
-
-  const showGhostSpouse = Boolean(activeMainPerson);
-  const showGhostChild = Boolean(
-    activeMainPerson &&
-      (!collapsedNodeIds.has(activeMainPerson.id) ||
-        (rawChildrenMap.get(activeMainPerson.id) || []).length === 0)
-  );
-  const showGhostSibling = Boolean(activeMainPerson && !selectedIsSpouse);
-
-  // Track virtual tree children (real child IDs + optional virtual ghost IDs) for layout
-  type LayoutChildRef =
-    | { kind: 'person'; id: string; person: PersonRecord }
-    | { kind: 'ghost'; id: string; ghostKind: 'sibling' | 'child'; label: string; generation: number; parentId?: string };
-
-  const getLayoutChildren = (person: PersonRecord): LayoutChildRef[] => {
-    const isCollapsed = collapsedNodeIds.has(person.id);
-    const realChildren = isCollapsed
-      ? []
-      : (rawChildrenMap.get(person.id) || []).filter(
-          (c) => !hiddenPersonIds.has(c.id) && !(c.spouseOfId && allVisibleIds.has(c.spouseOfId))
-        );
-
-    const list: LayoutChildRef[] = [];
-    realChildren.forEach((c) => {
-      list.push({ kind: 'person', id: c.id, person: c });
-      // Inject sibling ghost right after selected activeMainPerson
-      if (
-        showGhostSibling &&
-        activeMainPerson &&
-        c.id === activeMainPerson.id
-      ) {
-        list.push({
-          kind: 'ghost',
-          id: GHOST_SIBLING_ID,
-          ghostKind: 'sibling',
-          label: '兄妹',
-          generation: activeMainPerson.generation || 1,
-          parentId: person.id,
-        });
-      }
-    });
-
-    if (showGhostChild && activeMainPerson && person.id === activeMainPerson.id) {
-      list.push({
-        kind: 'ghost',
-        id: GHOST_CHILD_ID,
-        ghostKind: 'child',
-        label: '子女',
-        generation: (person.generation || 1) + 1,
-        parentId: person.id,
-      });
-    }
-
-    return list;
+  const getVisibleChildren = (person: PersonRecord): PersonRecord[] => {
+    if (collapsedNodeIds.has(person.id)) return [];
+    return (rawChildrenMap.get(person.id) || []).filter(
+      (c) =>
+        !hiddenPersonIds.has(c.id) &&
+        !(c.spouseOfId && allVisibleIds.has(c.spouseOfId))
+    );
   };
-
-  // Build top-level root sequence (including sibling ghost if root is selected)
-  const rootRefs: LayoutChildRef[] = [];
-  roots.forEach((r) => {
-    rootRefs.push({ kind: 'person', id: r.id, person: r });
-    if (
-      showGhostSibling &&
-      activeMainPerson &&
-      r.id === activeMainPerson.id &&
-      (!activeMainPerson.fatherId || !allVisibleIds.has(activeMainPerson.fatherId))
-    ) {
-      rootRefs.push({
-        kind: 'ghost',
-        id: GHOST_SIBLING_ID,
-        ghostKind: 'sibling',
-        label: '兄妹',
-        generation: activeMainPerson.generation || 1,
-      });
-    }
-  });
 
   const positions = new Map<string, { x: number; y: number }>();
   const subtreePlacedIds = new Map<string, string[]>();
@@ -237,73 +173,54 @@ export function buildGenealogyGraph(
       const spPos = positions.get(sp.id);
       if (spPos) positions.set(sp.id, { x: spPos.x + deltaX, y: spPos.y });
     });
-    if (showGhostSpouse && activeMainPersonId === nodeId) {
-      const gSpPos = positions.get(GHOST_SPOUSE_ID);
-      if (gSpPos) {
-        positions.set(GHOST_SPOUSE_ID, { x: gSpPos.x + deltaX, y: gSpPos.y });
-      }
-    }
     const descendants = subtreePlacedIds.get(nodeId) || [];
     descendants.forEach((dId) => shiftSubtree(dId, deltaX));
   }
 
-  function layoutNodeRef(ref: LayoutChildRef): number {
-    if (ref.kind === 'ghost') {
-      const y = (ref.generation - 1) * Y_STEP;
-      const x = currentLeafX;
-      positions.set(ref.id, { x, y });
-      currentLeafX += X_STEP;
-      return x;
-    }
-
-    const person = ref.person;
-    const y = ((person.generation || 1) - 1) * Y_STEP;
+  /**
+   * Layouts a person/couple block and its subtree, returning the horizontal center X
+   * of this person/couple block for parent centering.
+   */
+  function layoutPersonBlock(person: PersonRecord): number {
+    const y = ((person.generation || 1) - 1) * FS_GEN_STEP_Y;
     const attachedSpouses = spousesByPartnerId.get(person.id) || [];
-    const hasOwnGhostSpouse = Boolean(
-      showGhostSpouse && activeMainPersonId === person.id
-    );
-    const totalRowCards =
-      1 + attachedSpouses.length + (hasOwnGhostSpouse ? 1 : 0);
-    const hasCouple = totalRowCards >= 2;
-    const childrenRefs = getLayoutChildren(person);
+    const spouseCount = attachedSpouses.length;
+    const coupleWidth = FS_CARD_W + spouseCount * FS_SPOUSE_STEP_X;
+    const occupiedWidth =
+      spouseCount > 0 ? coupleWidth + 28 : FS_SIBLING_STEP_X;
+    const visibleChildren = getVisibleChildren(person);
 
     const placeRowCards = (personX: number) => {
       positions.set(person.id, { x: personX, y });
       attachedSpouses.forEach((spouse, sIdx) => {
         positions.set(spouse.id, {
-          x: personX + (sIdx + 1) * X_STEP,
+          x: personX + (sIdx + 1) * FS_SPOUSE_STEP_X,
           y,
         });
       });
-      if (hasOwnGhostSpouse) {
-        positions.set(GHOST_SPOUSE_ID, {
-          x: personX + (attachedSpouses.length + 1) * X_STEP,
-          y,
-        });
-      }
     };
 
-    if (childrenRefs.length === 0) {
+    if (visibleChildren.length === 0) {
       const x = currentLeafX;
       placeRowCards(x);
-      currentLeafX += totalRowCards * X_STEP;
-      return x;
+      currentLeafX += occupiedWidth;
+      return x + coupleWidth / 2;
     }
 
     const subtreeStartX = currentLeafX;
-    const childXs: number[] = [];
+    const childCenters: number[] = [];
     const childIds: string[] = [];
-    childrenRefs.forEach((cRef) => {
-      childXs.push(layoutNodeRef(cRef));
-      childIds.push(cRef.id);
+    visibleChildren.forEach((child) => {
+      childCenters.push(layoutPersonBlock(child));
+      childIds.push(child.id);
     });
     subtreePlacedIds.set(person.id, childIds);
 
-    const minChildX = Math.min(...childXs);
-    const maxChildX = Math.max(...childXs);
-    const childrenCenterX = (minChildX + maxChildX) / 2;
+    const minChildCenter = Math.min(...childCenters);
+    const maxChildCenter = Math.max(...childCenters);
+    const childrenMidCenter = (minChildCenter + maxChildCenter) / 2;
 
-    let personX = hasCouple ? childrenCenterX - X_STEP / 2 : childrenCenterX;
+    let personX = childrenMidCenter - coupleWidth / 2;
     if (personX < subtreeStartX) {
       const shift = subtreeStartX - personX;
       childIds.forEach((cId) => shiftSubtree(cId, shift));
@@ -312,53 +229,100 @@ export function buildGenealogyGraph(
     }
 
     placeRowCards(personX);
-    currentLeafX = Math.max(currentLeafX, personX + totalRowCards * X_STEP);
-    return personX;
+    currentLeafX = Math.max(currentLeafX, personX + occupiedWidth);
+    return personX + coupleWidth / 2;
   }
 
-  rootRefs.forEach((ref) => {
-    layoutNodeRef(ref);
-    currentLeafX += 48;
+  roots.forEach((root, idx) => {
+    if (idx > 0) {
+      currentLeafX += FS_BRANCH_GAP;
+    }
+    layoutPersonBlock(root);
   });
 
   // Fallback for any disconnected non-spouse visible nodes
   visiblePersons.forEach((person) => {
     if (!positions.has(person.id)) {
-      const y = ((person.generation || 1) - 1) * Y_STEP;
+      const y = ((person.generation || 1) - 1) * FS_GEN_STEP_Y;
       positions.set(person.id, { x: currentLeafX, y });
-      currentLeafX += X_STEP;
+      currentLeafX += FS_SIBLING_STEP_X;
     }
   });
 
   const nodes: GenealogyFlowNode[] = [];
   const edges: GenealogyFlowEdge[] = [];
 
+  // Clan surname header above top-level root couple blocks (e.g. "陈 氏")
+  roots.forEach((root) => {
+    const rootPos = positions.get(root.id);
+    if (!rootPos) return;
+    const surname = root.surname?.trim() || clanSurname.trim();
+    if (!surname) return;
+    const attachedSpouses = spousesByPartnerId.get(root.id) || [];
+    const coupleWidth = FS_CARD_W + attachedSpouses.length * FS_SPOUSE_STEP_X;
+    const coupleCenterX = rootPos.x + coupleWidth / 2;
+    const clanLabel = surname.endsWith('氏') ? surname : `${surname} 氏`;
+
+    const clanHeaderNode: ClanHeaderFlowNode = {
+      id: `clan-header-${root.id}`,
+      type: 'clanHeader',
+      initialWidth: 240,
+      initialHeight: 42,
+      position: {
+        x: coupleCenterX - 120,
+        y: rootPos.y - 58,
+      },
+      draggable: false,
+      selectable: false,
+      data: {
+        label: clanLabel,
+      },
+    };
+    nodes.push(clanHeaderNode);
+  });
+
+  const primaryRootId =
+    roots.find((r) => (r.generation || 1) === 1)?.id ?? roots[0]?.id ?? null;
+
   visiblePersons.forEach((person) => {
     const pos = positions.get(person.id) || { x: 0, y: 0 };
     const allChildren = rawChildrenMap.get(person.id) || [];
     const isCollapsed = collapsedNodeIds.has(person.id);
     const descendantsCount = countDescendants(person.id);
+    const isFirstAncestor =
+      person.id === primaryRootId &&
+      (person.generation || 1) === 1 &&
+      !person.fatherId &&
+      !person.spouseOfId;
+
+    const canAddParent = true;
 
     const personNode: PersonFlowNode = {
       id: person.id,
       type: 'person',
+      initialWidth: FS_CARD_W,
+      initialHeight: FS_CARD_H,
       position: pos,
+      zIndex: person.id === openMenuPersonId ? 1000 : undefined,
       data: {
         person,
         generation: person.generation,
         clanSurname,
         isSelected: person.id === selectedPersonId,
-        isEditingName: person.id === editingPersonId,
+        isFirstAncestor,
+        canAddParent,
+        isAddMenuOpen: person.id === openMenuPersonId,
         hasChildren: allChildren.length > 0,
         isCollapsed,
         childrenCount: descendantsCount,
         onSelect: onSelectPerson,
         onAddChild,
+        onAddSibling,
         onAddSpouse,
+        onAddParent,
+        onToggleAddMenu,
         onDelete: onDeletePerson,
         onToggleCollapse,
-        onCommitName: onCommitInlineName,
-        onCancelEditing: onCancelInlineName,
       },
     };
     nodes.push(personNode);
@@ -368,158 +332,120 @@ export function buildGenealogyGraph(
     }
 
     const attachedSpouses = spousesByPartnerId.get(person.id) || [];
-    const hasOwnGhostSpouse = Boolean(
-      showGhostSpouse && activeMainPersonId === person.id
-    );
+    const visibleChildren = getVisibleChildren(person);
+    const hasAnyChildren = allChildren.length > 0;
+    const coupleWidth = FS_CARD_W + attachedSpouses.length * FS_SPOUSE_STEP_X;
+    const coupleCenterX = pos.x + coupleWidth / 2;
 
-    // Horizontal marriage connectors
-    attachedSpouses.forEach((spouse, sIdx) => {
-      const prevNodeId = sIdx === 0 ? person.id : attachedSpouses[sIdx - 1].id;
-      edges.push({
-        id: `e-marriage-${prevNodeId}-${spouse.id}`,
-        source: prevNodeId,
-        sourceHandle: 'spouse-out',
-        target: spouse.id,
-        targetHandle: 'spouse-in',
-        type: 'genealogy',
-        data: { relationship: 'marriage' },
-      });
-    });
+    if (hasAnyChildren) {
+      // Junction node at (coupleCenterX, y + 284) bearing the 32px collapse circle
+      const unionId = `union-${person.id}`;
+      const formatMemberName = (member: PersonRecord, isSpouse: boolean) => {
+        const effSurname = isSpouse
+          ? member.surname?.trim() || ''
+          : member.surname?.trim() || clanSurname.trim();
+        const given = isSpouse
+          ? member.name.trim()
+          : formatGivenName(member.name, effSurname);
+        if (effSurname && given && !given.startsWith(effSurname)) {
+          return `${effSurname}${given}`;
+        }
+        return given || effSurname || member.name;
+      };
+      const fatherDisplayName = formatMemberName(person, false);
+      const spouseNames = attachedSpouses
+        .map((s) => formatMemberName(s, true))
+        .join('、');
 
-    if (hasOwnGhostSpouse) {
-      const lastPartnerId =
-        attachedSpouses.length > 0
-          ? attachedSpouses[attachedSpouses.length - 1].id
-          : person.id;
-      const gSpPos = positions.get(GHOST_SPOUSE_ID);
-      if (gSpPos) {
-        const ghostSpouseNode: QuickAddFlowNode = {
-          id: GHOST_SPOUSE_ID,
-          type: 'quickAdd',
-          position: gSpPos,
-          draggable: false,
-          selectable: false,
-          data: {
-            kind: 'spouse',
-            label: '配偶',
-            targetPersonId: person.id,
-            onAction: () => onAddSpouse?.(person.id),
-          },
-        };
-        nodes.push(ghostSpouseNode);
+      const unionNode: UnionFlowNode = {
+        id: unionId,
+        type: 'union',
+        initialWidth: 32,
+        initialHeight: 32,
+        position: {
+          x: coupleCenterX - 16,
+          y: pos.y + FS_JUNCTION_OFFSET_Y - 16,
+        },
+        draggable: false,
+        selectable: false,
+        style: { pointerEvents: 'all' },
+        zIndex: 20,
+        data: {
+          unionId,
+          fatherId: person.id,
+          fatherName: fatherDisplayName,
+          spouseName: spouseNames || undefined,
+          generation: person.generation,
+          hasChildren: true,
+          isCollapsed,
+          childrenCount: descendantsCount,
+          onToggleCollapse,
+        },
+      };
+      nodes.push(unionNode);
+
+      if (attachedSpouses.length > 0) {
+        // Connect primary person and all spouses via 32px bottom drops into the UnionNode
         edges.push({
-          id: `e-ghost-marriage-${lastPartnerId}`,
-          source: lastPartnerId,
-          sourceHandle: 'spouse-out',
-          target: GHOST_SPOUSE_ID,
-          targetHandle: 'spouse-in',
+          id: `e-marriage-union-${person.id}`,
+          source: person.id,
+          sourceHandle: 'child-out',
+          target: unionId,
+          targetHandle: 'union-top',
           type: 'genealogy',
-          data: { relationship: 'ghost_marriage' },
+          data: { relationship: 'marriage' },
+        });
+        attachedSpouses.forEach((spouse) => {
+          edges.push({
+            id: `e-marriage-union-${spouse.id}`,
+            source: spouse.id,
+            sourceHandle: 'child-out',
+            target: unionId,
+            targetHandle: 'union-top',
+            type: 'genealogy',
+            data: { relationship: 'marriage' },
+          });
+        });
+      } else {
+        // Single parent vertical stem straight into the collapse junction
+        edges.push({
+          id: `e-stem-${person.id}`,
+          source: person.id,
+          sourceHandle: 'child-out',
+          target: unionId,
+          targetHandle: 'union-top',
+          type: 'genealogy',
+          data: { relationship: 'bloodline_stem' },
         });
       }
-    }
 
-    // Children edges (real children + optional ghost child + optional ghost sibling)
-    const layoutChildren = getLayoutChildren(person);
-    if (layoutChildren.length > 0) {
-      const hasCoupleOnRow = attachedSpouses.length > 0 || hasOwnGhostSpouse;
-      let parentSourceId = person.id;
-      let parentSourceHandle = 'child-out';
-
-      if (hasCoupleOnRow) {
-        const unionId = `union-${person.id}`;
-        const unionX = pos.x + CARD_W / 2 + X_STEP / 2 - 4;
-        const unionY = pos.y + CARD_H / 2 - 4;
-        const spouseNames = attachedSpouses.map((s) => s.name).join(' / ');
-
-        const unionNode: UnionFlowNode = {
-          id: unionId,
-          type: 'union',
-          position: { x: unionX, y: unionY },
-          draggable: false,
-          selectable: false,
-          data: {
-            unionId,
-            fatherId: person.id,
-            spouseName: spouseNames || undefined,
-            generation: person.generation,
-          },
-        };
-        nodes.push(unionNode);
-        parentSourceId = unionId;
-        parentSourceHandle = 'union-children-out';
-      }
-
-      layoutChildren.forEach((childRef) => {
-        if (childRef.kind === 'person') {
-          edges.push({
-            id: `e-bloodline-${person.id}-${childRef.id}`,
-            source: parentSourceId,
-            sourceHandle: parentSourceHandle,
-            target: childRef.id,
-            targetHandle: 'parent-in',
-            type: 'genealogy',
-            data: { relationship: 'bloodline' },
-          });
-        } else {
-          const ghostPos = positions.get(childRef.id);
-          if (ghostPos) {
-            const ghostNode: QuickAddFlowNode = {
-              id: childRef.id,
-              type: 'quickAdd',
-              position: ghostPos,
-              draggable: false,
-              selectable: false,
-              data: {
-                kind: childRef.ghostKind,
-                label: childRef.label,
-                targetPersonId: activeMainPersonId || person.id,
-                onAction:
-                  childRef.ghostKind === 'sibling'
-                    ? () => onAddSibling?.(activeMainPersonId || person.id, 'male')
-                    : () => onAddChild?.(person.id, 'male'),
-              },
-            };
-            nodes.push(ghostNode);
-            edges.push({
-              id: `e-ghost-bloodline-${person.id}-${childRef.id}`,
-              source: parentSourceId,
-              sourceHandle: parentSourceHandle,
-              target: childRef.id,
-              targetHandle: 'parent-in',
-              type: 'genealogy',
-              data: { relationship: 'ghost_bloodline' },
-            });
-          }
-        }
+      visibleChildren.forEach((child) => {
+        edges.push({
+          id: `e-bloodline-${person.id}-${child.id}`,
+          source: unionId,
+          sourceHandle: 'union-children-out',
+          target: child.id,
+          targetHandle: 'parent-in',
+          type: 'genealogy',
+          data: { relationship: 'bloodline' },
+        });
+      });
+    } else if (attachedSpouses.length > 0) {
+      // Childless couple: clean 32px bottom-to-bottom U-bracket marriage line
+      attachedSpouses.forEach((spouse, sIdx) => {
+        const prevNodeId = sIdx === 0 ? person.id : attachedSpouses[sIdx - 1].id;
+        edges.push({
+          id: `e-marriage-${prevNodeId}-${spouse.id}`,
+          source: prevNodeId,
+          sourceHandle: 'child-out',
+          target: spouse.id,
+          targetHandle: 'spouse-bottom-in',
+          type: 'genealogy',
+          data: { relationship: 'marriage' },
+        });
       });
     }
   });
-
-  // Root-level sibling ghost card when selected person has no parent
-  if (
-    showGhostSibling &&
-    activeMainPerson &&
-    (!activeMainPerson.fatherId || !allVisibleIds.has(activeMainPerson.fatherId))
-  ) {
-    const gSibPos = positions.get(GHOST_SIBLING_ID);
-    if (gSibPos) {
-      const ghostSiblingNode: QuickAddFlowNode = {
-        id: GHOST_SIBLING_ID,
-        type: 'quickAdd',
-        position: gSibPos,
-        draggable: false,
-        selectable: false,
-        data: {
-          kind: 'sibling',
-          label: '兄妹',
-          targetPersonId: activeMainPerson.id,
-          onAction: () => onAddSibling?.(activeMainPerson.id, 'male'),
-        },
-      };
-      nodes.push(ghostSiblingNode);
-    }
-  }
 
   return { nodes, edges };
 }

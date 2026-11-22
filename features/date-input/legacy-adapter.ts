@@ -2,9 +2,11 @@ import type { PersonRecord } from '../lineage/types';
 import { formatGenealogyDate } from './date-format';
 import type { GenealogyDate } from './date.types';
 
+export type PersonDateField = 'birth' | 'death' | 'burial';
+
 /**
  * Single Source of Truth adapter between structuredDate and legacy string projections
- * (birthDate, deathDate, birth.date, death.date).
+ * (birthDate, deathDate, birth.date, death.date, death.burialDate).
  *
  * Rule:
  * - structuredDate is the ONLY authoritative source when present.
@@ -13,10 +15,14 @@ import type { GenealogyDate } from './date.types';
  */
 export function readGenealogyDate(
   person: Pick<PersonRecord, 'birth' | 'death' | 'birthDate' | 'deathDate'>,
-  field: 'birth' | 'death'
+  field: PersonDateField
 ): GenealogyDate | null {
   const structured =
-    field === 'birth' ? person.birth?.structuredDate : person.death?.structuredDate;
+    field === 'birth'
+      ? person.birth?.structuredDate
+      : field === 'burial'
+        ? person.death?.structuredBurialDate
+        : person.death?.structuredDate;
   if (structured) {
     return structured;
   }
@@ -24,7 +30,9 @@ export function readGenealogyDate(
   const legacyText =
     field === 'birth'
       ? (person.birth?.date ?? person.birthDate)?.trim()
-      : (person.death?.date ?? person.deathDate)?.trim();
+      : field === 'burial'
+        ? person.death?.burialDate?.trim()
+        : (person.death?.date ?? person.deathDate)?.trim();
 
   if (legacyText) {
     return {
@@ -39,7 +47,7 @@ export function readGenealogyDate(
 
 export function writeGenealogyDate(
   person: PersonRecord,
-  field: 'birth' | 'death',
+  field: PersonDateField,
   value: GenealogyDate | null
 ): PersonRecord {
   const formatted = value ? formatGenealogyDate(value).trim() : '';
@@ -57,6 +65,17 @@ export function writeGenealogyDate(
     };
   }
 
+  if (field === 'burial') {
+    return {
+      ...person,
+      death: {
+        ...(person.death || {}),
+        burialDate: projected || '',
+        structuredBurialDate: value ?? undefined,
+      },
+    };
+  }
+
   return {
     ...person,
     deathDate: projected,
@@ -70,16 +89,22 @@ export function writeGenealogyDate(
 
 export function getPersonDateDisplay(
   person: Pick<PersonRecord, 'birth' | 'death' | 'birthDate' | 'deathDate'>,
-  field: 'birth' | 'death'
+  field: PersonDateField
 ): string {
   const structured =
-    field === 'birth' ? person.birth?.structuredDate : person.death?.structuredDate;
+    field === 'birth'
+      ? person.birth?.structuredDate
+      : field === 'burial'
+        ? person.death?.structuredBurialDate
+        : person.death?.structuredDate;
   if (structured) {
     return formatGenealogyDate(structured);
   }
   const legacyText =
     field === 'birth'
       ? person.birth?.date || person.birthDate || ''
-      : person.death?.date || person.deathDate || '';
+      : field === 'burial'
+        ? person.death?.burialDate || ''
+        : person.death?.date || person.deathDate || '';
   return legacyText.trim();
 }

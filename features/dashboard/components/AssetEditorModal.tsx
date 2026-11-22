@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { HelpCircle, X } from 'lucide-react';
 import { AssetColorTheme } from '../../../types';
@@ -16,10 +16,11 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 import {
-  CHINA_PROVINCE_LIST,
-  formatChinaRegion,
-  parseChinaRegion,
-} from '../data/chinaRegions';
+  PlaceInput,
+  formatGenealogyPlace,
+  parsePlaceText,
+  type GenealogyPlace,
+} from '../../place-input';
 
 export interface AssetEditorSubmitValues {
   name: string;
@@ -82,7 +83,7 @@ const HELP_CONTENT: Record<HelpKey, { title: string; body: string }> = {
   },
   'family-location': {
     title: '所在地区说明',
-    body: '选择家族主要聚居地或修谱祖籍所在的省、市、区县行政区划（可选填）。',
+    body: '输入或选择家族主要聚居地、修谱祖籍所在的省市区县，或填写历史旧地名（可选填）。',
   },
 };
 
@@ -115,9 +116,7 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
   const [familySurname, setFamilySurname] = useState('');
   const [ancestor, setAncestor] = useState('');
   const [hallName, setHallName] = useState('');
-  const [province, setProvince] = useState('');
-  const [city, setCity] = useState('');
-  const [district, setDistrict] = useState('');
+  const [regionPlace, setRegionPlace] = useState<GenealogyPlace | null>(null);
   const [description, setDescription] = useState('');
 
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -142,19 +141,14 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       setFamilySurname(initialValue.primarySurname || '');
       setAncestor(initialValue.ancestor || '');
       setHallName(initialValue.primaryName || '');
-      const parsed = parseChinaRegion(initialValue.region);
-      setProvince(parsed.province);
-      setCity(parsed.city);
-      setDistrict(parsed.district);
+      setRegionPlace(parsePlaceText(initialValue.region));
       setDescription(initialValue.description || '');
     } else {
       setFamilyName('');
       setFamilySurname('');
       setAncestor('');
       setHallName('');
-      setProvince('');
-      setCity('');
-      setDistrict('');
+      setRegionPlace(null);
       setDescription('');
     }
   }, [open, initialValue, kind]);
@@ -187,26 +181,6 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [activeHelp]);
-
-  const selectedProvinceObj = useMemo(
-    () => CHINA_PROVINCE_LIST.find((p) => p.name === province) ?? null,
-    [province]
-  );
-
-  const cityOptions = useMemo(
-    () => selectedProvinceObj?.cities ?? [],
-    [selectedProvinceObj]
-  );
-
-  const selectedCityObj = useMemo(
-    () => cityOptions.find((c) => c.name === city) ?? null,
-    [cityOptions, city]
-  );
-
-  const districtOptions = useMemo(
-    () => selectedCityObj?.districts ?? [],
-    [selectedCityObj]
-  );
 
   if (!open) return null;
 
@@ -339,7 +313,7 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       return;
     }
 
-    const regionStr = formatChinaRegion(province, city, district);
+    const regionStr = formatGenealogyPlace(regionPlace).trim();
 
     onSubmit({
       name: familyName.trim(),
@@ -392,9 +366,6 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       </span>
     );
   };
-
-  const selectClassName =
-    'flex h-9 w-full rounded-md border border-input bg-background px-2 py-1.5 text-[13px] text-foreground shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[hsl(var(--border-strong))] focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 cursor-pointer';
 
   return createPortal(
     <div
@@ -587,66 +558,20 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
 
               <div className="space-y-1.5">
                 <Label
-                  htmlFor="familyProvince"
+                  htmlFor="familyLocationInput"
                   className="flex items-center gap-1"
                 >
                   <span>所在地区</span>
                   {renderHelpTrigger('family-location', '所在地区说明')}
                 </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <select
-                    className={selectClassName}
-                    id="familyProvince"
-                    aria-label="省份"
-                    data-china-region-bound="1"
-                    value={province}
-                    onChange={(e) => {
-                      setProvince(e.target.value);
-                      setCity('');
-                      setDistrict('');
-                    }}
-                  >
-                    <option value="">省份</option>
-                    {CHINA_PROVINCE_LIST.map((p) => (
-                      <option key={p.code} value={p.name} data-code={p.code}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className={selectClassName}
-                    id="familyCity"
-                    aria-label="城市"
-                    value={city}
-                    onChange={(e) => {
-                      setCity(e.target.value);
-                      setDistrict('');
-                    }}
-                  >
-                    <option value="">城市</option>
-                    {cityOptions.map((c) => (
-                      <option key={c.code} value={c.name} data-code={c.code}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className={selectClassName}
-                    id="familyDistrict"
-                    aria-label="区县"
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                  >
-                    <option value="">区县</option>
-                    {districtOptions.map((d) => (
-                      <option key={d.code} value={d.name} data-code={d.code}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <PlaceInput
+                  id="familyLocationInput"
+                  label="所在地区"
+                  value={regionPlace}
+                  onChange={setRegionPlace}
+                  placeholder="输入省市区县或原始地名"
+                  className="h-9 text-[13px] bg-background"
+                />
               </div>
             </div>
 

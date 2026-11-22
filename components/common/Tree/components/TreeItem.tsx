@@ -212,7 +212,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
                         onChange={(e) => setEditName(e.target.value)}
                         onBlur={handleSave}
                         onKeyDown={handleKeyDown}
-                        className="w-full bg-background border border-input rounded-sm px-1 text-[13px] h-6 focus:outline-none focus:ring-1 focus:ring-ring"
+                        className="w-full bg-card border border-input rounded-sm px-1 text-[13px] h-6 transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()} // Prevent drag on input
                     />

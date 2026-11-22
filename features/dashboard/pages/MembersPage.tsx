@@ -137,7 +137,7 @@ function InviteFormDialog(props: {
               id="invite-role"
               value={role}
               onChange={(event) => setRole(event.target.value as MemberRecord['role'])}
-              className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)]"
             >
               {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map((value) => (
                 <option key={value} value={value}>
@@ -380,7 +380,7 @@ const MembersPage: React.FC = () => {
                                 event.target.value as MemberRecord['role'],
                               )
                             }
-                            className="h-8 rounded-md border border-input bg-card px-2 text-[13px] text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-ring"
+                            className="h-8 rounded-md border border-input bg-card px-2 text-[13px] text-foreground cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)]"
                             aria-label={`${member.name} 的角色`}
                           >
                             {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map(

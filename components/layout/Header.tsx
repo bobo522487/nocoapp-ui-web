@@ -18,7 +18,7 @@ const Header: React.FC = () => {
 
       {/* Center Search Box (Ctrl K Command Palette trigger) */}
       <div className="flex-none w-full max-w-[400px] hidden sm:block">
-        <div className="relative flex items-center h-9 rounded-lg border border-input bg-card shadow-[var(--shadow-control)] hover:border-[hsl(var(--border-strong))] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-150 px-3">
+        <div className="relative flex items-center h-9 rounded-lg border border-input bg-card shadow-[var(--shadow-control)] hover:border-[hsl(var(--border-strong))] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary focus-within:shadow-[var(--shadow-focus-halo)] transition-all duration-150 px-3">
           <SearchIcon size={15} className="text-muted-foreground shrink-0 mr-2" />
           <input
             type="text"

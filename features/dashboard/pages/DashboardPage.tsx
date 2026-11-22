@@ -308,6 +308,7 @@ const DashboardPage: React.FC = () => {
             familyName: values.name,
             ancestor: values.ancestor,
             surname: values.primarySurname,
+            region: values.region,
           });
         }
         handleSaved(created.project);

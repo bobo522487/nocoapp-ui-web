@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GitFork, Pencil, X } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import {
-  CHINA_PROVINCE_LIST,
-  formatChinaRegion,
-  parseChinaRegion,
-} from '../../dashboard/data/chinaRegions';
+  PlaceInput,
+  formatGenealogyPlace,
+  parsePlaceText,
+  type GenealogyPlace,
+} from '../../place-input';
 import type { LineageChartMeta } from '../../../store/useLineageStore';
 
 export interface LineageEditorModalProps {
@@ -36,9 +37,7 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
   const [surname, setSurname] = useState('');
   const [hallName, setHallName] = useState('');
   const [progenitor, setProgenitor] = useState('');
-  const [province, setProvince] = useState('');
-  const [city, setCity] = useState('');
-  const [district, setDistrict] = useState('');
+  const [regionPlace, setRegionPlace] = useState<GenealogyPlace | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
@@ -48,10 +47,7 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
     setSurname(initialValue?.surname ?? '');
     setHallName(initialValue?.hallName ?? '');
     setProgenitor(initialValue?.progenitor ?? '');
-    const parsed = parseChinaRegion(initialValue?.region);
-    setProvince(parsed.province);
-    setCity(parsed.city);
-    setDistrict(parsed.district);
+    setRegionPlace(parsePlaceText(initialValue?.region));
   }, [open, initialValue]);
 
   useEffect(() => {
@@ -64,26 +60,6 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [open, onClose]);
-
-  const selectedProvinceObj = useMemo(
-    () => CHINA_PROVINCE_LIST.find((p) => p.name === province) ?? null,
-    [province]
-  );
-
-  const cityOptions = useMemo(
-    () => selectedProvinceObj?.cities ?? [],
-    [selectedProvinceObj]
-  );
-
-  const selectedCityObj = useMemo(
-    () => cityOptions.find((c) => c.name === city) ?? null,
-    [cityOptions, city]
-  );
-
-  const districtOptions = useMemo(
-    () => selectedCityObj?.districts ?? [],
-    [selectedCityObj]
-  );
 
   if (!open) return null;
 
@@ -101,7 +77,7 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
       return;
     }
 
-    const region = formatChinaRegion(province, city, district);
+    const region = formatGenealogyPlace(regionPlace).trim();
 
     onSubmit({
       name: name.trim(),
@@ -111,9 +87,6 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
       region: region || undefined,
     });
   };
-
-  const selectClassName =
-    'flex h-9 w-full rounded-md border border-input bg-background px-2 py-1.5 text-[13px] text-foreground shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[hsl(var(--border-strong))] focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 cursor-pointer';
 
   return createPortal(
     <div
@@ -286,65 +259,19 @@ export const LineageEditorModal: React.FC<LineageEditorModalProps> = ({
 
             {/* 所在地区 */}
             <div className="space-y-1.5">
-              <Label htmlFor="addLineageProvince" className="block">
+              <Label htmlFor="addLineageRegion" className="block">
                 所在地区
               </Label>
-              <div className="grid grid-cols-3 gap-2">
-                <select
-                  id="addLineageProvince"
-                  aria-label="省份"
-                  data-china-region-bound="1"
-                  className={selectClassName}
-                  value={province}
-                  onChange={(e) => {
-                    setProvince(e.target.value);
-                    setCity('');
-                    setDistrict('');
-                  }}
-                >
-                  <option value="">省份</option>
-                  {CHINA_PROVINCE_LIST.map((p) => (
-                    <option key={p.code} value={p.name} data-code={p.code}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  id="addLineageCity"
-                  aria-label="城市"
-                  className={selectClassName}
-                  value={city}
-                  onChange={(e) => {
-                    setCity(e.target.value);
-                    setDistrict('');
-                  }}
-                >
-                  <option value="">城市</option>
-                  {cityOptions.map((c) => (
-                    <option key={c.code} value={c.name} data-code={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  id="addLineageDistrict"
-                  aria-label="区县"
-                  className={selectClassName}
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                >
-                  <option value="">区县</option>
-                  {districtOptions.map((d) => (
-                    <option key={d.code} value={d.name} data-code={d.code}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <PlaceInput
+                id="addLineageRegion"
+                label="所在地区"
+                value={regionPlace}
+                onChange={setRegionPlace}
+                placeholder="输入省市区县（如 江西泰和）或原始地名，或点右侧选择"
+                className="h-9 text-[13px] bg-background"
+              />
               <p className="text-[11px] text-muted-foreground">
-                全国省市区三级联动（含行政区划代码）
+                支持输入省市区县联想匹配，或点击右侧图标精确选择与填写原始记载
               </p>
             </div>
           </div>

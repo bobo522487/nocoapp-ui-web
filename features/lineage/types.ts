@@ -90,6 +90,8 @@ export interface PersonRecord {
 
   // 1. Core Identity & Names
   avatarUrl?: string;
+  avatarOriginalUrl?: string;
+  avatarPhotos?: string[];
   surname?: string;
   name: string;
   nameSuffix?: string;

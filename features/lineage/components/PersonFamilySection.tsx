@@ -701,7 +701,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
     >
       {/* 分组一：配偶与子女 */}
       <div className="min-w-0 space-y-2.5">
-        <h3 className="text-[14px] font-bold text-[#212225] dark:text-slate-100">
+        <h3 className="text-[13px] font-semibold text-[#4D5053] dark:text-slate-300">
           配偶与子女
         </h3>
 
@@ -819,7 +819,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
             : ''
         )}
       >
-        <h3 className="text-[14px] font-bold text-[#212225] dark:text-slate-100">
+        <h3 className="text-[13px] font-semibold text-[#4D5053] dark:text-slate-300">
           父母与兄弟姐妹
         </h3>
 

@@ -1,4 +1,4 @@
-import { useLocation, useMatch } from 'react-router-dom';
+import { useMatch, useRouterState } from '@tanstack/react-router';
 import { ViewMode } from '../types';
 import { useWorkspaceStore } from '../store/useWorkspaceStore';
 
@@ -9,12 +9,27 @@ export interface RouteContext {
 }
 
 export const useRouteContext = (): RouteContext => {
-  const { pathname } = useLocation();
-  const projectHomeMatch = useMatch('/projects/:projectId');
-  const projectLineageMatch = useMatch('/projects/:projectId/lineage');
-  const projectArticlesMatch = useMatch('/projects/:projectId/articles');
-  const projectBooksMatch = useMatch('/projects/:projectId/books');
-  const projectSettingsMatch = useMatch('/projects/:projectId/settings');
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const projectHomeMatch = useMatch({
+    from: '/_auth/_console/projects/$projectId',
+    shouldThrow: false,
+  });
+  const projectLineageMatch = useMatch({
+    from: '/_auth/_console/projects/$projectId/lineage',
+    shouldThrow: false,
+  });
+  const projectArticlesMatch = useMatch({
+    from: '/_auth/_console/projects/$projectId/articles',
+    shouldThrow: false,
+  });
+  const projectBooksMatch = useMatch({
+    from: '/_auth/_console/projects/$projectId/books',
+    shouldThrow: false,
+  });
+  const projectSettingsMatch = useMatch({
+    from: '/_auth/_console/projects/$projectId/settings',
+    shouldThrow: false,
+  });
 
   const storedProjectId = useWorkspaceStore((s) => s.activeProjectId);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);

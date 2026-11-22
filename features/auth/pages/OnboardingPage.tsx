@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearch } from '@tanstack/react-router';
 import AuthLayout from '../layouts/AuthLayout';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -19,19 +19,18 @@ const OnboardingPage: React.FC = () => {
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchParams] = useSearchParams();
+  const search = useSearch({ from: '/_auth/onboarding' });
 
-  // 邀请链接 /#/invite/:token 跳转至此并预填令牌。
+  // 邀请链接 /invite/$token 跳转至此并预填令牌。
   useEffect(() => {
-    const invite = searchParams.get('invite');
-    if (invite) setToken(invite);
-  }, [searchParams]);
+    if (search.invite) setToken(search.invite);
+  }, [search.invite]);
 
   if (status === 'anonymous') {
     return <Navigate to="/login" replace />;
   }
 
-  if (status === 'authenticated' && defaultOrganization && !searchParams.get('invite')) {
+  if (status === 'authenticated' && defaultOrganization && !search.invite) {
     // 带邀请链接进入时即使已有组织也允许兑换（spec 003 US3 场景 7）。
     return <Navigate to="/home" replace />;
   }
@@ -49,7 +48,7 @@ const OnboardingPage: React.FC = () => {
           .getState()
           .setCurrentOrganization(result.organization.id);
       }
-      navigate('/home', { replace: true });
+      void navigate({ to: '/home', replace: true });
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {

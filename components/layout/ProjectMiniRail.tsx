@@ -9,7 +9,7 @@ import {
   ScrollText,
   Settings,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ViewMode } from '../../types';
 import { WorkspaceLogoIcon } from '../common/NocoIcons';
 import UserAvatarMenu from './UserAvatarMenu';
@@ -78,7 +78,7 @@ const ProjectMiniRail: React.FC = () => {
       <div className="flex flex-col items-center w-full gap-1.5">
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => void navigate({ to: '/' })}
           title={`返回工作区：${activeWorkspace?.name || '个人空间'}`}
           aria-label={`返回工作区：${activeWorkspace?.name || '个人空间'}`}
           data-testid="nc-rail-logo"
@@ -97,7 +97,12 @@ const ProjectMiniRail: React.FC = () => {
         {/* 概览 */}
         <button
           type="button"
-          onClick={() => navigate(`/projects/${activeProjectId}`)}
+          onClick={() =>
+            void navigate({
+              to: '/projects/$projectId',
+              params: { projectId: activeProjectId },
+            })
+          }
           title="概览"
           aria-label="概览"
           data-panel="home"
@@ -111,7 +116,12 @@ const ProjectMiniRail: React.FC = () => {
         {/* 世系 */}
         <button
           type="button"
-          onClick={() => navigate(`/projects/${activeProjectId}/lineage`)}
+          onClick={() =>
+            void navigate({
+              to: '/projects/$projectId/lineage',
+              params: { projectId: activeProjectId },
+            })
+          }
           title="世系"
           aria-label="世系"
           data-panel="lineage"
@@ -124,7 +134,12 @@ const ProjectMiniRail: React.FC = () => {
         {/* 谱文 */}
         <button
           type="button"
-          onClick={() => navigate(`/projects/${activeProjectId}/articles`)}
+          onClick={() =>
+            void navigate({
+              to: '/projects/$projectId/articles',
+              params: { projectId: activeProjectId },
+            })
+          }
           title="谱文"
           aria-label="谱文"
           data-panel="articles"
@@ -137,7 +152,12 @@ const ProjectMiniRail: React.FC = () => {
         {/* 谱书 */}
         <button
           type="button"
-          onClick={() => navigate(`/projects/${activeProjectId}/books`)}
+          onClick={() =>
+            void navigate({
+              to: '/projects/$projectId/books',
+              params: { projectId: activeProjectId },
+            })
+          }
           title="谱书"
           aria-label="谱书"
           data-panel="books"
@@ -152,7 +172,12 @@ const ProjectMiniRail: React.FC = () => {
         {/* 家族设置 */}
         <button
           type="button"
-          onClick={() => navigate(`/projects/${activeProjectId}/settings`)}
+          onClick={() =>
+            void navigate({
+              to: '/projects/$projectId/settings',
+              params: { projectId: activeProjectId },
+            })
+          }
           title="设置"
           aria-label="设置"
           data-panel="settings"

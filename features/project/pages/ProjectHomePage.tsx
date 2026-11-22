@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -6,9 +6,8 @@ import {
   Pencil,
   ScrollText,
   Settings,
-  Star,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { Button } from '../../../components/ui/button';
 import {
@@ -24,6 +23,8 @@ import {
 import { useArticleStore } from '../../../store/useArticleStore';
 import { countArticlesInTree } from '../../articles/articleData';
 import { useBookStore } from '../../../store/useBookStore';
+import { fetchProject, updateProjectRequest } from '../../dashboard/api';
+import { ApiError, errorMessage } from '../../../lib/api';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,38 +34,69 @@ const ProjectHomePage: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
   const updateProject = useWorkspaceStore((s) => s.updateProject);
+  const syncProject = useWorkspaceStore((s) => s.syncProject);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
 
   const booksByProject = useBookStore((s) => s.booksByProject);
   const projectBooks = booksByProject[activeProjectId];
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
     projects.find((p) => p.workspaceId === activeWorkspaceId) ||
     projects[0];
+  const targetProjectId = activeProject?.id || activeProjectId;
+
+  useEffect(() => {
+    if (!targetProjectId) return;
+    let cancelled = false;
+    setExpectedUpdatedAt(null);
+
+    void fetchProject(targetProjectId)
+      .then(({ project }) => {
+        if (cancelled) return;
+        setExpectedUpdatedAt(project.updatedAt);
+        syncProject(project);
+      })
+      .catch(() => {
+        // 本地种子或离线项目未能命中服务端时保留本地展示。
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [targetProjectId, syncProject]);
 
   const palette =
     ASSET_COLOR_PALETTES[activeProject?.colorTheme || 'sky'] ||
     ASSET_COLOR_PALETTES.sky;
-
-  const projectStateLabel =
-    activeProject?.projectState === '1' ? '已完成' : '进行中';
-  const projectLevel = activeProject?.projectLevel || 1;
 
   const projectArticleTree = articleTreesByProject[activeProjectId];
   const articleCount = projectArticleTree
     ? countArticlesInTree(projectArticleTree)
     : null;
 
-  const workbenchModules = [
+  const workbenchModules: {
+    id: string;
+    title: string;
+    desc: string;
+    status: string;
+    to:
+      | '/projects/$projectId/lineage'
+      | '/projects/$projectId/articles'
+      | '/projects/$projectId/books';
+    icon: React.ElementType;
+  }[] = [
     {
       id: 'lineage',
       title: '世系',
       desc: '维护家族世代脉络、支派分房与成员关系图谱。',
       status: '已启用',
-      path: `/projects/${activeProjectId}/lineage`,
+      to: '/projects/$projectId/lineage',
       icon: GitFork,
     },
     {
@@ -72,7 +104,7 @@ const ProjectHomePage: React.FC = () => {
       title: '谱文',
       desc: '编修谱序、凡例、姓氏源流、家训与先贤传记。',
       status: articleCount !== null ? `已收录 ${articleCount} 篇` : '已启用',
-      path: `/projects/${activeProjectId}/articles`,
+      to: '/projects/$projectId/articles',
       icon: ScrollText,
     },
     {
@@ -81,25 +113,55 @@ const ProjectHomePage: React.FC = () => {
       desc: '组织分卷目录、题签封面与线装成书版式预览。',
       status:
         projectBooks !== undefined ? `已建 ${projectBooks.length} 册` : '已启用',
-      path: `/projects/${activeProjectId}/books`,
+      to: '/projects/$projectId/books',
       icon: BookOpen,
     },
   ];
 
-  const handleSaveProject = (values: AssetEditorSubmitValues) => {
-    if (!activeProject) return;
-    updateProject(activeProject.id, {
-      name: values.name,
-      description: values.description,
-      colorTheme: values.colorTheme,
-      primarySurname: values.primarySurname,
-      ancestor: values.ancestor,
-      region: values.region,
-      primaryName: values.primaryName,
-      projectState: values.projectState,
-      projectLevel: values.projectLevel,
-    });
-    setIsEditOpen(false);
+  const handleSaveProject = async (values: AssetEditorSubmitValues) => {
+    if (!targetProjectId) return;
+    setSaving(true);
+    setEditError(null);
+    try {
+      let versionStamp = expectedUpdatedAt;
+      if (!versionStamp) {
+        const latest = await fetchProject(targetProjectId);
+        versionStamp = latest.project.updatedAt;
+      }
+      const { project } = await updateProjectRequest(targetProjectId, {
+        name: values.name.trim(),
+        surname: values.primarySurname?.trim() || null,
+        ancestor: values.ancestor?.trim() || null,
+        hallName: values.primaryName?.trim() || null,
+        originText: values.region?.trim() || null,
+        description: values.description.trim() || null,
+        expectedUpdatedAt: versionStamp,
+      });
+      setExpectedUpdatedAt(project.updatedAt);
+      syncProject(project);
+      setIsEditOpen(false);
+    } catch (err) {
+      const isOfflineOrLocalOnly =
+        err instanceof ApiError &&
+        (err.code === 'UNREACHABLE' ||
+          (err.status === 404 && !expectedUpdatedAt));
+      if (isOfflineOrLocalOnly) {
+        updateProject(targetProjectId, {
+          name: values.name,
+          description: values.description,
+          colorTheme: values.colorTheme,
+          primarySurname: values.primarySurname,
+          ancestor: values.ancestor,
+          region: values.region,
+          primaryName: values.primaryName,
+        });
+        setIsEditOpen(false);
+      } else {
+        setEditError(errorMessage(err));
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -156,7 +218,10 @@ const ProjectHomePage: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  navigate(`/projects/${activeProjectId}/settings`)
+                  void navigate({
+                    to: '/projects/$projectId/settings',
+                    params: { projectId: activeProjectId },
+                  })
                 }
                 className="h-8 gap-1.5 text-[13px] font-medium whitespace-nowrap shrink-0"
               >
@@ -177,7 +242,12 @@ const ProjectHomePage: React.FC = () => {
                   <button
                     key={mod.id}
                     type="button"
-                    onClick={() => navigate(mod.path)}
+                    onClick={() =>
+                      void navigate({
+                        to: mod.to,
+                        params: { projectId: activeProjectId },
+                      })
+                    }
                     className="flex flex-col justify-between gap-4 p-5 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left cursor-pointer group"
                   >
                     <div className="space-y-3">
@@ -248,37 +318,10 @@ const ProjectHomePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
-                <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">编修状态</div>
-                  <div className="text-[14px] font-semibold text-foreground">
-                    {projectStateLabel}
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">重要等级</div>
-                  <div className="flex items-center gap-1 pt-0.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        size={14}
-                        className={
-                          star <= projectLevel
-                            ? 'fill-primary text-primary'
-                            : 'text-muted-foreground/30'
-                        }
-                      />
-                    ))}
-                    <span className="text-[12px] text-muted-foreground ml-1.5 tabular-nums">
-                      {projectLevel} 星
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4 space-y-1">
-                  <div className="text-[12px] text-muted-foreground">备注说明</div>
-                  <div className="text-[13px] text-foreground truncate">
-                    {activeProject?.description || '暂无备注'}
-                  </div>
+              <div className="p-4 space-y-1">
+                <div className="text-[12px] text-muted-foreground">家族简介</div>
+                <div className="text-[13px] text-foreground leading-relaxed">
+                  {activeProject?.description || '暂无家族简介'}
                 </div>
               </div>
             </div>
@@ -290,6 +333,8 @@ const ProjectHomePage: React.FC = () => {
         open={isEditOpen}
         mode="edit"
         kind="project"
+        submitting={saving}
+        error={editError}
         initialValue={
           activeProject
             ? {
@@ -305,8 +350,12 @@ const ProjectHomePage: React.FC = () => {
               }
             : undefined
         }
-        onClose={() => setIsEditOpen(false)}
-        onSubmit={handleSaveProject}
+        onClose={() => {
+          if (saving) return;
+          setIsEditOpen(false);
+          setEditError(null);
+        }}
+        onSubmit={(values) => void handleSaveProject(values)}
       />
     </>
   );

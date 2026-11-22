@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { FileText, ScrollText, Search as SearchIcon } from 'lucide-react';
 import { ProjectColoredIcon } from '../common/NocoIcons';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
@@ -125,30 +125,32 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   const workbenchModules = React.useMemo(
     () =>
-      [
-        {
-          id: 'lineage',
-          name: '世系',
-          desc: '世系图谱与房支结构',
-          path: `/projects/${activeProjectId}/lineage`,
-        },
-        {
-          id: 'articles',
-          name: '谱文',
-          desc: '谱序、凡例与人物传记',
-          path: `/projects/${activeProjectId}/articles`,
-        },
-        {
-          id: 'books',
-          name: '谱书',
-          desc: '分卷目录与线装成书',
-          path: `/projects/${activeProjectId}/books`,
-        },
-      ].filter(
+      (
+        [
+          {
+            id: 'lineage',
+            name: '世系',
+            desc: '世系图谱与房支结构',
+            to: '/projects/$projectId/lineage',
+          },
+          {
+            id: 'articles',
+            name: '谱文',
+            desc: '谱序、凡例与人物传记',
+            to: '/projects/$projectId/articles',
+          },
+          {
+            id: 'books',
+            name: '谱书',
+            desc: '分卷目录与线装成书',
+            to: '/projects/$projectId/books',
+          },
+        ] as const
+      ).filter(
         (m) =>
           m.name.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q)
       ),
-    [activeProjectId, q]
+    [q]
   );
 
   type ActionItem = {
@@ -164,7 +166,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         run: () => {
           onClose();
           setActiveProjectId(proj.id);
-          navigate(`/projects/${proj.id}`);
+          void navigate({
+            to: '/projects/$projectId',
+            params: { projectId: proj.id },
+          });
         },
       });
     });
@@ -173,7 +178,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         key: `mod:${mod.id}`,
         run: () => {
           onClose();
-          navigate(mod.path);
+          void navigate({
+            to: mod.to,
+            params: { projectId: activeProjectId },
+          });
         },
       });
     });
@@ -183,7 +191,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         run: () => {
           onClose();
           selectArticleNode(activeProjectId, art.id);
-          navigate(`/projects/${activeProjectId}/articles`);
+          void navigate({
+            to: '/projects/$projectId/articles',
+            params: { projectId: activeProjectId },
+          });
         },
       });
     });
@@ -272,7 +283,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       onClick={() => {
                         onClose();
                         setActiveProjectId(proj.id);
-                        navigate(`/projects/${proj.id}`);
+                        void navigate({
+                          to: '/projects/$projectId',
+                          params: { projectId: proj.id },
+                        });
                       }}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                         highlighted
@@ -311,7 +325,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       onMouseEnter={() => setActiveIndex(idx)}
                       onClick={() => {
                         onClose();
-                        navigate(mod.path);
+                        void navigate({
+                          to: mod.to,
+                          params: { projectId: activeProjectId },
+                        });
                       }}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                         highlighted
@@ -350,7 +367,10 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       onClick={() => {
                         onClose();
                         selectArticleNode(activeProjectId, art.id);
-                        navigate(`/projects/${activeProjectId}/articles`);
+                        void navigate({
+                          to: '/projects/$projectId/articles',
+                          params: { projectId: activeProjectId },
+                        });
                       }}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                         highlighted

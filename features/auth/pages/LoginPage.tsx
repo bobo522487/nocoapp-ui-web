@@ -1,5 +1,5 @@
-import React, { useState, useSyncExternalStore } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import AuthLayout from '../layouts/AuthLayout';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -10,7 +10,7 @@ import { useAuthStore } from '../useAuthStore';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const search = useSearch({ from: '/login' });
   const status = useAuthStore((s) => s.status);
   const onboarding = useAuthStore((s) => s.onboarding);
   const error = useAuthStore((s) => s.error);
@@ -22,12 +22,32 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const mockMode = useSyncExternalStore(subscribeMockMode, isMockMode, isMockMode);
 
-  if (status === 'authenticated') {
-    // 已登录访问登录页 → 落地首页（FR-001）。
-    return <Navigate to={onboarding ? '/onboarding' : '/home'} replace />;
-  }
+  const redirectTarget = search.redirect;
 
-  const from = (location.state as { from?: string } | null)?.from || '/home';
+  const navigateAfterLogin = React.useCallback(
+    (isOnboarding: boolean) => {
+      if (isOnboarding) {
+        void navigate({ to: '/onboarding', replace: true });
+        return;
+      }
+      if (redirectTarget) {
+        void navigate({ href: redirectTarget, replace: true });
+        return;
+      }
+      void navigate({ to: '/home', replace: true });
+    },
+    [navigate, redirectTarget]
+  );
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      navigateAfterLogin(onboarding);
+    }
+  }, [status, onboarding, navigateAfterLogin]);
+
+  if (status === 'authenticated') {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +55,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await signIn(email.trim(), password);
-      navigate(result.onboarding ? '/onboarding' : from || '/home', { replace: true });
+      navigateAfterLogin(result.onboarding);
     } catch {
       // The store exposes the API error message below the form.
     } finally {
@@ -50,7 +70,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       const result = await signIn(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password);
-      navigate(result.onboarding ? '/onboarding' : from || '/home', { replace: true });
+      navigateAfterLogin(result.onboarding);
     } catch {
       // The store exposes the API error message below the form.
     } finally {

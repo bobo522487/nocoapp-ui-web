@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearch } from '@tanstack/react-router';
 import AuthLayout from '../layouts/AuthLayout';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -8,7 +8,7 @@ import { useAuthStore } from '../useAuthStore';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const search = useSearch({ from: '/register' });
   const status = useAuthStore((s) => s.status);
   const error = useAuthStore((s) => s.error);
   const signUp = useAuthStore((s) => s.signUp);
@@ -16,9 +16,7 @@ const RegisterPage: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteToken, setInviteToken] = useState(
-    () => new URLSearchParams(location.search).get('invite') ?? '',
-  );
+  const [inviteToken, setInviteToken] = useState(() => search.invite ?? '');
   const [isLoading, setIsLoading] = useState(false);
 
   if (status === 'authenticated') {
@@ -31,7 +29,7 @@ const RegisterPage: React.FC = () => {
     setIsLoading(true);
     try {
       await signUp(email.trim(), password, inviteToken.trim() || undefined);
-      navigate('/home', { replace: true });
+      void navigate({ to: '/home', replace: true });
     } catch {
       // The store exposes the API error message below the form.
     } finally {

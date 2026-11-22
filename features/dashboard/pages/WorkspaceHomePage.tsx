@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, FolderPlus, UserPlus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useLineageStore } from '../../../store/useLineageStore';
@@ -99,7 +99,10 @@ const WorkspaceHomePage: React.FC = () => {
       syncProject(created.project);
       setActiveProjectId(created.project.id);
       setCreateOpen(false);
-      navigate(`/projects/${created.project.id}`);
+      void navigate({
+        to: '/projects/$projectId',
+        params: { projectId: created.project.id },
+      });
     } catch (error) {
       setCreateError(errorMessage(error));
     } finally {
@@ -195,7 +198,7 @@ const WorkspaceHomePage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => navigate('/members')}
+            onClick={() => void navigate({ to: '/members' })}
             className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 text-left group cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border text-primary flex items-center justify-center shrink-0">
@@ -227,7 +230,7 @@ const WorkspaceHomePage: React.FC = () => {
             </h2>
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => void navigate({ to: '/' })}
               className="text-[13px] font-medium text-primary hover:underline cursor-pointer whitespace-nowrap shrink-0"
             >
               查看全部
@@ -264,7 +267,10 @@ const WorkspaceHomePage: React.FC = () => {
                     onClick={() => {
                       syncProject(project);
                       setActiveProjectId(project.id);
-                      navigate(`/projects/${project.id}`);
+                      void navigate({
+                        to: '/projects/$projectId',
+                        params: { projectId: project.id },
+                      });
                     }}
                     className="group flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 cursor-pointer text-left"
                   >

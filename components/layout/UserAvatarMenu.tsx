@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import {
   Bell,
   BookOpen,
@@ -91,7 +91,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
     try {
       await signOut();
     } finally {
-      navigate('/login', { replace: true });
+      void navigate({ to: '/login', replace: true });
     }
   };
 
@@ -234,7 +234,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           role="menuitem"
           onClick={() => {
             setIsAvatarOpen(false);
-            navigate('/home');
+            void navigate({ to: '/home' });
           }}
           className="flex items-center justify-between w-full h-8 px-2.5 rounded-md text-[13px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
         >

@@ -1,23 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Copy, Star, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { AssetColorTheme } from '../../../types';
-import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
+import { Trash2 } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Label } from '../../../components/ui/label';
-import { Textarea } from '../../../components/ui/textarea';
 import {
-  PlaceInput,
   formatGenealogyPlace,
   parsePlaceText,
-  type GenealogyPlace,
 } from '../../place-input';
 import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
-  ASSET_COLOR_PALETTES,
-  useWorkspaceStore,
-} from '../../../store/useWorkspaceStore';
+  deleteProjectRequest,
+  fetchProject,
+  updateProjectRequest,
+} from '../../dashboard/api';
+import { ApiError, errorMessage } from '../../../lib/api';
+import {
+  FamilyProfileFields,
+  validateFamilyProfile,
+  type FamilyFieldErrors,
+  type FamilyProfileFormValues,
+} from '../components/FamilyProfileFields';
 
 const ProjectSettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,81 +27,178 @@ const ProjectSettingsPage: React.FC = () => {
 
   const projects = useWorkspaceStore((s) => s.projects);
   const updateProject = useWorkspaceStore((s) => s.updateProject);
-  const duplicateProject = useWorkspaceStore((s) => s.duplicateProject);
-  const deleteProject = useWorkspaceStore((s) => s.deleteProject);
+  const syncProject = useWorkspaceStore((s) => s.syncProject);
+  const dropProject = useWorkspaceStore((s) => s.dropProject);
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) || projects[0];
+  const targetProjectId = activeProject?.id || activeProjectId;
 
-  const [name, setName] = useState(activeProject?.name || '');
-  const [primarySurname, setPrimarySurname] = useState(
-    activeProject?.primarySurname || ''
-  );
-  const [ancestor, setAncestor] = useState(activeProject?.ancestor || '');
-  const [primaryName, setPrimaryName] = useState(
-    activeProject?.primaryName || ''
-  );
-  const [regionPlace, setRegionPlace] = useState<GenealogyPlace | null>(() =>
-    parsePlaceText(activeProject?.region)
-  );
-  const [projectState, setProjectState] = useState<'0' | '1'>(
-    activeProject?.projectState || '0'
-  );
-  const [projectLevel, setProjectLevel] = useState<number>(
-    activeProject?.projectLevel || 1
-  );
-  const [description, setDescription] = useState(
-    activeProject?.description || ''
-  );
-  const [colorTheme, setColorTheme] = useState<AssetColorTheme>(
-    activeProject?.colorTheme || 'sky'
-  );
+  const [values, setValues] = useState<FamilyProfileFormValues>(() => ({
+    familyName: activeProject?.name || '',
+    familySurname: activeProject?.primarySurname || '',
+    ancestor: activeProject?.ancestor || '',
+    hallName: activeProject?.primaryName || '',
+    regionPlace: parsePlaceText(activeProject?.region),
+    description: activeProject?.description || '',
+  }));
 
+  const [errors, setErrors] = useState<FamilyFieldErrors>({});
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(
+    null,
+  );
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
+
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeProject) {
-      setName(activeProject.name);
-      setPrimarySurname(activeProject.primarySurname || '');
-      setAncestor(activeProject.ancestor || '');
-      setPrimaryName(activeProject.primaryName || '');
-      setRegionPlace(parsePlaceText(activeProject.region));
-      setProjectState(activeProject.projectState || '0');
-      setProjectLevel(activeProject.projectLevel || 1);
-      setDescription(activeProject.description || '');
-      setColorTheme(activeProject.colorTheme);
-      setConfirmDelete(false);
+      setValues({
+        familyName: activeProject.name || '',
+        familySurname: activeProject.primarySurname || '',
+        ancestor: activeProject.ancestor || '',
+        hallName: activeProject.primaryName || '',
+        regionPlace: parsePlaceText(activeProject.region),
+        description: activeProject.description || '',
+      });
     }
-  }, [activeProject]);
+    setErrors({});
+    setSaveError(null);
+    setDeleteError(null);
+    setConfirmDelete(false);
+    setSavedToast(false);
+  }, [activeProject?.id]);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!targetProjectId) return;
+    let cancelled = false;
+    setExpectedUpdatedAt(null);
+
+    void fetchProject(targetProjectId)
+      .then(({ project }) => {
+        if (cancelled) return;
+        setExpectedUpdatedAt(project.updatedAt);
+        syncProject(project);
+        setValues({
+          familyName: project.name || '',
+          familySurname: project.surname || '',
+          ancestor: project.ancestor || '',
+          hallName: project.hallName || '',
+          regionPlace: parsePlaceText(project.originText ?? undefined),
+          description: project.description || '',
+        });
+      })
+      .catch(() => {
+        // 本地种子或离线项目未能命中服务端时，保留本地 store 数据展示。
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [targetProjectId, syncProject]);
+
+  const handleFieldsChange = (patch: Partial<FamilyProfileFormValues>) => {
+    setValues((prev) => ({ ...prev, ...patch }));
+    if (savedToast) setSavedToast(false);
+    if (saveError) setSaveError(null);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeProject || !name.trim()) return;
-    const formattedRegion = formatGenealogyPlace(regionPlace).trim();
-    updateProject(activeProject.id, {
-      name: name.trim(),
-      primarySurname: primarySurname.trim() || undefined,
-      ancestor: ancestor.trim() || undefined,
-      primaryName: primaryName.trim() || undefined,
-      region: formattedRegion || undefined,
-      projectState,
-      projectLevel,
-      description: description.trim(),
-      colorTheme,
-    });
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 1800);
+    if (!targetProjectId) return;
+
+    const nextErrors = validateFamilyProfile(values);
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    setSavedToast(false);
+
+    const trimmedName = values.familyName.trim();
+    const trimmedSurname = values.familySurname.trim();
+    const trimmedAncestor = values.ancestor.trim();
+    const trimmedHall = values.hallName.trim();
+    const formattedRegion = formatGenealogyPlace(values.regionPlace).trim();
+    const trimmedDesc = values.description.trim();
+
+    try {
+      let versionStamp = expectedUpdatedAt;
+      if (!versionStamp) {
+        const latest = await fetchProject(targetProjectId);
+        versionStamp = latest.project.updatedAt;
+      }
+
+      const { project } = await updateProjectRequest(targetProjectId, {
+        name: trimmedName,
+        surname: trimmedSurname,
+        ancestor: trimmedAncestor,
+        hallName: trimmedHall || null,
+        originText: formattedRegion || null,
+        description: trimmedDesc || null,
+        expectedUpdatedAt: versionStamp,
+      });
+
+      setExpectedUpdatedAt(project.updatedAt);
+      syncProject(project);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2000);
+    } catch (err) {
+      const isOfflineOrLocalOnly =
+        err instanceof ApiError &&
+        (err.code === 'UNREACHABLE' ||
+          (err.status === 404 && !expectedUpdatedAt));
+
+      if (isOfflineOrLocalOnly) {
+        updateProject(targetProjectId, {
+          name: trimmedName,
+          primarySurname: trimmedSurname,
+          ancestor: trimmedAncestor,
+          primaryName: trimmedHall || undefined,
+          region: formattedRegion || undefined,
+          description: trimmedDesc,
+        });
+        setSavedToast(true);
+        setTimeout(() => setSavedToast(false), 2000);
+      } else {
+        setSaveError(errorMessage(err));
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
-    if (!activeProject) return;
-    deleteProject(activeProject.id);
-    navigate('/');
-  };
+  const handleDelete = async () => {
+    if (!targetProjectId) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteProjectRequest(targetProjectId);
+      dropProject(targetProjectId);
+      void navigate({ to: '/' });
+    } catch (err) {
+      const isOfflineOrLocalOnly =
+        err instanceof ApiError &&
+        (err.code === 'UNREACHABLE' ||
+          (err.status === 404 && !expectedUpdatedAt));
 
-  const colorKeys = Object.keys(ASSET_COLOR_PALETTES) as AssetColorTheme[];
+      if (isOfflineOrLocalOnly) {
+        dropProject(targetProjectId);
+        void navigate({ to: '/' });
+      } else {
+        setDeleteError(errorMessage(err));
+        setConfirmDelete(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="flex-1 h-full overflow-y-auto bg-background">
@@ -109,189 +208,50 @@ const ProjectSettingsPage: React.FC = () => {
             家族设置
           </h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            管理「{activeProject?.name || '家族'}」的谱牒档案信息、所属地区与封面配色。
+            管理「{values.familyName || activeProject?.name || '家族'}」的谱牒基础档案信息。
           </p>
         </div>
 
-        {/* General Project Info */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
+        {/* Basic Family Profile (aligned 1:1 with Create Family modal) */}
+        <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5 shadow-[var(--shadow-card)]">
           <h2 className="font-editorial text-[15px] font-semibold text-foreground">
             基本信息
           </h2>
-          <form onSubmit={handleSave} className="space-y-4 max-w-lg">
-            <div className="space-y-1.5">
-              <Label htmlFor="project-name-input">家族名</Label>
-              <Input
-                id="project-name-input"
-                value={name}
-                maxLength={24}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+          <form onSubmit={(e) => void handleSave(e)} noValidate className="space-y-5 max-w-xl">
+            <FamilyProfileFields
+              values={values}
+              errors={errors}
+              onChange={handleFieldsChange}
+              onClearError={(field) =>
+                setErrors((prev) => ({ ...prev, [field]: undefined }))
+              }
+              disabled={saving}
+              idPrefix="settings-family"
+            />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="space-y-1.5">
-                <Label htmlFor="project-settings-surname">家族姓氏</Label>
-                <Input
-                  id="project-settings-surname"
-                  value={primarySurname}
-                  maxLength={24}
-                  onChange={(e) => setPrimarySurname(e.target.value)}
-                  placeholder="如：张"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="project-settings-ancestor">始迁祖</Label>
-                <Input
-                  id="project-settings-ancestor"
-                  value={ancestor}
-                  maxLength={24}
-                  onChange={(e) => setAncestor(e.target.value)}
-                  placeholder="录入始迁祖姓名"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="project-settings-primary-name">堂号</Label>
-                <Input
-                  id="project-settings-primary-name"
-                  value={primaryName}
-                  maxLength={10}
-                  onChange={(e) => setPrimaryName(e.target.value)}
-                  placeholder="如：百忍堂"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="project-settings-region">地区</Label>
-              <PlaceInput
-                id="project-settings-region"
-                label="所在地区"
-                value={regionPlace}
-                onChange={setRegionPlace}
-                placeholder="输入省市区县（如 江西泰和）或原始地名，或点右侧选择"
-                className="h-9 text-[13px] bg-background"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div className="space-y-1.5">
-                <Label>状态</Label>
-                <div className="grid grid-cols-2 p-1 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border h-9">
-                  {[
-                    { value: '0' as const, label: '进行中' },
-                    { value: '1' as const, label: '已完成' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setProjectState(opt.value)}
-                      className={`rounded-md text-[13px] transition-colors cursor-pointer ${
-                        projectState === opt.value
-                          ? 'bg-card text-foreground font-semibold shadow-xs border border-border/60'
-                          : 'text-muted-foreground font-medium hover:text-foreground'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>重要等级</Label>
-                <div className="h-9 px-3 rounded-md border border-input bg-background flex items-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setProjectLevel(star)}
-                      className="p-0.5 cursor-pointer"
-                      aria-label={`设为 ${star} 星`}
-                    >
-                      <Star
-                        size={16}
-                        className={
-                          star <= projectLevel
-                            ? 'fill-primary text-primary'
-                            : 'text-muted-foreground/35'
-                        }
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="project-desc-input">备注</Label>
-              <Textarea
-                id="project-desc-input"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="请输入家族备注"
-                className="resize-none"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>封面与图标配色</Label>
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                {colorKeys.map((key) => {
-                  const p = ASSET_COLOR_PALETTES[key];
-                  const selected = colorTheme === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setColorTheme(key)}
-                      title={p.label}
-                      className={`h-9 px-2.5 rounded-lg border flex items-center gap-2 text-[12px] font-medium transition-colors cursor-pointer ${
-                        selected
-                          ? 'border-primary bg-primary/[0.08] text-foreground'
-                          : 'border-border bg-background text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      <ProjectColoredIcon colorTheme={key} className="w-4 h-4" />
-                      <span>{p.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>家族 ID</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={activeProject?.id || ''}
-                  disabled
-                  className="font-mono text-xs bg-muted/40"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3 shrink-0"
-                  onClick={() => {
-                    navigator.clipboard?.writeText(activeProject?.id || '');
-                    setCopiedId(true);
-                    setTimeout(() => setCopiedId(false), 1500);
-                  }}
-                >
-                  {copiedId ? <Check size={14} /> : <Copy size={14} />}
-                </Button>
-              </div>
-            </div>
+            {saveError && (
+              <p
+                role="alert"
+                className="text-[12px] text-destructive bg-destructive/5 border border-destructive/30 rounded-md px-3 py-2"
+              >
+                {saveError}
+              </p>
+            )}
 
             <div className="flex items-center gap-3 pt-1">
-              <Button type="submit" size="sm" disabled={!name.trim()}>
-                保存更改
+              <Button
+                type="submit"
+                size="sm"
+                disabled={saving}
+                className="whitespace-nowrap shrink-0"
+              >
+                {saving ? '保存中...' : '保存更改'}
               </Button>
               {savedToast && (
-                <span className="text-xs font-medium text-primary">
+                <span
+                  role="status"
+                  className="text-xs font-medium text-primary"
+                >
                   已保存家族设置
                 </span>
               )}
@@ -299,53 +259,39 @@ const ProjectSettingsPage: React.FC = () => {
           </form>
         </section>
 
-        {/* Project Actions */}
-        <section className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-[var(--shadow-card)]">
+        {/* Danger Zone: Delete Family Only */}
+        <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-4 shadow-[var(--shadow-card)]">
           <h2 className="font-editorial text-[15px] font-semibold text-foreground">
             家族操作
           </h2>
-          <div className="flex flex-wrap items-center justify-between gap-3 py-1">
-            <div>
-              <div className="text-[13px] font-medium text-foreground">
-                复制家族
-              </div>
-              <div className="text-[12px] text-muted-foreground">
-                创建一个包含相同基础档案的家族副本。
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (!activeProject) return;
-                const copy = duplicateProject(activeProject.id);
-                if (copy) navigate(`/projects/${copy.id}`);
-              }}
-              className="gap-1.5 whitespace-nowrap shrink-0"
-            >
-              <Copy size={13} /> 复制家族
-            </Button>
-          </div>
 
-          <div className="h-px bg-border" />
+          {deleteError && (
+            <p
+              role="alert"
+              className="text-[12px] text-destructive bg-destructive/5 border border-destructive/30 rounded-md px-3 py-2"
+            >
+              {deleteError}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 py-1">
             <div>
               <div className="text-[13px] font-medium text-destructive">
                 删除当前家族
               </div>
-              <div className="text-[12px] text-muted-foreground">
-                删除后该家族将从工作区家族列表中移除。
+              <div className="text-[12px] text-muted-foreground mt-0.5">
+                删除后该家族将从工作区家族列表中移除，且不可撤销。
               </div>
             </div>
             {confirmDelete ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={deleting}
                   onClick={() => setConfirmDelete(false)}
+                  className="whitespace-nowrap"
                 >
                   取消
                 </Button>
@@ -353,10 +299,11 @@ const ProjectSettingsPage: React.FC = () => {
                   type="button"
                   variant="destructive"
                   size="sm"
-                  onClick={handleDelete}
+                  disabled={deleting}
+                  onClick={() => void handleDelete()}
                   className="gap-1.5 whitespace-nowrap"
                 >
-                  确认删除
+                  {deleting ? '删除中...' : '确认删除'}
                 </Button>
               </div>
             ) : (
@@ -364,7 +311,10 @@ const ProjectSettingsPage: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDelete(true);
+                }}
                 className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 whitespace-nowrap shrink-0"
               >
                 <Trash2 size={13} /> 删除家族

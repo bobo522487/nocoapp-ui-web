@@ -8,7 +8,7 @@ import {
   Search,
   Sliders,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ViewMode } from '../../types';
 import { LineageTreePanel } from '../../features/project/components/LineageTreePanel';
 import { ArticleTreePanel } from '../../features/project/components/ArticleTreePanel';
@@ -57,29 +57,38 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
           ? '谱书管理列表'
           : '家族工作台';
 
-  const moduleItems = [
+  const moduleItems: {
+    id: ViewMode;
+    label: string;
+    to:
+      | '/projects/$projectId'
+      | '/projects/$projectId/lineage'
+      | '/projects/$projectId/articles'
+      | '/projects/$projectId/books';
+    icon: React.ElementType;
+  }[] = [
     {
       id: ViewMode.PROJECT_HOME,
       label: '概览',
-      path: `/projects/${activeProjectId}`,
+      to: '/projects/$projectId',
       icon: Compass,
     },
     {
       id: ViewMode.LINEAGE,
       label: '世系',
-      path: `/projects/${activeProjectId}/lineage`,
+      to: '/projects/$projectId/lineage',
       icon: GitFork,
     },
     {
       id: ViewMode.ARTICLES,
       label: '谱文',
-      path: `/projects/${activeProjectId}/articles`,
+      to: '/projects/$projectId/articles',
       icon: ScrollText,
     },
     {
       id: ViewMode.BOOKS,
       label: '谱书',
-      path: `/projects/${activeProjectId}/books`,
+      to: '/projects/$projectId/books',
       icon: BookOpen,
     },
   ];
@@ -139,7 +148,12 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             </div>
             <button
               type="button"
-              onClick={() => navigate(`/projects/${activeProjectId}/settings`)}
+              onClick={() =>
+                void navigate({
+                  to: '/projects/$projectId/settings',
+                  params: { projectId: activeProjectId },
+                })
+              }
               className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 activeView === ViewMode.PROJECT_SETTINGS
                   ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
@@ -151,7 +165,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             </button>
           </div>
           <div className="p-4 text-[12px] text-muted-foreground leading-relaxed">
-            在此可维护当前家族的名称、堂号、所属地区、编修状态与重要等级。
+            在此可维护当前家族的名称、姓氏、始迁祖、堂号、所在地区与家族简介。
           </div>
         </div>
       ) : activeView === ViewMode.LINEAGE ? (
@@ -174,7 +188,12 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => navigate(item.path)}
+                  onClick={() =>
+                    void navigate({
+                      to: item.to,
+                      params: { projectId: activeProjectId },
+                    })
+                  }
                   aria-current={isActive ? 'page' : undefined}
                   className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     isActive
@@ -223,21 +242,21 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             </div>
             <div className="text-[12px] text-foreground/85 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">堂号</span>
-                <span className="truncate font-medium">
-                  {activeProject?.primaryName || '未设置'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">主姓氏</span>
+                <span className="text-muted-foreground">家族姓氏</span>
                 <span className="truncate font-medium">
                   {activeProject?.primarySurname || '未设置'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">编修状态</span>
+                <span className="text-muted-foreground">始迁祖</span>
                 <span className="truncate font-medium">
-                  {activeProject?.projectState === '1' ? '已完成' : '进行中'}
+                  {activeProject?.ancestor || '未设置'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">堂号</span>
+                <span className="truncate font-medium">
+                  {activeProject?.primaryName || '未设置'}
                 </span>
               </div>
             </div>

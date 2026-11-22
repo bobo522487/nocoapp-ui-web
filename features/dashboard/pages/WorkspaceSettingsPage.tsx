@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Archive, Save } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -123,11 +123,11 @@ const WorkspaceSettingsPage: React.FC = () => {
       await store.hydrateFromApi();
       const after = useWorkspaceStore.getState();
       if (after.workspaces.length === 0) {
-        navigate('/onboarding', { replace: true });
+        void navigate({ to: '/onboarding', replace: true });
         return;
       }
       await after.setCurrentOrganization(after.activeWorkspaceId);
-      navigate('/home', { replace: true });
+      void navigate({ to: '/home', replace: true });
     } catch (error) {
       setOrgMessage(errorMessage(error));
     }

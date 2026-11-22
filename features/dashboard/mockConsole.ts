@@ -426,7 +426,7 @@ function handleOrganizations(parts: string[], search: string, options: RequestOp
       const { token: createdToken, ...record } = invite;
       return {
         invite: record,
-        inviteUrl: `${window.location.origin}/#/invite/${createdToken}`,
+        inviteUrl: `${window.location.origin}/invite/${createdToken}`,
       };
     }
     if (rest.length === 2 && method === 'DELETE') {

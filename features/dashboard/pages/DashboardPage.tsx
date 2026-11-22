@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FolderPlus, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
 import type { TreeItem } from '../../../components/common/Tree/types';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
@@ -206,7 +206,16 @@ const DashboardPage: React.FC = () => {
   ) => {
     syncProject(project);
     setActiveProjectId(project.id);
-    navigate(`/projects/${project.id}${subPath}`);
+    const routeMap = {
+      '': '/projects/$projectId',
+      '/lineage': '/projects/$projectId/lineage',
+      '/articles': '/projects/$projectId/articles',
+      '/books': '/projects/$projectId/books',
+    } as const;
+    void navigate({
+      to: routeMap[subPath],
+      params: { projectId: project.id },
+    });
   };
 
   const handleExportFamily = (project: ProjectRecord) => {

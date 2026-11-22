@@ -8,7 +8,7 @@ import {
   Plus,
   Search,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ViewMode } from '../../types';
 import CreateWorkspaceDialog from '../../features/workspace/components/CreateWorkspaceDialog';
 import UserAvatarMenu from './UserAvatarMenu';
@@ -106,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       .getState()
       .setCurrentOrganization(created.organization.id);
     setIsWsDropdownOpen(false);
-    navigate('/home');
+    navigate({ to: '/home' });
   };
 
   const filteredWorkspaces = workspaces.filter((w) =>
@@ -118,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     const navItems: {
       id: ViewMode;
       label: string;
-      path: string;
+      path: '/' | '/home' | '/members' | '/settings';
       icon: React.ReactNode;
       count?: number;
     }[] = [
@@ -264,7 +264,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => navigate(item.path)}
+                    onClick={() => void navigate({ to: item.path })}
                     aria-current={isActive ? 'page' : undefined}
                     className={`w-full h-9 px-2.5 rounded-lg flex items-center gap-2.5 text-[14px] leading-5 transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isActive
@@ -315,7 +315,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       <div className="h-14 px-2 flex items-center border-b border-border">
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => void navigate({ to: '/' })}
           className="text-[14px] font-semibold text-foreground hover:underline"
         >
           返回工作区

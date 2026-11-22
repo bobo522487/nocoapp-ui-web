@@ -14,7 +14,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ProjectColoredIcon } from './NocoIcons';
 import {
   AssetEditorModal,
@@ -135,7 +135,10 @@ const Breadcrumb: React.FC = () => {
       syncProject(result.project);
       setActiveProjectId(result.project.id);
       setIsCreateProjectOpen(false);
-      navigate(`/projects/${result.project.id}`);
+      void navigate({
+        to: '/projects/$projectId',
+        params: { projectId: result.project.id },
+      });
     } catch {
       const created = createProject({
         name: values.name,
@@ -157,7 +160,10 @@ const Breadcrumb: React.FC = () => {
         });
       }
       setIsCreateProjectOpen(false);
-      navigate(`/projects/${created.id}`);
+      void navigate({
+        to: '/projects/$projectId',
+        params: { projectId: created.id },
+      });
     } finally {
       setCreatingProject(false);
     }
@@ -250,7 +256,7 @@ const Breadcrumb: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setIsProjMenuOpen(false);
-                  navigate('/');
+                  void navigate({ to: '/' });
                 }}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 mb-1 rounded-md text-left text-[13px] transition-colors cursor-pointer ${
                   isWorkspaceShell
@@ -278,7 +284,10 @@ const Breadcrumb: React.FC = () => {
                       onClick={() => {
                         setIsProjMenuOpen(false);
                         setActiveProjectId(proj.id);
-                        navigate(`/projects/${proj.id}`);
+                        void navigate({
+                          to: '/projects/$projectId',
+                          params: { projectId: proj.id },
+                        });
                       }}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-[13px] transition-colors cursor-pointer ${
                         isCurrent
@@ -311,7 +320,10 @@ const Breadcrumb: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setIsProjMenuOpen(false);
-                        navigate(`/projects/${activeProjectId}/settings`);
+                        void navigate({
+                          to: '/projects/$projectId/settings',
+                          params: { projectId: activeProjectId },
+                        });
                       }}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >
@@ -323,7 +335,12 @@ const Breadcrumb: React.FC = () => {
                       onClick={() => {
                         const copy = duplicateProject(activeProject.id);
                         setIsProjMenuOpen(false);
-                        if (copy) navigate(`/projects/${copy.id}`);
+                        if (copy) {
+                          void navigate({
+                            to: '/projects/$projectId',
+                            params: { projectId: copy.id },
+                          });
+                        }
                       }}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >

@@ -11,7 +11,7 @@ import {
   ScrollText,
   Settings,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
 import { useRouteContext } from '../../../hooks/useRouteContext';
@@ -1210,7 +1210,12 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/projects/${activeProjectId}`)}
+              onClick={() =>
+                void navigate({
+                  to: '/projects/$projectId',
+                  params: { projectId: activeProjectId },
+                })
+              }
               className="h-8 gap-1.5 text-[13px] whitespace-nowrap"
             >
               <ArrowLeft size={14} /> 返回工作台概览
@@ -1218,7 +1223,12 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/projects/${activeProjectId}/settings`)}
+              onClick={() =>
+                void navigate({
+                  to: '/projects/$projectId/settings',
+                  params: { projectId: activeProjectId },
+                })
+              }
               className="h-8 gap-1.5 text-[13px] whitespace-nowrap"
             >
               <Settings size={14} /> 家族设置

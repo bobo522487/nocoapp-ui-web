@@ -8,7 +8,10 @@ import { persistableContentJson } from './persistableContent';
 export function commitArticleContent(
   existing: ArticleDocument | undefined,
   articleId: string,
-  updates: ArticleMetaInput & { contentJson?: JSONContent; contentHtml?: string },
+  updates: Partial<ArticleMetaInput> & {
+    contentJson?: JSONContent;
+    contentHtml?: string;
+  },
   updatedAt: string,
 ): ArticleDocument {
   const contentJson = updates.contentJson
@@ -24,13 +27,13 @@ export function commitArticleContent(
     subtitle: updates.subtitle ?? existing?.subtitle ?? '',
     author: updates.author ?? existing?.author ?? '',
     docType: updates.docType ?? existing?.docType ?? 'custom',
-    status: existing?.status ?? 'draft',
-    privacy: existing?.privacy ?? 'clan',
+    status: updates.status ?? existing?.status ?? 'draft',
+    privacy: updates.privacy ?? existing?.privacy ?? 'clan',
     contentJson,
     contentHtml,
     linkedPersonIds: metrics?.linkedPersonIds ?? existing?.linkedPersonIds ?? [],
     linkedChartIds: metrics?.linkedChartIds ?? existing?.linkedChartIds ?? [],
-    citations: existing?.citations ?? [],
+    citations: updates.citations ?? existing?.citations ?? [],
     version: (existing?.version ?? 0) + 1,
     wordCount: metrics?.wordCount ?? computeWordCount(contentHtml),
     updatedAt,

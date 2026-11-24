@@ -4,8 +4,9 @@ import { Pencil, ScrollText, X } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import { PRIVACY_LABELS, STATUS_LABELS } from '../articleLabels';
 import { ARTICLE_TEMPLATES } from '../domain/articleTemplates';
-import type { ArticleMetaInput } from '../types';
+import type { ArticleMetaInput, ArticlePrivacy, ArticleStatus } from '../types';
 
 export interface ArticleMetaModalProps {
   open: boolean;
@@ -26,6 +27,8 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
   const [subtitle, setSubtitle] = useState('');
   const [author, setAuthor] = useState('');
   const [templateId, setTemplateId] = useState('blank');
+  const [status, setStatus] = useState<ArticleStatus>('draft');
+  const [privacy, setPrivacy] = useState<ArticlePrivacy>('clan');
   const [titleError, setTitleError] = useState('');
 
   useEffect(() => {
@@ -35,6 +38,8 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
     setSubtitle(initialValue?.subtitle ?? '');
     setAuthor(initialValue?.author ?? '家族编委会');
     setTemplateId(initialValue?.templateId ?? 'blank');
+    setStatus(initialValue?.status ?? 'draft');
+    setPrivacy(initialValue?.privacy ?? 'clan');
   }, [open, initialValue]);
 
   useEffect(() => {
@@ -62,6 +67,8 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
         (mode === 'create' ? template?.defaultSubtitle : undefined) ||
         undefined,
       author: author.trim() || undefined,
+      status,
+      privacy,
       ...(mode === 'create'
         ? {
             templateId,
@@ -156,6 +163,43 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
                 value={subtitle}
                 onChange={(e) => setSubtitle(e.target.value)}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="articleMetaStatus" className="block">
+                  审校状态
+                </Label>
+                <select
+                  id="articleMetaStatus"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as ArticleStatus)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {(Object.keys(STATUS_LABELS) as ArticleStatus[]).map((key) => (
+                    <option key={key} value={key}>
+                      {STATUS_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="articleMetaPrivacy" className="block">
+                  可见范围
+                </Label>
+                <select
+                  id="articleMetaPrivacy"
+                  value={privacy}
+                  onChange={(e) => setPrivacy(e.target.value as ArticlePrivacy)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {(Object.keys(PRIVACY_LABELS) as ArticlePrivacy[]).map((key) => (
+                    <option key={key} value={key}>
+                      {PRIVACY_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-1.5">

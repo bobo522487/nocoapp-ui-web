@@ -139,6 +139,9 @@ export const useArticleStore = create<ArticleState>()(
             subtitle: meta?.subtitle,
             author: meta?.author,
             docType: meta?.docType,
+            status: meta?.status,
+            privacy: meta?.privacy,
+            citations: meta?.citations,
             contentHtml: meta?.contentHtml,
             contentJson:
               meta?.contentJson ??
@@ -216,31 +219,26 @@ export const useArticleStore = create<ArticleState>()(
 
       updateArticleMeta: (projectId, articleId, meta) =>
         set((state) => {
-          const title = meta.title.trim() || '未命名谱文';
+          const title = meta.title?.trim() || '未命名谱文';
           const key = makeArticleStorageKey(projectId, articleId);
           const existing = state.articlesByKey[key];
           const currentTree = state.treesByProject[projectId] || [];
 
-          const nextDoc: ArticleDocument = existing
-            ? {
-                ...existing,
-                title,
-                subtitle: meta.subtitle?.trim() || '',
-                author: meta.author?.trim() || '',
-                updatedAt: formatNowTimestamp(),
-                version: (existing.version ?? 0) + 1,
-              }
-            : commitArticleContent(
-                undefined,
-                articleId,
-                {
-                  title,
-                  subtitle: meta.subtitle,
-                  author: meta.author,
-                  contentHtml: '<p></p>',
-                },
-                formatNowTimestamp()
-              );
+          const nextDoc: ArticleDocument = commitArticleContent(
+            existing,
+            articleId,
+            {
+              title,
+              subtitle: meta.subtitle,
+              author: meta.author,
+              status: meta.status,
+              privacy: meta.privacy,
+              citations: meta.citations,
+              docType: meta.docType,
+              contentHtml: existing ? undefined : '<p></p>',
+            },
+            formatNowTimestamp(),
+          );
 
           return {
             treesByProject: {

@@ -54,13 +54,16 @@ export interface ArticleRevision {
 }
 
 export interface ArticleMetaInput {
-  title: string;
+  title?: string;
   subtitle?: string;
   author?: string;
   docType?: ArticleDocType;
   templateId?: string;
   contentHtml?: string;
   contentJson?: JSONContent;
+  status?: ArticleStatus;
+  privacy?: ArticlePrivacy;
+  citations?: ArticleCitation[];
 }
 
 export interface ProjectArticleSeedContext {

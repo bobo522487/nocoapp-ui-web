@@ -34,7 +34,10 @@ interface WordArticleEditorProps {
   hallName?: string;
   onUpdateArticle: (
     updates: Partial<
-      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentJson'>
+      Pick<
+        ArticleDocument,
+        'title' | 'subtitle' | 'author' | 'contentJson' | 'citations'
+      >
     >
   ) => void;
 }
@@ -486,8 +489,10 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
           wordCount={liveMetrics.wordCount}
           paragraphCount={liveMetrics.paragraphCount}
           readingLabel={readingLabel}
+          citations={article.citations}
           collapsed={inspectorCollapsed}
           onToggle={() => setInspectorCollapsed((v) => !v)}
+          onUpdateArticle={onUpdateArticle}
         />
       </div>
 

@@ -45,3 +45,10 @@ test('提交 AST 时派生 HTML 和字数，并递增版本', () => {
   assert.match(next.contentHtml, /新正文/);
   assert.equal(next.docType, 'custom');
 });
+
+test('提交时保留并更新审校状态', () => {
+  const next = commitArticleContent(existing, 'a1', { status: 'review', privacy: 'editors' }, '2026-11-24 12:00');
+  assert.equal(next.status, 'review');
+  assert.equal(next.privacy, 'editors');
+  assert.equal(next.version, 4);
+});

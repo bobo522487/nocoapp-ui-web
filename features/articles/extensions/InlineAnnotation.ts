@@ -15,7 +15,21 @@ export const InlineAnnotation = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'span[data-annotation-mode]' }];
+    return [
+      {
+        tag: 'span[data-annotation-mode]',
+        getAttrs: (element) => {
+          const el = element as HTMLElement;
+          const mode = el.getAttribute('data-annotation-mode');
+          const citationId = el.getAttribute('data-citation-id');
+          return {
+            mode: mode === 'interlinear' ? 'interlinear' : 'footnote',
+            citationId: citationId && citationId.length > 0 ? citationId : null,
+            noteText: el.textContent ?? '',
+          };
+        },
+      },
+    ];
   },
 
   renderHTML({ node }) {

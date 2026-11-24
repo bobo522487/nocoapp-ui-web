@@ -16,6 +16,10 @@ import {
 import mammoth from 'mammoth';
 import type { ArticleAssetRecord } from '../assets/articleAssetStore';
 import { contentJsonToHtml, htmlToContentJson } from './htmlProjection';
+import {
+  mapContentJsonPersonMentionsForOutput,
+  type PersonMentionOutputContext,
+} from './outputContentJson';
 
 export interface DocxBlock {
   kind: 'heading' | 'paragraph' | 'blockquote' | 'figure' | 'table';
@@ -85,9 +89,13 @@ function headingLevel(level: 1 | 2 | 3 | undefined) {
 
 export function tiptapJsonToDocx(
   article: { title: string; subtitle?: string; author?: string; contentJson?: JSONContent },
-  projectMeta: { hallName?: string },
+  projectMeta: { hallName?: string; mentionContext?: PersonMentionOutputContext },
 ): Document {
-  const blocks = articleJsonToDocxBlocks(article.contentJson ?? { type: 'doc', content: [] });
+  const baseJson = article.contentJson ?? { type: 'doc', content: [] };
+  const contentJson = projectMeta.mentionContext
+    ? mapContentJsonPersonMentionsForOutput(baseJson, projectMeta.mentionContext)
+    : baseJson;
+  const blocks = articleJsonToDocxBlocks(contentJson);
   const children = [
     new Paragraph({
       heading: HeadingLevel.TITLE,

@@ -16,6 +16,7 @@ import { FontSize } from './FontSize';
 import { TextIndent } from './TextIndent';
 import { LineHeight } from './LineHeight';
 import { FigureImage } from './FigureImage';
+import { FigureImageView } from '../components/FigureImageView';
 import { PersonMention } from './PersonMention';
 import { InlineAnnotation } from './InlineAnnotation';
 import { SlashCommand, PersonMentionSuggestion } from './SlashCommand';
@@ -23,7 +24,8 @@ import type { MentionCandidate } from '../domain/personMention';
 
 export function createArticleExtensions(options?: {
   mentionView?: ComponentType<ReactNodeViewProps>;
-  people?: MentionCandidate[];
+  getPeople?: () => MentionCandidate[];
+  withFigureView?: boolean;
 }): AnyExtension[] {
   const personMention = options?.mentionView
     ? PersonMention.extend({
@@ -33,7 +35,15 @@ export function createArticleExtensions(options?: {
       })
     : PersonMention;
 
-  const people = options?.people ?? [];
+  const figureImage = options?.withFigureView
+    ? FigureImage.extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(FigureImageView);
+        },
+      })
+    : FigureImage;
+
+  const getPeople = options?.getPeople ?? (() => [] as MentionCandidate[]);
 
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -45,7 +55,7 @@ export function createArticleExtensions(options?: {
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     TextIndent,
     LineHeight,
-    FigureImage,
+    figureImage,
     personMention,
     InlineAnnotation,
     Table.configure({ resizable: true }),
@@ -56,6 +66,6 @@ export function createArticleExtensions(options?: {
       placeholder: '在此撰写谱文正文，支持标题、列表、引用与表格排版……',
     }),
     SlashCommand,
-    PersonMentionSuggestion.configure({ people }),
+    PersonMentionSuggestion.configure({ getPeople }),
   ];
 }

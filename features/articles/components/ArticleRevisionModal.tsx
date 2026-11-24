@@ -13,6 +13,7 @@ export interface ArticleRevisionModalProps {
   onClose: () => void;
   projectId: string;
   article: ArticleDocument;
+  onFlushPendingSave?: () => void;
 }
 
 export const ArticleRevisionModal: React.FC<ArticleRevisionModalProps> = ({
@@ -20,6 +21,7 @@ export const ArticleRevisionModal: React.FC<ArticleRevisionModalProps> = ({
   onClose,
   projectId,
   article,
+  onFlushPendingSave,
 }) => {
   const revisions = useArticleStore(
     (s) => s.revisionsByArticleId[article.id] ?? [],
@@ -46,6 +48,7 @@ export const ArticleRevisionModal: React.FC<ArticleRevisionModalProps> = ({
 
   const handleRestore = () => {
     if (!selected) return;
+    onFlushPendingSave?.();
     const authorName =
       useAuthStore.getState().user?.name || '家族编委会';
     restoreRevision(projectId, article.id, selected.id, authorName);

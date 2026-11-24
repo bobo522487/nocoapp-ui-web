@@ -34,6 +34,7 @@ export interface ArticleInspectorPanelProps {
       Pick<ArticleDocument, 'citations' | 'status'>
     >,
   ) => void;
+  onFlushPendingSave?: () => void;
 }
 
 export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
@@ -45,6 +46,7 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
   onToggle,
   onHeadingClick,
   onUpdateArticle,
+  onFlushPendingSave,
   wordCount: _wordCount,
   paragraphCount: _paragraphCount,
   readingLabel: _readingLabel,
@@ -68,6 +70,7 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
   };
 
   const handleStatusChange = (status: ArticleStatus) => {
+    onFlushPendingSave?.();
     onUpdateArticle({ status });
     recordRevision(
       projectId,
@@ -78,6 +81,7 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
   };
 
   const handleRecordRevision = () => {
+    onFlushPendingSave?.();
     const summary = revisionSummary.trim() || '手动记入修订';
     recordRevision(projectId, article.id, summary, revisionAuthor);
     setRevisionSummary('');
@@ -249,6 +253,7 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
           onClose={() => setRevisionModalOpen(false)}
           projectId={projectId}
           article={article}
+          onFlushPendingSave={onFlushPendingSave}
         />
 
         {bookRefs.length > 0 && (

@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { Check, Minus, Plus } from 'lucide-react';
 import '../styles/puwen-prose.css';
@@ -12,6 +19,8 @@ import { useProjectId } from '../../../hooks/useProjectId';
 import { useLineageStore } from '../../../store/useLineageStore';
 import { contentJsonToHtml, htmlToContentJson } from '../domain/htmlProjection';
 import { createArticleSaveQueue } from '../domain/articleSaveQueue';
+import { persistArticleSaveCommit } from '../domain/articleEditorSave';
+import { useArticleStore } from '../../../store/useArticleStore';
 import {
   nextArticleTheme,
   type ArticleTheme,
@@ -90,23 +99,31 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
 
   const activeProjectId = useProjectId();
   const personsByChart = useLineageStore((s) => s.personsByChart);
+  const updateArticleContent = useArticleStore((s) => s.updateArticleContent);
+  const activeProjectIdRef = useRef(activeProjectId);
+  activeProjectIdRef.current = activeProjectId;
+  const updateArticleContentRef = useRef(updateArticleContent);
+  updateArticleContentRef.current = updateArticleContent;
 
-  const mentionPeople = useMemo(
-    () => flattenMentionCandidates(activeProjectId, personsByChart),
-    [activeProjectId, personsByChart],
-  );
-
-  const mentionView = useMemo(
-    () =>
-      createPersonMentionView(
-        mentionPeople.map((p) => ({ id: p.personId, name: p.name })),
-      ),
-    [mentionPeople],
+  const mentionPeopleRef = useRef<MentionCandidate[]>([]);
+  mentionPeopleRef.current = flattenMentionCandidates(
+    activeProjectId,
+    personsByChart,
   );
 
   const extensions = useMemo(
-    () => createArticleExtensions({ people: mentionPeople, mentionView }),
-    [mentionPeople, mentionView],
+    () =>
+      createArticleExtensions({
+        withFigureView: true,
+        getPeople: () => mentionPeopleRef.current,
+        mentionView: createPersonMentionView(() =>
+          mentionPeopleRef.current.map((p) => ({
+            id: p.personId,
+            name: p.name,
+          })),
+        ),
+      }),
+    [],
   );
 
   const saveQueueRef = useRef<ReturnType<typeof createArticleSaveQueue> | null>(
@@ -119,7 +136,13 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
       cancel: (handle) => window.clearTimeout(handle),
       projectHtml: contentJsonToHtml,
       onCommit: (commit) => {
-        onUpdateRef.current({ contentJson: commit.contentJson });
+        const projectId = activeProjectIdRef.current;
+        if (!projectId) return;
+        persistArticleSaveCommit(
+          projectId,
+          commit,
+          updateArticleContentRef.current,
+        );
         setSaveState('saved');
       },
     });
@@ -153,8 +176,12 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     [extensions],
   );
 
+  const flushPendingSave = useCallback(() => {
+    saveQueueRef.current?.flush();
+  }, []);
+
   // Switch document content cleanly when user selects a different article in the sidebar
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!editor) return;
     if (activeArticleIdRef.current !== article.id) {
       saveQueueRef.current?.flush();
@@ -266,7 +293,12 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
           author: article.author,
           contentJson,
         },
-        { hallName },
+        {
+          hallName,
+          mentionContext: activeProjectId
+            ? { projectId: activeProjectId, personsByChart }
+            : undefined,
+        },
       );
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
@@ -511,6 +543,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
           collapsed={inspectorCollapsed}
           onToggle={() => setInspectorCollapsed((v) => !v)}
           onUpdateArticle={onUpdateArticle}
+          onFlushPendingSave={flushPendingSave}
         />
       </div>
 

@@ -1,11 +1,23 @@
+import '../extensions/articleSchema.happy-dom.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { JSONContent } from '@tiptap/core';
 import type { PersonRecord } from '../../lineage/types';
+import { htmlToContentJson } from './htmlProjection.ts';
 import {
   buildBiographyMentionHtml,
   filterPersonMentions,
   resolvePersonMentionLabel,
 } from './personMention.ts';
+
+function findPersonMention(json: JSONContent): JSONContent | null {
+  if (json.type === 'personMention') return json;
+  for (const child of json.content ?? []) {
+    const found = findPersonMention(child);
+    if (found) return found;
+  }
+  return null;
+}
 
 const people = [
   { personId: 'p1', chartId: 'c1', name: '陈伯温', generation: 1 },
@@ -44,4 +56,26 @@ test('传略 HTML 带有 personMention 属性', () => {
   assert.match(html, /data-fallback-name="伯温"/);
   assert.match(html, /data-generation="1"/);
   assert.match(html, /耕读传家/);
+});
+
+test('buildBiographyMentionHtml 往返保留人物提及属性', () => {
+  const person = {
+    id: 'p1',
+    branchId: 'c1',
+    name: '伯温',
+    gender: 'male',
+    status: 'deceased',
+    generation: 1,
+    fatherId: null,
+  } as PersonRecord;
+  const html = buildBiographyMentionHtml(person, 'c1', '一世。耕读传家。');
+  const json = htmlToContentJson(html);
+  const mention = findPersonMention(json);
+  assert.ok(mention?.attrs);
+  assert.equal(mention.attrs.personId, 'p1');
+  assert.equal(mention.attrs.chartId, 'c1');
+  assert.equal(mention.attrs.fallbackName, '伯温');
+  assert.equal(mention.attrs.generation, 1);
+  assert.equal(json.type, 'doc');
+  assert.match(html, /伯温/);
 });

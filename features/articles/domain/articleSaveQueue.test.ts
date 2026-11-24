@@ -59,3 +59,25 @@ test('flush 立即提交并取消定时器', () => {
   assert.equal(scheduled, null);
   assert.equal(queue.flush(), null);
 });
+
+test('flush 提交携带的 articleId 与队列编辑篇章一致', () => {
+  const commits: Array<{ articleId: string; wordCount: number }> = [];
+  const queue = createArticleSaveQueue({
+    delayMs: 800,
+    schedule: (fn) => {
+      void fn;
+      return 1;
+    },
+    cancel: () => undefined,
+    projectHtml: () => '<p>乙</p>',
+    onCommit: (commit) =>
+      commits.push({ articleId: commit.articleId, wordCount: commit.wordCount }),
+  });
+  queue.noteEdit('article-a', () => ({
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: '乙' }] }],
+  }));
+  queue.flush();
+  assert.equal(commits.length, 1);
+  assert.equal(commits[0]?.articleId, 'article-a');
+});

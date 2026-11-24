@@ -34,9 +34,9 @@ export function PersonMentionView({
 }
 
 export function createPersonMentionView(
-  people: Array<{ id: string; name: string }>,
+  getPeople: () => Array<{ id: string; name: string }>,
 ): ComponentType<ReactNodeViewProps> {
   return function PersonMentionViewWithPeople(props: ReactNodeViewProps) {
-    return <PersonMentionView {...props} people={people} />;
+    return <PersonMentionView {...props} people={getPeople()} />;
   };
 }

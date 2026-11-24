@@ -67,13 +67,13 @@ export const SlashCommand = Extension.create({
 });
 
 export const PersonMentionSuggestion = Extension.create<{
-  people: MentionCandidate[];
+  getPeople: () => MentionCandidate[];
 }>({
   name: 'personMentionSuggestion',
 
   addOptions() {
     return {
-      people: [] as MentionCandidate[],
+      getPeople: () => [] as MentionCandidate[],
     };
   },
 
@@ -84,7 +84,7 @@ export const PersonMentionSuggestion = Extension.create<{
         pluginKey: personMentionSuggestionPluginKey,
         char: '@',
         items: ({ query }) =>
-          filterPersonMentions(query, this.options.people),
+          filterPersonMentions(query, this.options.getPeople()),
         command: ({ editor, range, props: item }) => {
           editor.chain().focus().deleteRange(range).run();
           editor

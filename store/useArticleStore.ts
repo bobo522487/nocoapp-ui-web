@@ -17,7 +17,7 @@ import {
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
-import { saveArticleRemote } from '../features/articles/api';
+import { enqueueArticleRemoteSave } from '../features/articles/domain/articleRemoteSave';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
 import { resolveArticleConflict } from '../features/articles/domain/articleConflict';
 import { resolveApiMode } from '../lib/apiMode';
@@ -101,6 +101,8 @@ interface ArticleState {
 function articleWriteUrl(articleId: string): string {
   return `/api/articles/${articleId}`;
 }
+
+const remoteSaveAttemptByKey = new Map<string, number>();
 
 function applyArticleRowToState(
   state: ArticleState,
@@ -288,6 +290,8 @@ export const useArticleStore = create<ArticleState>()(
         }
 
         const expectedVersion = existing?.version ?? 0;
+        const attemptId = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
+        remoteSaveAttemptByKey.set(key, attemptId);
 
         set((s) => ({
           ...applyArticleRowToState(
@@ -299,44 +303,53 @@ export const useArticleStore = create<ArticleState>()(
           ),
         }));
 
-        void (async () => {
-          try {
-            const result = await saveArticleRemote(
-              fetch,
-              articleWriteUrl(articleId),
-              {
-                articleId,
-                expectedVersion,
-                article: nextDoc,
-              },
-            );
-            if (result.ok) {
+        void enqueueArticleRemoteSave(
+          key,
+          attemptId,
+          fetch,
+          articleWriteUrl(articleId),
+          {
+            articleId,
+            expectedVersion,
+            article: nextDoc,
+          },
+          {
+            onSuccess: (article) => {
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
                   projectId,
                   articleId,
-                  result.article,
+                  article,
                   updates.title,
                 ),
                 articleConflict: null,
               }));
-              return;
-            }
-            if (result.status === 409) {
+            },
+            onConflict: (server) => {
               set({
                 articleConflict: {
                   projectId,
                   articleId,
                   local: nextDoc,
-                  server: result.server,
+                  server,
                 },
               });
-            }
-          } catch {
-            // Keep optimistic local row; do not clear editor content.
-          }
-        })();
+            },
+            onError: (revertedVersion) => {
+              set((s) => {
+                const current = s.articlesByKey[key];
+                if (!current) return s;
+                return {
+                  articlesByKey: {
+                    ...s.articlesByKey,
+                    [key]: { ...current, version: revertedVersion },
+                  },
+                };
+              });
+            },
+          },
+        );
       },
 
       chooseArticleConflictResolution: (choice) => {
@@ -363,44 +376,60 @@ export const useArticleStore = create<ArticleState>()(
           conflict.server,
         );
 
-        void (async () => {
-          try {
-            const result = await saveArticleRemote(
-              fetch,
-              articleWriteUrl(conflict.articleId),
-              {
-                articleId: conflict.articleId,
-                expectedVersion: conflict.server.version,
-                article: resolved,
-              },
-            );
-            if (result.ok) {
+        const conflictKey = makeArticleStorageKey(
+          conflict.projectId,
+          conflict.articleId,
+        );
+        const attemptId = (remoteSaveAttemptByKey.get(conflictKey) ?? 0) + 1;
+        remoteSaveAttemptByKey.set(conflictKey, attemptId);
+
+        void enqueueArticleRemoteSave(
+          conflictKey,
+          attemptId,
+          fetch,
+          articleWriteUrl(conflict.articleId),
+          {
+            articleId: conflict.articleId,
+            expectedVersion: conflict.server.version,
+            article: resolved,
+          },
+          {
+            onSuccess: (article) => {
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
                   conflict.projectId,
                   conflict.articleId,
-                  result.article,
+                  article,
                   resolved.title,
                 ),
                 articleConflict: null,
               }));
-              return;
-            }
-            if (result.status === 409) {
+            },
+            onConflict: (server) => {
               set({
                 articleConflict: {
                   projectId: conflict.projectId,
                   articleId: conflict.articleId,
                   local: resolved,
-                  server: result.server,
+                  server,
                 },
               });
-            }
-          } catch {
-            // Keep local row in articlesByKey; conflict dialog may still be open.
-          }
-        })();
+            },
+            onError: (revertedVersion) => {
+              set((s) => {
+                const current = s.articlesByKey[conflictKey];
+                if (!current) return s;
+                return {
+                  articlesByKey: {
+                    ...s.articlesByKey,
+                    [conflictKey]: { ...current, version: revertedVersion },
+                  },
+                };
+              });
+            },
+          },
+        );
       },
 
       updateArticleMeta: (projectId, articleId, meta) =>

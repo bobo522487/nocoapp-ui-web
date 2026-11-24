@@ -17,7 +17,27 @@ export const PersonMention = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'span[data-person-id]' }, { tag: 'span[data-type="personMention"]' }];
+    const readAttrs = (element: HTMLElement) => ({
+      personId: element.getAttribute('data-person-id') ?? '',
+      chartId: element.getAttribute('data-chart-id') ?? '',
+      fallbackName:
+        element.getAttribute('data-fallback-name') ??
+        element.textContent?.trim() ??
+        '',
+      generation: (() => {
+        const raw = element.getAttribute('data-generation');
+        if (!raw) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      })(),
+    });
+    return [
+      { tag: 'span[data-person-id]', getAttrs: (el) => readAttrs(el as HTMLElement) },
+      {
+        tag: 'span[data-type="personMention"]',
+        getAttrs: (el) => readAttrs(el as HTMLElement),
+      },
+    ];
   },
 
   renderHTML({ node, HTMLAttributes }) {

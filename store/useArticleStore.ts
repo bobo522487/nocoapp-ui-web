@@ -269,57 +269,72 @@ export const useArticleStore = create<ArticleState>()(
           formatNowTimestamp(),
         );
 
+        const shouldUpdateTreeTitle =
+          Boolean(updates.title?.trim()) &&
+          treeNode &&
+          treeNode.data?.name !== updates.title!.trim();
+
         if (resolveApiMode(import.meta.env) !== 'network') {
-          set((s) => {
-            const shouldUpdateTreeTitle =
-              Boolean(updates.title?.trim()) &&
-              treeNode &&
-              treeNode.data?.name !== updates.title!.trim();
-            return {
-              ...applyArticleRowToState(
-                s,
-                projectId,
-                articleId,
-                nextDoc,
-                shouldUpdateTreeTitle ? updates.title : undefined,
-              ),
-            };
-          });
+          set((s) => ({
+            ...applyArticleRowToState(
+              s,
+              projectId,
+              articleId,
+              nextDoc,
+              shouldUpdateTreeTitle ? updates.title : undefined,
+            ),
+          }));
           return;
         }
 
+        const expectedVersion = existing?.version ?? 0;
+
+        set((s) => ({
+          ...applyArticleRowToState(
+            s,
+            projectId,
+            articleId,
+            nextDoc,
+            shouldUpdateTreeTitle ? updates.title : undefined,
+          ),
+        }));
+
         void (async () => {
-          const result = await saveArticleRemote(
-            fetch,
-            articleWriteUrl(articleId),
-            {
-              articleId,
-              expectedVersion: existing?.version ?? 0,
-              article: nextDoc,
-            },
-          );
-          if (result.ok) {
-            set((s) => ({
-              ...applyArticleRowToState(
-                s,
-                projectId,
+          try {
+            const result = await saveArticleRemote(
+              fetch,
+              articleWriteUrl(articleId),
+              {
                 articleId,
-                result.article,
-                updates.title,
-              ),
-              articleConflict: null,
-            }));
-            return;
-          }
-          if (result.status === 409) {
-            set({
-              articleConflict: {
-                projectId,
-                articleId,
-                local: nextDoc,
-                server: result.server,
+                expectedVersion,
+                article: nextDoc,
               },
-            });
+            );
+            if (result.ok) {
+              set((s) => ({
+                ...applyArticleRowToState(
+                  s,
+                  projectId,
+                  articleId,
+                  result.article,
+                  updates.title,
+                ),
+                articleConflict: null,
+              }));
+              return;
+            }
+            if (result.status === 409) {
+              set({
+                articleConflict: {
+                  projectId,
+                  articleId,
+                  local: nextDoc,
+                  server: result.server,
+                },
+              });
+            }
+          } catch {
+            // Keep optimistic local row; do not clear editor content.
           }
         })();
       },
@@ -349,37 +364,41 @@ export const useArticleStore = create<ArticleState>()(
         );
 
         void (async () => {
-          const result = await saveArticleRemote(
-            fetch,
-            articleWriteUrl(conflict.articleId),
-            {
-              articleId: conflict.articleId,
-              expectedVersion: conflict.server.version,
-              article: resolved,
-            },
-          );
-          if (result.ok) {
-            set((s) => ({
-              ...applyArticleRowToState(
-                s,
-                conflict.projectId,
-                conflict.articleId,
-                result.article,
-                resolved.title,
-              ),
-              articleConflict: null,
-            }));
-            return;
-          }
-          if (result.status === 409) {
-            set({
-              articleConflict: {
-                projectId: conflict.projectId,
+          try {
+            const result = await saveArticleRemote(
+              fetch,
+              articleWriteUrl(conflict.articleId),
+              {
                 articleId: conflict.articleId,
-                local: resolved,
-                server: result.server,
+                expectedVersion: conflict.server.version,
+                article: resolved,
               },
-            });
+            );
+            if (result.ok) {
+              set((s) => ({
+                ...applyArticleRowToState(
+                  s,
+                  conflict.projectId,
+                  conflict.articleId,
+                  result.article,
+                  resolved.title,
+                ),
+                articleConflict: null,
+              }));
+              return;
+            }
+            if (result.status === 409) {
+              set({
+                articleConflict: {
+                  projectId: conflict.projectId,
+                  articleId: conflict.articleId,
+                  local: resolved,
+                  server: result.server,
+                },
+              });
+            }
+          } catch {
+            // Keep local row in articlesByKey; conflict dialog may still be open.
           }
         })();
       },

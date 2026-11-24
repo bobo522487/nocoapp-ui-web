@@ -21,3 +21,11 @@ export const PRIVACY_LABELS: Record<ArticlePrivacy, string> = {
   clan: '族内',
   editors: '编委',
 };
+
+export function filterArticlesByStatus<T extends { status?: ArticleStatus }>(
+  docs: T[],
+  status: ArticleStatus | 'all',
+): T[] {
+  if (status === 'all') return docs;
+  return docs.filter((doc) => doc.status === status);
+}

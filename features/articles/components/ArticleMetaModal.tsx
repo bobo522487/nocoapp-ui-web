@@ -4,6 +4,7 @@ import { Pencil, ScrollText, X } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import { ARTICLE_TEMPLATES } from '../domain/articleTemplates';
 import type { ArticleMetaInput } from '../types';
 
 export interface ArticleMetaModalProps {
@@ -24,6 +25,7 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [author, setAuthor] = useState('');
+  const [templateId, setTemplateId] = useState('blank');
   const [titleError, setTitleError] = useState('');
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
     setTitle(initialValue?.title ?? '');
     setSubtitle(initialValue?.subtitle ?? '');
     setAuthor(initialValue?.author ?? '家族编委会');
+    setTemplateId(initialValue?.templateId ?? 'blank');
   }, [open, initialValue]);
 
   useEffect(() => {
@@ -51,10 +54,20 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
       setTitleError('请输入谱文标题');
       return;
     }
+    const template = ARTICLE_TEMPLATES.find((t) => t.id === templateId);
     onSubmit({
       title: title.trim(),
-      subtitle: subtitle.trim() || undefined,
+      subtitle:
+        subtitle.trim() ||
+        (mode === 'create' ? template?.defaultSubtitle : undefined) ||
+        undefined,
       author: author.trim() || undefined,
+      ...(mode === 'create'
+        ? {
+            templateId,
+            docType: template?.docType ?? 'custom',
+          }
+        : {}),
     });
   };
 
@@ -158,6 +171,46 @@ export const ArticleMetaModal: React.FC<ArticleMetaModalProps> = ({
                 onChange={(e) => setAuthor(e.target.value)}
               />
             </div>
+
+            {mode === 'create' && (
+              <div className="space-y-2">
+                <Label className="block">篇目模板</Label>
+                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                  {ARTICLE_TEMPLATES.map((tpl) => (
+                    <label
+                      key={tpl.id}
+                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                        templateId === tpl.id
+                          ? 'border-primary bg-primary/8'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="articleTemplate"
+                        value={tpl.id}
+                        checked={templateId === tpl.id}
+                        onChange={() => {
+                          setTemplateId(tpl.id);
+                          if (!subtitle.trim() && tpl.defaultSubtitle) {
+                            setSubtitle(tpl.defaultSubtitle);
+                          }
+                        }}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <span className="min-w-0">
+                        <span className="text-[13px] font-medium text-foreground block">
+                          {tpl.name}
+                        </span>
+                        <span className="text-[12px] text-muted-foreground leading-snug">
+                          {tpl.description}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="px-6 py-3.5 border-t border-border bg-[hsl(var(--surface-subtle))] flex gap-3">

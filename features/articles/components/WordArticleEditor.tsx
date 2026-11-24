@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { Check, Minus, Plus } from 'lucide-react';
 import '../styles/puwen-prose.css';
+import { ArticleInspectorPanel } from './ArticleInspectorPanel';
 import { WordToolbar } from './WordToolbar';
 import type { ArticleDocument } from '../types';
 import { createArticleExtensions } from '../extensions/createArticleExtensions';
@@ -45,7 +46,8 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   const [zoom, setZoom] = useState<number>(1);
   const [isPreview, setIsPreview] = useState(false);
   const [theme, setTheme] = useState<ArticleTheme>('modern');
-  const [, setSelectionTick] = useState(0);
+  const [selectionTick, setSelectionTick] = useState(0);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
   const [wordIoError, setWordIoError] = useState<string | null>(null);
   const saveStateRef = useRef(saveState);
@@ -151,14 +153,35 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     };
   }, []);
 
-  const paragraphCount = useMemo(() => {
+  const liveMetrics = useMemo(() => {
+    if (editor) {
+      return extractArticleMetrics(editor.getJSON());
+    }
     if (article.contentJson) {
-      return extractArticleMetrics(article.contentJson).paragraphCount;
+      return extractArticleMetrics(article.contentJson);
     }
     const html = article.contentHtml || '';
     const matches = html.match(/<(p|h1|h2|h3|li|blockquote)\b/gi);
-    return matches ? matches.length : 1;
-  }, [article.contentJson, article.contentHtml]);
+    return {
+      wordCount: article.wordCount,
+      paragraphCount: matches ? matches.length : 1,
+      readingMinutes: 0,
+      headings: [] as ReturnType<typeof extractArticleMetrics>['headings'],
+      linkedPersonIds: [],
+      linkedChartIds: [],
+    };
+  }, [
+    editor,
+    selectionTick,
+    article.contentJson,
+    article.contentHtml,
+    article.wordCount,
+  ]);
+
+  const paragraphCount = liveMetrics.paragraphCount;
+  const readingLabel = readingTimeLabel(
+    editor ? liveMetrics.wordCount : article.wordCount
+  );
 
   const handleExportWord = async () => {
     try {
@@ -292,8 +315,9 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
         </div>
       )}
 
-      {/* Centered Paper Desk Canvas */}
-      <div className="flex-1 min-h-0 overflow-auto bg-[hsl(var(--surface-subtle))] py-7 px-4 sm:px-8 flex flex-col items-center">
+      {/* Centered Paper Desk Canvas + outline inspector */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-h-0 min-w-0 overflow-auto bg-[hsl(var(--surface-subtle))] py-7 px-4 sm:px-8 flex flex-col items-center">
         <div
           style={{
             width: `${Math.round(794 * zoom)}px`,
@@ -406,6 +430,15 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             </div>
           </article>
         </div>
+        </div>
+        <ArticleInspectorPanel
+          headings={liveMetrics.headings}
+          wordCount={liveMetrics.wordCount}
+          paragraphCount={liveMetrics.paragraphCount}
+          readingLabel={readingLabel}
+          collapsed={inspectorCollapsed}
+          onToggle={() => setInspectorCollapsed((v) => !v)}
+        />
       </div>
 
       {/* Bottom Word Status Bar */}

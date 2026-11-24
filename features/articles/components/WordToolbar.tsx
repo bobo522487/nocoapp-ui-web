@@ -464,6 +464,53 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
 
         <Divider />
 
+        {/* First-line indent */}
+        <div className="relative flex items-center ml-1">
+          <select
+            aria-label="首行缩进"
+            title="首行缩进"
+            defaultValue=""
+            onChange={(e) => {
+              if (!editor) return;
+              const value = (e.target.value || '0') as '0' | '2em';
+              editor.chain().focus().setTextIndent(value).run();
+            }}
+            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)]"
+          >
+            <option value="0">无缩进</option>
+            <option value="2em">首行 2 字</option>
+          </select>
+          <ChevronDown
+            size={12}
+            className="pointer-events-none absolute right-1.5 text-muted-foreground"
+          />
+        </div>
+
+        {/* Line height */}
+        <div className="relative flex items-center ml-1">
+          <select
+            aria-label="行距"
+            title="行距"
+            defaultValue="1.8"
+            onChange={(e) => {
+              if (!editor) return;
+              const value = e.target.value as '1.5' | '1.8' | '2.0';
+              editor.chain().focus().setLineHeight(value).run();
+            }}
+            className="h-7 pl-2 pr-6 rounded-md border border-border bg-background hover:bg-muted/60 text-[12px] font-medium text-foreground appearance-none cursor-pointer transition-all duration-150 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[var(--shadow-focus-halo)] tabular-nums"
+          >
+            <option value="1.5">行距 1.5</option>
+            <option value="1.8">行距 1.8</option>
+            <option value="2.0">行距 2.0</option>
+          </select>
+          <ChevronDown
+            size={12}
+            className="pointer-events-none absolute right-1.5 text-muted-foreground"
+          />
+        </div>
+
+        <Divider />
+
         {/* Alignment */}
         <ToolbarButton
           title="左对齐"

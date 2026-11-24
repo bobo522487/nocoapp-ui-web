@@ -17,12 +17,9 @@ import {
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
-import {
-  bumpArticleRemoteSaveAttemptKey,
-  enqueueArticleRemoteSave,
-} from '../features/articles/domain/articleRemoteSave';
+import { createHttpArticleSave } from '../features/articles/articleSaveHttp';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
-import { resolveArticleConflict } from '../features/articles/domain/articleConflict';
+import { createArticleWrite } from '../features/articles/domain/articleWrite';
 import { resolveApiMode } from '../lib/apiMode';
 import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
 import {
@@ -101,16 +98,12 @@ interface ArticleState {
   ) => void;
 }
 
-function articleWriteUrl(articleId: string): string {
-  return `/api/articles/${articleId}`;
-}
+const articleWrite = createArticleWrite(
+  createHttpArticleSave(fetch, (articleId) => `/api/articles/${articleId}`),
+);
 
-const remoteSaveAttemptByKey = new Map<string, number>();
-
-function invalidateArticleRemoteSaves(key: string): void {
-  const next = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
-  remoteSaveAttemptByKey.set(key, next);
-  bumpArticleRemoteSaveAttemptKey(key);
+function articleWriteMode(): 'local' | 'network' {
+  return resolveApiMode(import.meta.env) === 'network' ? 'network' : 'local';
 }
 
 function applyArticleRowToState(
@@ -273,71 +266,17 @@ export const useArticleStore = create<ArticleState>()(
               ? updates.title
               : existing?.title || treeNode?.data?.name || '未命名谱文',
         };
-        const isNetwork = resolveApiMode(import.meta.env) === 'network';
-        const nextDoc = commitArticleContent(
-          existing,
+        const mode = articleWriteMode();
+        const nextDoc = articleWrite.commitContent({
+          projectId,
           articleId,
-          mergedUpdates,
-          formatNowTimestamp(),
-          { bumpVersion: !isNetwork },
-        );
-
-        const shouldUpdateTreeTitle =
-          Boolean(updates.title?.trim()) &&
-          treeNode &&
-          treeNode.data?.name !== updates.title!.trim();
-
-        if (!isNetwork) {
-          set((s) => ({
-            ...applyArticleRowToState(
-              s,
-              projectId,
-              articleId,
-              nextDoc,
-              shouldUpdateTreeTitle ? updates.title : undefined,
-            ),
-          }));
-          return;
-        }
-
-        const expectedVersion = existing?.version ?? 0;
-        const attemptId = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
-        remoteSaveAttemptByKey.set(key, attemptId);
-
-        set((s) => ({
-          ...applyArticleRowToState(
-            s,
-            projectId,
-            articleId,
-            nextDoc,
-            shouldUpdateTreeTitle ? updates.title : undefined,
-          ),
-        }));
-
-        const buildWriteRequest = (): {
-          articleId: string;
-          expectedVersion: number;
-          article: ArticleDocument;
-        } => {
-          const current = get().articlesByKey[key];
-          const acceptedVersion = current?.version ?? expectedVersion;
-          const doc = current ?? nextDoc;
-          return {
-            articleId,
-            expectedVersion: acceptedVersion,
-            article: { ...doc, version: acceptedVersion },
-          };
-        };
-
-        void enqueueArticleRemoteSave(
-          key,
-          attemptId,
-          fetch,
-          articleWriteUrl(articleId),
-          buildWriteRequest(),
-          {
+          existing,
+          updates: mergedUpdates,
+          mode,
+          updatedAt: formatNowTimestamp(),
+          readCurrent: () => get().articlesByKey[key],
+          handlers: {
             onSuccess: (article) => {
-              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
@@ -362,7 +301,6 @@ export const useArticleStore = create<ArticleState>()(
               });
             },
             onConflict: (server) => {
-              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
               const local = get().articlesByKey[key] ?? nextDoc;
               set({
                 articleConflict: {
@@ -373,99 +311,55 @@ export const useArticleStore = create<ArticleState>()(
                 },
               });
             },
-            onError: () => {
-              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
-            },
+            onError: () => undefined,
           },
-          buildWriteRequest,
-        );
+        });
+
+        const shouldUpdateTreeTitle =
+          Boolean(updates.title?.trim()) &&
+          treeNode &&
+          treeNode.data?.name !== updates.title!.trim();
+
+        set((s) => ({
+          ...applyArticleRowToState(
+            s,
+            projectId,
+            articleId,
+            nextDoc,
+            shouldUpdateTreeTitle ? updates.title : undefined,
+          ),
+        }));
       },
 
       chooseArticleConflictResolution: (choice) => {
         const conflict = get().articleConflict;
         if (!conflict) return;
 
-        if (choice === 'take-server') {
-          const takeKey = makeArticleStorageKey(
-            conflict.projectId,
-            conflict.articleId,
-          );
-          invalidateArticleRemoteSaves(takeKey);
-          set((state) => ({
-            ...applyArticleRowToState(
-              state,
-              conflict.projectId,
-              conflict.articleId,
-              conflict.server,
-              conflict.server.title,
-            ),
-            articleConflict: null,
-          }));
-          return;
-        }
-
-        const resolved = resolveArticleConflict(
-          'keep-local',
-          conflict.local,
-          conflict.server,
-        );
-
-        const conflictKey = makeArticleStorageKey(
-          conflict.projectId,
-          conflict.articleId,
-        );
-        const attemptId = (remoteSaveAttemptByKey.get(conflictKey) ?? 0) + 1;
-        remoteSaveAttemptByKey.set(conflictKey, attemptId);
-
-        const conflictExpectedVersion = conflict.server.version;
-        const buildConflictRequest = () => {
-          const current = get().articlesByKey[conflictKey] ?? resolved;
-          const acceptedVersion = current.version;
-          return {
-            articleId: conflict.articleId,
-            expectedVersion: acceptedVersion,
-            article: { ...current, version: acceptedVersion },
-          };
-        };
-
-        set((state) => ({
-          ...applyArticleRowToState(
-            state,
-            conflict.projectId,
-            conflict.articleId,
-            resolved,
-            resolved.title,
-          ),
-          articleConflict: null,
-        }));
-
-        void enqueueArticleRemoteSave(
-          conflictKey,
-          attemptId,
-          fetch,
-          articleWriteUrl(conflict.articleId),
-          {
-            articleId: conflict.articleId,
-            expectedVersion: conflictExpectedVersion,
-            article: { ...resolved, version: conflictExpectedVersion },
-          },
-          {
+        const key = makeArticleStorageKey(conflict.projectId, conflict.articleId);
+        const nextDoc = articleWrite.resolveConflict({
+          projectId: conflict.projectId,
+          articleId: conflict.articleId,
+          choice,
+          local: conflict.local,
+          server: conflict.server,
+          mode: articleWriteMode(),
+          updatedAt: formatNowTimestamp(),
+          readCurrent: () => get().articlesByKey[key],
+          handlers: {
             onSuccess: (article) => {
-              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
                   conflict.projectId,
                   conflict.articleId,
                   article,
-                  resolved.title,
+                  nextDoc.title,
                 ),
                 articleConflict: null,
               }));
             },
             onConflict: (server) => {
-              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
-              const local = get().articlesByKey[conflictKey] ?? resolved;
+              const local = get().articlesByKey[key] ?? nextDoc;
               set({
                 articleConflict: {
                   projectId: conflict.projectId,
@@ -475,12 +369,20 @@ export const useArticleStore = create<ArticleState>()(
                 },
               });
             },
-            onError: () => {
-              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
-            },
+            onError: () => undefined,
           },
-          buildConflictRequest,
-        );
+        });
+
+        set((state) => ({
+          ...applyArticleRowToState(
+            state,
+            conflict.projectId,
+            conflict.articleId,
+            nextDoc,
+            nextDoc.title,
+          ),
+          articleConflict: null,
+        }));
       },
 
       updateArticleMeta: (projectId, articleId, meta) =>
@@ -634,7 +536,7 @@ export const useArticleStore = create<ArticleState>()(
 
       restoreRevision: (projectId, articleId, revisionId, authorName) => {
         const key = makeArticleStorageKey(projectId, articleId);
-        invalidateArticleRemoteSaves(key);
+        articleWrite.invalidate(projectId, articleId);
         set((state) => {
           const current = state.articlesByKey[key];
           if (!current) return state;

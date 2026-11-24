@@ -19,7 +19,6 @@ import { useProjectId } from '../../../hooks/useProjectId';
 import { useLineageStore } from '../../../store/useLineageStore';
 import { contentJsonToHtml, htmlToContentJson } from '../domain/htmlProjection';
 import { createArticleSaveQueue } from '../domain/articleSaveQueue';
-import { persistArticleSaveCommit } from '../domain/articleEditorSave';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
   nextArticleTheme,
@@ -138,11 +137,9 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
       onCommit: (commit) => {
         const projectId = activeProjectIdRef.current;
         if (!projectId) return;
-        persistArticleSaveCommit(
-          projectId,
-          commit,
-          updateArticleContentRef.current,
-        );
+        updateArticleContentRef.current(projectId, commit.articleId, {
+          contentJson: commit.contentJson,
+        });
         setSaveState('saved');
       },
     });

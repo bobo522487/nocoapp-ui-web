@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { Check, Minus, Plus } from 'lucide-react';
+import '../styles/puwen-prose.css';
 import { WordToolbar } from './WordToolbar';
 import type { ArticleDocument } from '../types';
 import { createArticleExtensions } from '../extensions/createArticleExtensions';
 import { contentJsonToHtml, htmlToContentJson } from '../domain/htmlProjection';
 import { createArticleSaveQueue } from '../domain/articleSaveQueue';
+import {
+  nextArticleTheme,
+  type ArticleTheme,
+} from '../domain/articleTheme';
 import {
   extractArticleMetrics,
   readingTimeLabel,
@@ -32,6 +37,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
 }) => {
   const [zoom, setZoom] = useState<number>(1);
   const [isPreview, setIsPreview] = useState(false);
+  const [theme, setTheme] = useState<ArticleTheme>('modern');
   const [, setSelectionTick] = useState(0);
   const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
   const saveStateRef = useRef(saveState);
@@ -66,6 +72,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     editorProps: {
       attributes: {
         class: 'article-word-prose min-h-[720px]',
+        'data-theme': theme,
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -113,6 +120,11 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     if (!editor) return;
     editor.setEditable(!isPreview);
   }, [editor, isPreview]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dom.setAttribute('data-theme', theme);
+  }, [editor, theme]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -223,6 +235,47 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
         onPrint={handlePrint}
       />
 
+      {isPreview && (
+        <div
+          data-no-print="true"
+          className="h-9 px-4 border-b border-border bg-background flex items-center gap-2 shrink-0"
+        >
+          <span className="text-[12px] text-muted-foreground">版面主题</span>
+          <button
+            type="button"
+            aria-pressed={theme === 'modern'}
+            onClick={() => {
+              if (theme !== 'modern') {
+                setTheme(nextArticleTheme(theme));
+              }
+            }}
+            className={`h-7 px-2.5 rounded-md border text-[12px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              theme === 'modern'
+                ? 'border-primary bg-primary/12 text-primary'
+                : 'border-border bg-background hover:bg-muted text-foreground'
+            }`}
+          >
+            现代
+          </button>
+          <button
+            type="button"
+            aria-pressed={theme === 'classic'}
+            onClick={() => {
+              if (theme !== 'classic') {
+                setTheme(nextArticleTheme(theme));
+              }
+            }}
+            className={`h-7 px-2.5 rounded-md border text-[12px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              theme === 'classic'
+                ? 'border-primary bg-primary/12 text-primary'
+                : 'border-border bg-background hover:bg-muted text-foreground'
+            }`}
+          >
+            仿古
+          </button>
+        </div>
+      )}
+
       {/* Centered Paper Desk Canvas */}
       <div className="flex-1 min-h-0 overflow-auto bg-[hsl(var(--surface-subtle))] py-7 px-4 sm:px-8 flex flex-col items-center">
         <div
@@ -234,6 +287,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
         >
           <article
             data-article-paper="true"
+            data-theme={theme}
             style={{
               zoom: zoom,
             }}

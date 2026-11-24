@@ -140,8 +140,10 @@ const ProjectHomePage: React.FC = () => {
         versionStamp = latest.project.updatedAt;
       }
       const payload = toCreateProjectPayload(values);
+      const { status: _formStatus, ...payloadWithoutStatus } = payload;
       const { project } = await updateProjectRequest(targetProjectId, {
-        ...payload,
+        ...payloadWithoutStatus,
+        ...(projectStatus !== null ? { status: projectStatus } : {}),
         surname: payload.surname ?? null,
         ancestor: payload.ancestor ?? null,
         hallName: payload.hallName ?? null,

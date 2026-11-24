@@ -239,5 +239,4 @@ function currentUserOrNull(db: MockDb): MockUser | null {
   return db.users.find((item) => item.id === db.sessionUserId) ?? null;
 }
 
-// 注册由 features/auth/enableMock（dev + VITE_ENABLE_MOCK=1）显式驱动，
-// 本模块不再顶层自注册，生产构建不会包含 mock 链。
+// 注册由 enableMock 驱动。仅无代理时注册，且 direct 为 true。

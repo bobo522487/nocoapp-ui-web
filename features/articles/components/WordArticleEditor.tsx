@@ -1,20 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import TextAlign from '@tiptap/extension-text-align';
-import TextStyle from '@tiptap/extension-text-style';
-import FontFamily from '@tiptap/extension-font-family';
-import { Color } from '@tiptap/extension-color';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableHeader from '@tiptap/extension-table-header';
-import TableCell from '@tiptap/extension-table-cell';
-import Placeholder from '@tiptap/extension-placeholder';
 import { Check, Minus, Plus } from 'lucide-react';
-import { FontSize } from '../extensions/FontSize';
 import { WordToolbar } from './WordToolbar';
 import type { ArticleDocument } from '../types';
+import { createArticleExtensions } from '../extensions/createArticleExtensions';
+import { contentJsonToHtml, htmlToContentJson } from '../domain/htmlProjection';
+import { createArticleSaveQueue } from '../domain/articleSaveQueue';
+import {
+  extractArticleMetrics,
+  readingTimeLabel,
+} from '../domain/articleMetrics';
 
 interface WordArticleEditorProps {
   article: ArticleDocument;
@@ -22,7 +17,7 @@ interface WordArticleEditorProps {
   hallName?: string;
   onUpdateArticle: (
     updates: Partial<
-      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentHtml'>
+      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentJson'>
     >
   ) => void;
 }
@@ -39,40 +34,34 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   const [isPreview, setIsPreview] = useState(false);
   const [, setSelectionTick] = useState(0);
   const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
+  const saveStateRef = useRef(saveState);
+  saveStateRef.current = saveState;
 
   const onUpdateRef = useRef(onUpdateArticle);
   onUpdateRef.current = onUpdateArticle;
 
   const activeArticleIdRef = useRef(article.id);
   const isSyncingContentRef = useRef(false);
-  const saveTimerRef = useRef<number | null>(null);
+
+  const saveQueueRef = useRef<ReturnType<typeof createArticleSaveQueue> | null>(
+    null
+  );
+  if (!saveQueueRef.current) {
+    saveQueueRef.current = createArticleSaveQueue({
+      delayMs: 800,
+      schedule: (fn, ms) => window.setTimeout(fn, ms),
+      cancel: (handle) => window.clearTimeout(handle),
+      projectHtml: contentJsonToHtml,
+      onCommit: (commit) => {
+        onUpdateRef.current({ contentJson: commit.contentJson });
+        setSaveState('saved');
+      },
+    });
+  }
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      Underline,
-      TextStyle,
-      FontFamily,
-      FontSize,
-      Color,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      Table.configure({
-        resizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      Placeholder.configure({
-        placeholder: '在此撰写谱文正文，支持标题、列表、引用与表格排版……',
-      }),
-    ],
-    content: article.contentHtml || '<p></p>',
+    extensions: createArticleExtensions(),
+    content: article.contentJson ?? (article.contentHtml || '<p></p>'),
     editable: !isPreview,
     editorProps: {
       attributes: {
@@ -81,15 +70,10 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     },
     onUpdate: ({ editor: ed }) => {
       if (isSyncingContentRef.current) return;
-      const html = ed.getHTML();
       setSaveState('saving');
-      if (saveTimerRef.current) {
-        window.clearTimeout(saveTimerRef.current);
-      }
-      onUpdateRef.current({ contentHtml: html });
-      saveTimerRef.current = window.setTimeout(() => {
-        setSaveState('saved');
-      }, 260);
+      saveQueueRef.current?.noteEdit(activeArticleIdRef.current, () =>
+        ed.getJSON()
+      );
     },
     onSelectionUpdate: () => {
       setSelectionTick((t) => t + 1);
@@ -103,13 +87,21 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   useEffect(() => {
     if (!editor) return;
     if (activeArticleIdRef.current !== article.id) {
+      saveQueueRef.current?.flush();
       activeArticleIdRef.current = article.id;
       isSyncingContentRef.current = true;
-      editor.commands.setContent(article.contentHtml || '<p></p>', false);
+      let content: ArticleDocument['contentJson'] | string =
+        article.contentJson ?? (article.contentHtml || '<p></p>');
+      if (!article.contentJson && article.contentHtml) {
+        const contentJson = htmlToContentJson(article.contentHtml);
+        onUpdateRef.current({ contentJson });
+        content = contentJson;
+      }
+      editor.commands.setContent(content, false);
       isSyncingContentRef.current = false;
       setSaveState('saved');
     }
-  }, [article.id, article.contentHtml, editor]);
+  }, [article.id, article.contentHtml, article.contentJson, editor]);
 
   // Keep editable flag synced with preview mode
   useEffect(() => {
@@ -118,23 +110,30 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   }, [editor, isPreview]);
 
   useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) {
-        window.clearTimeout(saveTimerRef.current);
+    const onBeforeUnload = () => {
+      if (saveStateRef.current === 'saving') {
+        saveQueueRef.current?.flush();
       }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      saveQueueRef.current?.flush();
+      saveQueueRef.current?.dispose();
     };
   }, []);
 
-  const { paragraphCount, estimatedPages } = useMemo(() => {
+  const paragraphCount = useMemo(() => {
+    if (article.contentJson) {
+      return extractArticleMetrics(article.contentJson).paragraphCount;
+    }
     const html = article.contentHtml || '';
     const matches = html.match(/<(p|h1|h2|h3|li|blockquote)\b/gi);
-    const pCount = matches ? matches.length : 1;
-    const pages = Math.max(1, Math.ceil((article.wordCount || 0) / 700));
-    return {
-      paragraphCount: pCount,
-      estimatedPages: pages,
-    };
-  }, [article.contentHtml, article.wordCount]);
+    return matches ? matches.length : 1;
+  }, [article.contentJson, article.contentHtml]);
 
   const handleExportWord = () => {
     const safeTitle = (article.title || '谱文').replace(/[\\/:*?"<>|]/g, '_');
@@ -182,6 +181,13 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     window.print();
   };
 
+  const handleTogglePreview = () => {
+    if (!isPreview) {
+      saveQueueRef.current?.flush();
+    }
+    setIsPreview((v) => !v);
+  };
+
   const stepZoom = (dir: -1 | 1) => {
     const idx = ZOOM_LEVELS.findIndex((z) => z === zoom);
     if (idx < 0) {
@@ -207,7 +213,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
       <WordToolbar
         editor={editor}
         isPreview={isPreview}
-        onTogglePreview={() => setIsPreview((v) => !v)}
+        onTogglePreview={handleTogglePreview}
         onExportWord={handleExportWord}
         onPrint={handlePrint}
       />
@@ -318,7 +324,10 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             {/* Paper Running Footer */}
             <div className="px-10 sm:px-16 py-4 border-t border-border/50 flex items-center justify-between text-[12px] text-muted-foreground font-mono tabular-nums select-none">
               <span>{article.title || '谱文'}</span>
-              <span>第 1 页 · 共约 {estimatedPages} 页</span>
+              <span>
+                {article.wordCount} 字 · {paragraphCount} 段 ·{' '}
+                {readingTimeLabel(article.wordCount)}
+              </span>
             </div>
           </article>
         </div>
@@ -341,7 +350,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             ·
           </span>
           <span className="whitespace-nowrap hidden md:inline">
-            约 {estimatedPages} 页
+            {readingTimeLabel(article.wordCount)}
           </span>
           <span aria-hidden="true" className="hidden md:inline">
             ·

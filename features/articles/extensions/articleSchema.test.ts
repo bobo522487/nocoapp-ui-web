@@ -47,3 +47,31 @@ test('图注节点输出 figure、assetId 和 figcaption', () => {
   assert.match(html, /宗祠旧影/);
   assert.doesNotMatch(html, /data:/);
 });
+
+test('人物提及和夹注输出稳定属性', () => {
+  const html = generateHTML(
+    {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'personMention',
+              attrs: { personId: 'p1', chartId: 'c1', fallbackName: '伯温', generation: 1 },
+            },
+            {
+              type: 'inlineAnnotation',
+              attrs: { mode: 'interlinear', citationId: 'cit-1', noteText: '待考' },
+            },
+          ],
+        },
+      ],
+    },
+    createArticleExtensions(),
+  );
+  assert.match(html, /data-person-id="p1"/);
+  assert.match(html, /data-fallback-name="伯温"/);
+  assert.match(html, /puwen-interlinear/);
+  assert.match(html, /待考/);
+});

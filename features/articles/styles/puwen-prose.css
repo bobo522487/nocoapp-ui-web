@@ -47,6 +47,22 @@
   text-indent: 0;
 }
 
+.article-word-prose .puwen-person-mention {
+  padding: 0 0.2em;
+  border-radius: 4px;
+  background: hsl(var(--primary) / 0.12);
+}
+
+.article-word-prose .puwen-person-mention.is-missing {
+  color: hsl(var(--muted-foreground));
+  text-decoration: line-through;
+}
+
+.article-word-prose .puwen-footnote {
+  font-size: 0.75em;
+  vertical-align: super;
+}
+
 .article-word-prose[data-theme='classic'] {
   color: #2b2118;
   background-image: linear-gradient(#8c2d25, #8c2d25), linear-gradient(#8c2d25, #8c2d25);

@@ -9,13 +9,27 @@ import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import Placeholder from '@tiptap/extension-placeholder';
+import { ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
 import type { AnyExtension } from '@tiptap/core';
+import type { ComponentType } from 'react';
 import { FontSize } from './FontSize';
 import { TextIndent } from './TextIndent';
 import { LineHeight } from './LineHeight';
 import { FigureImage } from './FigureImage';
+import { PersonMention } from './PersonMention';
+import { InlineAnnotation } from './InlineAnnotation';
 
-export function createArticleExtensions(): AnyExtension[] {
+export function createArticleExtensions(options?: {
+  mentionView?: ComponentType<ReactNodeViewProps>;
+}): AnyExtension[] {
+  const personMention = options?.mentionView
+    ? PersonMention.extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(options.mentionView!);
+        },
+      })
+    : PersonMention;
+
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
     Underline,
@@ -27,6 +41,8 @@ export function createArticleExtensions(): AnyExtension[] {
     TextIndent,
     LineHeight,
     FigureImage,
+    personMention,
+    InlineAnnotation,
     Table.configure({ resizable: true }),
     TableRow,
     TableHeader,

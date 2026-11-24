@@ -20,6 +20,7 @@
     "@tiptap/core": "^2.11.5",
     "@tiptap/extension-color": "^2.11.5",
     "@tiptap/extension-font-family": "^2.11.5",
+    "@tiptap/extension-image": "2.11.5",
     "@tiptap/extension-placeholder": "^2.11.5",
     "@tiptap/extension-table": "^2.11.5",
     "@tiptap/extension-table-cell": "^2.11.5",
@@ -50,6 +51,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "happy-dom": "^21.0.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }

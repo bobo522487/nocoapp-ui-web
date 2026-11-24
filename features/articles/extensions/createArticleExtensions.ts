@@ -1,0 +1,38 @@
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import TextStyle from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
+import { Color } from '@tiptap/extension-color';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
+import Placeholder from '@tiptap/extension-placeholder';
+import type { AnyExtension } from '@tiptap/core';
+import { FontSize } from './FontSize';
+import { TextIndent } from './TextIndent';
+import { LineHeight } from './LineHeight';
+import { FigureImage } from './FigureImage';
+
+export function createArticleExtensions(): AnyExtension[] {
+  return [
+    StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+    Underline,
+    TextStyle,
+    FontFamily,
+    FontSize,
+    Color,
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    TextIndent,
+    LineHeight,
+    FigureImage,
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    Placeholder.configure({
+      placeholder: '在此撰写谱文正文，支持标题、列表、引用与表格排版……',
+    }),
+  ];
+}

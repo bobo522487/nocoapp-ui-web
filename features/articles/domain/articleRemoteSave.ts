@@ -15,6 +15,8 @@ type RemoteSaveHandlers = {
   onSuccess: (article: ArticleDocument) => void;
   onConflict: (server: ArticleDocument) => void;
   onError: (expectedVersion: number) => void;
+  /** Stale 200 for a superseded attempt — advance CAS baseline only, not body. */
+  onSupersededSuccess?: (article: ArticleDocument) => void;
 };
 
 export function createArticleRemoteSaveSequencer() {
@@ -58,7 +60,14 @@ export function createArticleRemoteSaveSequencer() {
           }
           return;
         }
-        if (attemptIdByKey.get(key) !== attemptId) return;
+        const stillCurrentAttempt = attemptIdByKey.get(key) === attemptId;
+        if (!stillCurrentAttempt) {
+          if (result.ok) {
+            const newest = latestByKey.get(key);
+            newest?.handlers.onSupersededSuccess?.(result.article);
+          }
+          return;
+        }
         if (result.ok) {
           latest.handlers.onSuccess(result.article);
           return;

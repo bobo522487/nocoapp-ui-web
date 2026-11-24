@@ -17,15 +17,6 @@ export function PersonMentionView({
   node,
   people = [],
 }: PersonMentionViewProps) {
-  const [, setRefreshTick] = useState(0);
-  useEffect(() => {
-    const bump = () => setRefreshTick((t) => t + 1);
-    mentionViewListeners.add(bump);
-    return () => {
-      mentionViewListeners.delete(bump);
-    };
-  }, []);
-
   const { personId, chartId, fallbackName, generation } = node.attrs;
   const { text, missing } = resolvePersonMentionLabel(
     { personId, fallbackName },
@@ -52,6 +43,15 @@ export function createPersonMentionView(
   getPeople: () => Array<{ id: string; name: string }>,
 ): ComponentType<ReactNodeViewProps> {
   return function PersonMentionViewWithPeople(props: ReactNodeViewProps) {
+    const [, setRefreshTick] = useState(0);
+    useEffect(() => {
+      const bump = () => setRefreshTick((t) => t + 1);
+      mentionViewListeners.add(bump);
+      return () => {
+        mentionViewListeners.delete(bump);
+      };
+    }, []);
+
     return <PersonMentionView {...props} people={getPeople()} />;
   };
 }

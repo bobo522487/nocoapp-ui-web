@@ -80,3 +80,70 @@ test('请求失败时回滚版本号', async () => {
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(reverted, 4);
 });
+
+test('过期的 200 仍推进 acceptedVersion 供后续请求使用', async () => {
+  const sequencer = createArticleRemoteSaveSequencer();
+  const versionsSent: number[] = [];
+  let acceptedVersion = 1;
+  let secondChain: Promise<void> = Promise.resolve();
+  let secondEnqueued: () => void = () => undefined;
+  const secondEnqueuedPromise = new Promise<void>((resolve) => {
+    secondEnqueued = resolve;
+  });
+
+  const handlers = {
+    onSuccess: (article: ArticleDocument) => {
+      acceptedVersion = article.version;
+    },
+    onConflict: () => assert.fail('不应冲突'),
+    onError: () => assert.fail('不应失败'),
+    onSupersededSuccess: (article: ArticleDocument) => {
+      acceptedVersion = article.version;
+    },
+  };
+
+  const resolveRequest = () => ({
+    articleId: 'a3',
+    expectedVersion: acceptedVersion,
+    article: baseDoc(acceptedVersion),
+  });
+
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as {
+      expectedVersion: number;
+    };
+    versionsSent.push(payload.expectedVersion);
+    if (versionsSent.length === 1) {
+      secondChain = sequencer.enqueue(
+        'k3',
+        2,
+        fetchImpl,
+        '/api/articles/a3',
+        resolveRequest(),
+        handlers,
+        resolveRequest,
+      );
+      secondEnqueued();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return new Response(
+      JSON.stringify({ article: baseDoc(payload.expectedVersion + 1) }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const chain = sequencer.enqueue(
+    'k3',
+    1,
+    fetchImpl,
+    '/api/articles/a3',
+    resolveRequest(),
+    handlers,
+    resolveRequest,
+  );
+
+  await secondEnqueuedPromise;
+  await Promise.all([chain, secondChain]);
+  assert.deepEqual(versionsSent, [1, 2]);
+  assert.equal(acceptedVersion, 3);
+});

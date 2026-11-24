@@ -349,6 +349,18 @@ export const useArticleStore = create<ArticleState>()(
                 articleConflict: null,
               }));
             },
+            onSupersededSuccess: (article) => {
+              set((s) => {
+                const current = s.articlesByKey[key];
+                if (!current || article.version <= current.version) return s;
+                return applyArticleRowToState(
+                  s,
+                  projectId,
+                  articleId,
+                  { ...current, version: article.version },
+                );
+              });
+            },
             onConflict: (server) => {
               if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
               const local = get().articlesByKey[key] ?? nextDoc;

@@ -687,6 +687,19 @@ export function generateProofHtmlDocument(
     })
     .join('\n');
 
+  const printPageCss =
+    mode === 'print'
+      ? `
+    @page {
+      size: A4;
+      margin: 18mm 16mm 20mm;
+      @bottom-center { content: counter(page) " / " counter(pages); }
+    }
+    @media print {
+      .page-foot { display: none; }
+    }`
+      : '';
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -698,7 +711,7 @@ export function generateProofHtmlDocument(
     .page-head { display: flex; justify-content: space-between; font-size: 12px; color: #6b5c4d; border-bottom: 1px solid #2b2118; padding-bottom: 8px; margin-bottom: 20px; }
     .page-body { flex: 1; }
     .page-foot { text-align: center; font-size: 12px; color: #6b5c4d; border-top: 1px solid #e5e0d5; padding-top: 8px; margin-top: 20px; }
-    @media print { body { background: #fff; padding: 0; } .book-page { border: none; margin: 0; box-shadow: none; } }
+    @media print { body { background: #fff; padding: 0; } .book-page { border: none; margin: 0; box-shadow: none; } }${printPageCss}
   </style>
 </head>
 <body>${pagesHtml}</body>

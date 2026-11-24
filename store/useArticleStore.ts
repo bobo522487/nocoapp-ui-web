@@ -12,22 +12,49 @@ import {
 } from '../lib/treeOps';
 import { createAsyncEntityStorage } from './storageAdapter';
 import {
-  computeWordCount,
   createInitialArticleSeed,
   findFirstArticleId,
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
+import {
+  bumpArticleRemoteSaveAttemptKey,
+  enqueueArticleRemoteSave,
+} from '../features/articles/domain/articleRemoteSave';
+import { commitArticleContent } from '../features/articles/domain/articleCommit';
+import { resolveArticleConflict } from '../features/articles/domain/articleConflict';
+import { resolveApiMode } from '../lib/apiMode';
+import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
+import {
+  migrateArticlesV1ToV2,
+  migrateArticlesV2ToV3,
+} from '../features/articles/domain/migrateArticles';
+import {
+  appendArticleRevision,
+  articleRevisionFromDocument,
+  restoreArticleFromRevision,
+} from '../features/articles/domain/articleRevisions';
+import type { JSONContent } from '@tiptap/core';
 import type {
   ArticleDocument,
   ArticleMetaInput,
+  ArticleRevision,
   ProjectArticleSeedContext,
 } from '../features/articles/types';
+
+export interface ArticleConflictState {
+  projectId: string;
+  articleId: string;
+  local: ArticleDocument;
+  server: ArticleDocument;
+}
 
 interface ArticleState {
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   articlesByKey: Record<string, ArticleDocument>;
+  revisionsByArticleId: Record<string, ArticleRevision[]>;
+  articleConflict: ArticleConflictState | null;
 
   ensureProjectInitialized: (
     projectId: string,
@@ -44,9 +71,10 @@ interface ArticleState {
   updateArticleContent: (
     projectId: string,
     articleId: string,
-    updates: Partial<
-      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentHtml'>
-    >
+    updates: Partial<ArticleMetaInput> & {
+      contentJson?: JSONContent;
+      contentHtml?: string;
+    }
   ) => void;
   updateArticleMeta: (
     projectId: string,
@@ -56,6 +84,62 @@ interface ArticleState {
   renameNode: (projectId: string, id: string, name: string) => void;
   duplicateNode: (projectId: string, id: string) => void;
   removeNode: (projectId: string, id: string) => void;
+  recordRevision: (
+    projectId: string,
+    articleId: string,
+    summary: string,
+    authorName: string,
+  ) => void;
+  restoreRevision: (
+    projectId: string,
+    articleId: string,
+    revisionId: string,
+    authorName: string,
+  ) => void;
+  chooseArticleConflictResolution: (
+    choice: 'keep-local' | 'take-server',
+  ) => void;
+}
+
+function articleWriteUrl(articleId: string): string {
+  return `/api/articles/${articleId}`;
+}
+
+const remoteSaveAttemptByKey = new Map<string, number>();
+
+function invalidateArticleRemoteSaves(key: string): void {
+  const next = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
+  remoteSaveAttemptByKey.set(key, next);
+  bumpArticleRemoteSaveAttemptKey(key);
+}
+
+function applyArticleRowToState(
+  state: ArticleState,
+  projectId: string,
+  articleId: string,
+  doc: ArticleDocument,
+  titleUpdateFrom?: string,
+): Partial<ArticleState> {
+  const key = makeArticleStorageKey(projectId, articleId);
+  const currentTree = state.treesByProject[projectId] || [];
+  const treeNode = findTreeNode(currentTree, articleId);
+  const shouldUpdateTreeTitle =
+    Boolean(titleUpdateFrom?.trim()) &&
+    treeNode &&
+    treeNode.data?.name !== titleUpdateFrom!.trim();
+
+  return {
+    treesByProject: {
+      ...state.treesByProject,
+      [projectId]: shouldUpdateTreeTitle
+        ? updateTreeNodeData(currentTree, articleId, (data) => ({
+            ...data,
+            name: titleUpdateFrom!.trim(),
+          }))
+        : currentTree,
+    },
+    articlesByKey: { ...state.articlesByKey, [key]: doc },
+  };
 }
 
 export const useArticleStore = create<ArticleState>()(
@@ -64,6 +148,8 @@ export const useArticleStore = create<ArticleState>()(
       treesByProject: {},
       selectedNodeIdByProject: {},
       articlesByKey: {},
+      revisionsByArticleId: {},
+      articleConflict: null,
 
       ensureProjectInitialized: (projectId, ctx) => {
         if (!projectId || get().treesByProject[projectId] !== undefined) return;
@@ -127,16 +213,28 @@ export const useArticleStore = create<ArticleState>()(
       addArticle: (projectId, parentId, meta) => {
         const id = `article-${Date.now()}`;
         const title = meta?.title?.trim() || '未命名谱文';
-        const initialHtml = `<p>请在此处开始撰写「${title}」正文内容……</p>`;
-        const doc: ArticleDocument = {
+        const doc = commitArticleContent(
+          undefined,
           id,
-          title,
-          subtitle: meta?.subtitle?.trim() || '',
-          author: meta?.author?.trim() || '家族编委会',
-          contentHtml: initialHtml,
-          wordCount: computeWordCount(initialHtml),
-          updatedAt: formatNowTimestamp(),
-        };
+          {
+            title,
+            subtitle: meta?.subtitle,
+            author: meta?.author,
+            docType: meta?.docType,
+            status: meta?.status,
+            privacy: meta?.privacy,
+            citations: meta?.citations,
+            contentHtml: meta?.contentHtml,
+            contentJson:
+              meta?.contentJson ??
+              (meta?.contentHtml
+                ? htmlToContentJson(meta.contentHtml)
+                : htmlToContentJson(
+                    `<p>请在此处开始撰写「${title}」正文内容……</p>`
+                  )),
+          },
+          formatNowTimestamp()
+        );
 
         const newNode: TreeItem = {
           id,
@@ -161,73 +259,252 @@ export const useArticleStore = create<ArticleState>()(
         return id;
       },
 
-      updateArticleContent: (projectId, articleId, updates) =>
-        set((state) => {
-          const key = makeArticleStorageKey(projectId, articleId);
-          const existing = state.articlesByKey[key];
-          const currentTree = state.treesByProject[projectId] || [];
-          const treeNode = findTreeNode(currentTree, articleId);
+      updateArticleContent: (projectId, articleId, updates) => {
+        const state = get();
+        const key = makeArticleStorageKey(projectId, articleId);
+        const existing = state.articlesByKey[key];
+        const currentTree = state.treesByProject[projectId] || [];
+        const treeNode = findTreeNode(currentTree, articleId);
 
-          const nextTitle =
+        const mergedUpdates = {
+          ...updates,
+          title:
             updates.title !== undefined
               ? updates.title
-              : existing?.title || treeNode?.data?.name || '未命名谱文';
-          const nextHtml =
-            updates.contentHtml !== undefined
-              ? updates.contentHtml
-              : existing?.contentHtml || '<p></p>';
+              : existing?.title || treeNode?.data?.name || '未命名谱文',
+        };
+        const isNetwork = resolveApiMode(import.meta.env) === 'network';
+        const nextDoc = commitArticleContent(
+          existing,
+          articleId,
+          mergedUpdates,
+          formatNowTimestamp(),
+          { bumpVersion: !isNetwork },
+        );
 
-          const nextDoc: ArticleDocument = {
-            id: articleId,
-            title: nextTitle,
-            subtitle:
-              updates.subtitle !== undefined
-                ? updates.subtitle
-                : existing?.subtitle || '',
-            author:
-              updates.author !== undefined
-                ? updates.author
-                : existing?.author || '',
-            contentHtml: nextHtml,
-            wordCount: computeWordCount(nextHtml),
-            updatedAt: formatNowTimestamp(),
-          };
+        const shouldUpdateTreeTitle =
+          Boolean(updates.title?.trim()) &&
+          treeNode &&
+          treeNode.data?.name !== updates.title!.trim();
 
-          const shouldUpdateTreeTitle =
-            Boolean(updates.title?.trim()) &&
-            treeNode &&
-            treeNode.data?.name !== updates.title!.trim();
+        if (!isNetwork) {
+          set((s) => ({
+            ...applyArticleRowToState(
+              s,
+              projectId,
+              articleId,
+              nextDoc,
+              shouldUpdateTreeTitle ? updates.title : undefined,
+            ),
+          }));
+          return;
+        }
 
+        const expectedVersion = existing?.version ?? 0;
+        const attemptId = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
+        remoteSaveAttemptByKey.set(key, attemptId);
+
+        set((s) => ({
+          ...applyArticleRowToState(
+            s,
+            projectId,
+            articleId,
+            nextDoc,
+            shouldUpdateTreeTitle ? updates.title : undefined,
+          ),
+        }));
+
+        const buildWriteRequest = (): {
+          articleId: string;
+          expectedVersion: number;
+          article: ArticleDocument;
+        } => {
+          const current = get().articlesByKey[key];
+          const acceptedVersion = current?.version ?? expectedVersion;
+          const doc = current ?? nextDoc;
           return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: shouldUpdateTreeTitle
-                ? updateTreeNodeData(currentTree, articleId, (data) => ({
-                    ...data,
-                    name: updates.title!.trim(),
-                  }))
-                : currentTree,
-            },
-            articlesByKey: { ...state.articlesByKey, [key]: nextDoc },
+            articleId,
+            expectedVersion: acceptedVersion,
+            article: { ...doc, version: acceptedVersion },
           };
-        }),
+        };
+
+        void enqueueArticleRemoteSave(
+          key,
+          attemptId,
+          fetch,
+          articleWriteUrl(articleId),
+          buildWriteRequest(),
+          {
+            onSuccess: (article) => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
+              set((s) => ({
+                ...applyArticleRowToState(
+                  s,
+                  projectId,
+                  articleId,
+                  article,
+                  updates.title,
+                ),
+                articleConflict: null,
+              }));
+            },
+            onSupersededSuccess: (article) => {
+              set((s) => {
+                const current = s.articlesByKey[key];
+                if (!current || article.version <= current.version) return s;
+                return applyArticleRowToState(
+                  s,
+                  projectId,
+                  articleId,
+                  { ...current, version: article.version },
+                );
+              });
+            },
+            onConflict: (server) => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
+              const local = get().articlesByKey[key] ?? nextDoc;
+              set({
+                articleConflict: {
+                  projectId,
+                  articleId,
+                  local,
+                  server,
+                },
+              });
+            },
+            onError: () => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
+            },
+          },
+          buildWriteRequest,
+        );
+      },
+
+      chooseArticleConflictResolution: (choice) => {
+        const conflict = get().articleConflict;
+        if (!conflict) return;
+
+        if (choice === 'take-server') {
+          const takeKey = makeArticleStorageKey(
+            conflict.projectId,
+            conflict.articleId,
+          );
+          invalidateArticleRemoteSaves(takeKey);
+          set((state) => ({
+            ...applyArticleRowToState(
+              state,
+              conflict.projectId,
+              conflict.articleId,
+              conflict.server,
+              conflict.server.title,
+            ),
+            articleConflict: null,
+          }));
+          return;
+        }
+
+        const resolved = resolveArticleConflict(
+          'keep-local',
+          conflict.local,
+          conflict.server,
+        );
+
+        const conflictKey = makeArticleStorageKey(
+          conflict.projectId,
+          conflict.articleId,
+        );
+        const attemptId = (remoteSaveAttemptByKey.get(conflictKey) ?? 0) + 1;
+        remoteSaveAttemptByKey.set(conflictKey, attemptId);
+
+        const conflictExpectedVersion = conflict.server.version;
+        const buildConflictRequest = () => {
+          const current = get().articlesByKey[conflictKey] ?? resolved;
+          const acceptedVersion = current.version;
+          return {
+            articleId: conflict.articleId,
+            expectedVersion: acceptedVersion,
+            article: { ...current, version: acceptedVersion },
+          };
+        };
+
+        set((state) => ({
+          ...applyArticleRowToState(
+            state,
+            conflict.projectId,
+            conflict.articleId,
+            resolved,
+            resolved.title,
+          ),
+          articleConflict: null,
+        }));
+
+        void enqueueArticleRemoteSave(
+          conflictKey,
+          attemptId,
+          fetch,
+          articleWriteUrl(conflict.articleId),
+          {
+            articleId: conflict.articleId,
+            expectedVersion: conflictExpectedVersion,
+            article: { ...resolved, version: conflictExpectedVersion },
+          },
+          {
+            onSuccess: (article) => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
+              set((s) => ({
+                ...applyArticleRowToState(
+                  s,
+                  conflict.projectId,
+                  conflict.articleId,
+                  article,
+                  resolved.title,
+                ),
+                articleConflict: null,
+              }));
+            },
+            onConflict: (server) => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
+              const local = get().articlesByKey[conflictKey] ?? resolved;
+              set({
+                articleConflict: {
+                  projectId: conflict.projectId,
+                  articleId: conflict.articleId,
+                  local,
+                  server,
+                },
+              });
+            },
+            onError: () => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
+            },
+          },
+          buildConflictRequest,
+        );
+      },
 
       updateArticleMeta: (projectId, articleId, meta) =>
         set((state) => {
-          const title = meta.title.trim() || '未命名谱文';
+          const title = meta.title?.trim() || '未命名谱文';
           const key = makeArticleStorageKey(projectId, articleId);
           const existing = state.articlesByKey[key];
           const currentTree = state.treesByProject[projectId] || [];
 
-          const nextDoc: ArticleDocument = {
-            id: articleId,
-            title,
-            subtitle: meta.subtitle?.trim() || '',
-            author: meta.author?.trim() || '',
-            contentHtml: existing?.contentHtml || '<p></p>',
-            wordCount: existing?.wordCount ?? 0,
-            updatedAt: formatNowTimestamp(),
-          };
+          const nextDoc: ArticleDocument = commitArticleContent(
+            existing,
+            articleId,
+            {
+              title,
+              subtitle: meta.subtitle,
+              author: meta.author,
+              status: meta.status,
+              privacy: meta.privacy,
+              citations: meta.citations,
+              docType: meta.docType,
+              contentHtml: existing ? undefined : '<p></p>',
+            },
+            formatNowTimestamp(),
+          );
 
           return {
             treesByProject: {
@@ -255,7 +532,12 @@ export const useArticleStore = create<ArticleState>()(
             if (existing) {
               nextArticles = {
                 ...state.articlesByKey,
-                [key]: { ...existing, title: trimmed, updatedAt: formatNowTimestamp() },
+                [key]: {
+                  ...existing,
+                  title: trimmed,
+                  updatedAt: formatNowTimestamp(),
+                  version: (existing.version ?? 0) + 1,
+                },
               };
             }
           }
@@ -289,6 +571,7 @@ export const useArticleStore = create<ArticleState>()(
                   ? `${node.data?.name || srcId} (副本)`
                   : node.data?.name || srcId,
               updatedAt: formatNowTimestamp(),
+              version: (srcDoc.version ?? 0) + 1,
             };
           });
           return {
@@ -327,11 +610,78 @@ export const useArticleStore = create<ArticleState>()(
             articlesByKey: nextArticles,
           };
         }),
+
+      recordRevision: (projectId, articleId, summary, authorName) =>
+        set((state) => {
+          const key = makeArticleStorageKey(projectId, articleId);
+          const doc = state.articlesByKey[key];
+          if (!doc?.contentJson) return state;
+          const createdAt = formatNowTimestamp();
+          const revision = articleRevisionFromDocument(
+            doc,
+            summary,
+            authorName,
+            createdAt,
+          );
+          const existing = state.revisionsByArticleId[articleId] ?? [];
+          return {
+            revisionsByArticleId: {
+              ...state.revisionsByArticleId,
+              [articleId]: appendArticleRevision(existing, revision),
+            },
+          };
+        }),
+
+      restoreRevision: (projectId, articleId, revisionId, authorName) => {
+        const key = makeArticleStorageKey(projectId, articleId);
+        invalidateArticleRemoteSaves(key);
+        set((state) => {
+          const current = state.articlesByKey[key];
+          if (!current) return state;
+          const revisions = state.revisionsByArticleId[articleId] ?? [];
+          const revision = revisions.find((r) => r.id === revisionId);
+          if (!revision) return state;
+          const updatedAt = formatNowTimestamp();
+          const restored = restoreArticleFromRevision(current, revision, updatedAt);
+          const rollbackRevision = articleRevisionFromDocument(
+            restored,
+            `回滚至版本 ${revision.version}`,
+            authorName,
+            updatedAt,
+          );
+          const nextRevisions = appendArticleRevision(revisions, rollbackRevision);
+          const currentTree = state.treesByProject[projectId] || [];
+          return {
+            articlesByKey: { ...state.articlesByKey, [key]: restored },
+            revisionsByArticleId: {
+              ...state.revisionsByArticleId,
+              [articleId]: nextRevisions,
+            },
+            treesByProject: {
+              ...state.treesByProject,
+              [projectId]: updateTreeNodeData(currentTree, articleId, (data) => ({
+                ...data,
+                name: restored.title,
+              })),
+            },
+          };
+        });
+      },
     }),
     {
       name: 'yunpu:articles',
-      version: 1,
+      version: 3,
       storage: createAsyncEntityStorage(),
+      migrate: (persisted, version) => {
+        let state =
+          version < 2
+            ? migrateArticlesV1ToV2(persisted)
+            : (persisted as ReturnType<typeof migrateArticlesV1ToV2>);
+        if (version < 3) {
+          state = migrateArticlesV2ToV3(state);
+        }
+        return state;
+      },
     }
   )
 );

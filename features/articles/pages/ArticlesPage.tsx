@@ -16,13 +16,21 @@ import { useProjectId } from '../../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
+  DOC_TYPE_LABELS,
+  STATUS_LABELS,
+  filterArticlesByStatus,
+} from '../articleLabels';
+import {
   extractPlainTextFromHtml,
   findFirstArticleId,
   makeArticleStorageKey,
 } from '../articleData';
+import { getArticleTemplate } from '../domain/articleTemplates';
+import type { ArticleStatus } from '../types';
 import { parsePlaceText } from '../../place-input';
 import { surnameOf } from '../../dashboard/projectView';
 import { WordArticleEditor } from '../components/WordArticleEditor';
+import { ArticleConflictDialog } from '../components/ArticleConflictDialog';
 import { ArticleMetaModal } from '../components/ArticleMetaModal';
 
 const ArticlesPage: React.FC = () => {
@@ -32,6 +40,9 @@ const ArticlesPage: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
 
   const [isCreateArticleOpen, setIsCreateArticleOpen] = useState(false);
+  const [volumeStatusFilter, setVolumeStatusFilter] = useState<
+    ArticleStatus | 'all'
+  >('all');
 
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const selectedArticleNodeIdByProject = useArticleStore(
@@ -45,6 +56,10 @@ const ArticlesPage: React.FC = () => {
   const addArticleFolder = useArticleStore((s) => s.addFolder);
   const addArticle = useArticleStore((s) => s.addArticle);
   const updateArticleContent = useArticleStore((s) => s.updateArticleContent);
+  const articleConflict = useArticleStore((s) => s.articleConflict);
+  const chooseArticleConflictResolution = useArticleStore(
+    (s) => s.chooseArticleConflictResolution,
+  );
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
@@ -96,6 +111,51 @@ const ArticlesPage: React.FC = () => {
     [articleTree, selectedArticleNodeId, defaultArticleId]
   );
 
+  const seedContext = useMemo(
+    () => ({
+      familyName: activeProject?.name,
+      surname: surnameOf(activeProject) || undefined,
+      hallName: activeProject?.hallName ?? undefined,
+      ancestor: activeProject?.ancestor ?? undefined,
+      region: parsePlaceText(activeProject?.originText ?? undefined),
+    }),
+    [
+      activeProject?.name,
+      activeProject?.hallName,
+      activeProject?.ancestor,
+      activeProject?.originText,
+    ]
+  );
+
+  const filteredVolumeChildren = useMemo(() => {
+    if (!selectedArticleNode?.children?.length) return [];
+    const withDocs = selectedArticleNode.children.map((child) => {
+      const childId = String(child.id);
+      const doc =
+        articlesByKey[makeArticleStorageKey(activeProjectId, childId)];
+      return { child, doc };
+    });
+    if (volumeStatusFilter === 'all') {
+      return withDocs;
+    }
+    const matching = new Set(
+      filterArticlesByStatus(
+        withDocs
+          .map((item) => item.doc)
+          .filter((doc): doc is NonNullable<typeof doc> => Boolean(doc)),
+        volumeStatusFilter
+      ).map((doc) => doc.id)
+    );
+    return withDocs.filter(
+      (item) => item.doc && matching.has(item.doc.id)
+    );
+  }, [
+    selectedArticleNode?.children,
+    articlesByKey,
+    activeProjectId,
+    volumeStatusFilter,
+  ]);
+
   const activeArticleDoc = useMemo(() => {
     if (!selectedArticleNode || selectedArticleNode.type !== 'article') {
       return null;
@@ -110,7 +170,14 @@ const ArticlesPage: React.FC = () => {
         author: activeProject?.hallName
           ? `${activeProject.hallName}编委会`
           : '家族编委会',
+        docType: 'custom',
+        status: 'draft',
+        privacy: 'clan',
         contentHtml: '<p></p>',
+        linkedPersonIds: [],
+        linkedChartIds: [],
+        citations: [],
+        version: 1,
         wordCount: 0,
         updatedAt: '刚刚',
       }
@@ -133,6 +200,14 @@ const ArticlesPage: React.FC = () => {
             updateArticleContent(activeProjectId, activeArticleDoc.id, updates)
           }
         />
+        {articleConflict ? (
+          <ArticleConflictDialog
+            open
+            local={articleConflict.local}
+            server={articleConflict.server}
+            onChoose={chooseArticleConflictResolution}
+          />
+        ) : null}
       </div>
     );
   }
@@ -211,11 +286,33 @@ const ArticlesPage: React.FC = () => {
             </div>
 
             {selectedArticleNode.children?.length ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="volumeStatusFilter"
+                    className="text-[12px] text-muted-foreground shrink-0"
+                  >
+                    审校状态
+                  </label>
+                  <select
+                    id="volumeStatusFilter"
+                    value={volumeStatusFilter}
+                    onChange={(e) =>
+                      setVolumeStatusFilter(
+                        e.target.value as ArticleStatus | 'all'
+                      )
+                    }
+                    className="h-8 pl-2 pr-7 rounded-md border border-border bg-background text-[12px] font-medium text-foreground appearance-none cursor-pointer"
+                  >
+                    <option value="all">全部</option>
+                    <option value="draft">草稿</option>
+                    <option value="review">待校</option>
+                    <option value="approved">定稿</option>
+                  </select>
+                </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {selectedArticleNode.children.map((child) => {
+                {filteredVolumeChildren.map(({ child, doc }) => {
                   const childId = String(child.id);
-                  const doc =
-                    articlesByKey[makeArticleStorageKey(activeProjectId, childId)];
                   const snippet = extractPlainTextFromHtml(
                     doc?.contentHtml || ''
                   ).slice(0, 88);
@@ -230,7 +327,7 @@ const ArticlesPage: React.FC = () => {
                     >
                       <div className="space-y-1.5 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-wrap">
                             <FileText
                               size={15}
                               className="text-primary shrink-0"
@@ -238,6 +335,16 @@ const ArticlesPage: React.FC = () => {
                             <span className="text-[14px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                               {doc?.title || child.data?.name || childId}
                             </span>
+                            {doc && (
+                              <>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted/50 text-muted-foreground shrink-0">
+                                  {DOC_TYPE_LABELS[doc.docType]}
+                                </span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted/50 text-muted-foreground shrink-0">
+                                  {STATUS_LABELS[doc.status]}
+                                </span>
+                              </>
+                            )}
                           </div>
                           <ArrowRight
                             size={14}
@@ -264,6 +371,7 @@ const ArticlesPage: React.FC = () => {
                     </button>
                   );
                 })}
+              </div>
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-border bg-card/50 py-12 px-6 text-center space-y-3">
@@ -313,6 +421,15 @@ const ArticlesPage: React.FC = () => {
         )}
       </div>
 
+      {articleConflict ? (
+        <ArticleConflictDialog
+          open
+          local={articleConflict.local}
+          server={articleConflict.server}
+          onChoose={chooseArticleConflictResolution}
+        />
+      ) : null}
+
       <ArticleMetaModal
         open={isCreateArticleOpen}
         mode="create"
@@ -332,7 +449,17 @@ const ArticlesPage: React.FC = () => {
             selectedArticleNode?.type === 'folder'
               ? String(selectedArticleNode.id)
               : undefined;
-          addArticle(activeProjectId, targetParentId, values);
+          const template = values.templateId
+            ? getArticleTemplate(values.templateId)
+            : undefined;
+          const contentHtml = template
+            ? template.buildContent(seedContext)
+            : undefined;
+          addArticle(activeProjectId, targetParentId, {
+            ...values,
+            docType: template?.docType ?? 'custom',
+            contentHtml,
+          });
           setIsCreateArticleOpen(false);
         }}
       />

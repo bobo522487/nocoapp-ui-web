@@ -114,6 +114,8 @@ export const ArticleTreePanel: React.FC = () => {
         title: doc?.title || node?.data?.name || '',
         subtitle: doc?.subtitle || '',
         author: doc?.author || '',
+        status: doc?.status,
+        privacy: doc?.privacy,
       },
     });
   };

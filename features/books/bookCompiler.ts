@@ -6,16 +6,15 @@ import {
   extractPlainTextFromHtml,
   makeArticleStorageKey,
 } from '../articles/articleData';
+import { contentJsonToOutputHtml } from '../articles/domain/htmlProjection';
 import { buildLineageGraph } from '../lineage/domain/lineageGraph';
+import { buildPersonSummary } from '../lineage/domain/personSummary';
 import { createSeedPersonsForChart } from '../lineage/lineageData';
 import type { PersonRecord } from '../lineage/types';
 import {
   computeAutoRankLabel,
   formatPersonAliases,
-  getPersonPrimaryTitle,
 } from '../lineage/utils/personHelpers';
-import { getPersonDateDisplay } from '../date-input';
-import { getPersonPlaceDisplay } from '../place-input';
 import type {
   BookEdition,
   BookLayoutConfig,
@@ -166,56 +165,6 @@ export function sliceLineagePersons(
   return result;
 }
 
-function buildPersonSummary(
-  p: PersonRecord,
-  allPersons: PersonRecord[],
-  childrenNames: string[],
-  spouses: PersonRecord[],
-  rank: string
-): string {
-  const parts: string[] = [];
-  const aliasText = formatPersonAliases(p);
-  if (aliasText) parts.push(`别名 ${aliasText}`);
-  if (rank) parts.push(rank);
-  const birthDisplay = getPersonDateDisplay(p, 'birth');
-  if (birthDisplay) {
-    parts.push(`生于${birthDisplay}`);
-  }
-  const primaryTitle = getPersonPrimaryTitle(p);
-  if (primaryTitle) {
-    parts.push(primaryTitle);
-  }
-  if (spouses.length > 0) {
-    const spText = spouses
-      .map((s) => {
-        const rel = computeAutoRankLabel(s, allPersons) || '配';
-        const fullName =
-          s.surname?.trim() && !s.name.startsWith(s.surname.trim())
-            ? `${s.surname.trim()}${s.name}`
-            : s.name;
-        const origin = s.notes?.trim() ? `（${s.notes.trim()}）` : '';
-        return `${rel}${fullName}${origin}`;
-      })
-      .join('；');
-    parts.push(spText);
-  }
-  const deathDisplay = getPersonDateDisplay(p, 'death');
-  if (deathDisplay) {
-    parts.push(`卒于${deathDisplay}`);
-  }
-  const burialPlaceText = getPersonPlaceDisplay(p, 'burial').trim();
-  if (burialPlaceText) {
-    parts.push(`葬${burialPlaceText}`);
-  }
-  if (p.biography) {
-    parts.push(p.biography);
-  }
-  if (childrenNames.length > 0) {
-    parts.push(`子：${childrenNames.join('、')}`);
-  }
-  return parts.filter(Boolean).join('。') || '世系谱名录存录，待补行传。';
-}
-
 function splitHtmlIntoPages(html: string, maxCharsPerPage: number): string[] {
   const plain = extractPlainTextFromHtml(html);
   if (!plain || plain.length <= maxCharsPerPage) {
@@ -318,9 +267,10 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
   ) => {
     const key = makeArticleStorageKey(projectId, leaf.sourceArticleId);
     const doc = articlesByKey[key];
-    const html =
-      doc?.contentHtml ||
-      `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}》，当前暂无正文或原谱文已被移除。</p>`;
+    const html = doc?.contentJson
+      ? contentJsonToOutputHtml(doc.contentJson, { projectId, personsByChart })
+      : doc?.contentHtml ||
+        `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}》，当前暂无正文或原谱文已被移除。</p>`;
     const wc = doc ? doc.wordCount : computeWordCount(html);
     totalWords += wc;
 
@@ -388,9 +338,10 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
   ) => {
     const key = makeArticleStorageKey(projectId, leaf.sourceArticleId);
     const doc = articlesByKey[key];
-    const html =
-      doc?.contentHtml ||
-      `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}》，暂无正文内容。</p>`;
+    const html = doc?.contentJson
+      ? contentJsonToOutputHtml(doc.contentJson, { projectId, personsByChart })
+      : doc?.contentHtml ||
+        `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}」，暂无正文内容。</p>`;
     const wc = doc ? doc.wordCount : computeWordCount(html);
     totalWords += wc;
 
@@ -739,6 +690,19 @@ export function generateProofHtmlDocument(
     })
     .join('\n');
 
+  const printPageCss =
+    mode === 'print'
+      ? `
+    @page {
+      size: A4;
+      margin: 18mm 16mm 20mm;
+      @bottom-center { content: counter(page) " / " counter(pages); }
+    }
+    @media print {
+      .page-foot { display: none; }
+    }`
+      : '';
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -750,7 +714,7 @@ export function generateProofHtmlDocument(
     .page-head { display: flex; justify-content: space-between; font-size: 12px; color: #6b5c4d; border-bottom: 1px solid #2b2118; padding-bottom: 8px; margin-bottom: 20px; }
     .page-body { flex: 1; }
     .page-foot { text-align: center; font-size: 12px; color: #6b5c4d; border-top: 1px solid #e5e0d5; padding-top: 8px; margin-top: 20px; }
-    @media print { body { background: #fff; padding: 0; } .book-page { border: none; margin: 0; box-shadow: none; } }
+    @media print { body { background: #fff; padding: 0; } .book-page { border: none; margin: 0; box-shadow: none; } }${printPageCss}
   </style>
 </head>
 <body>${pagesHtml}</body>

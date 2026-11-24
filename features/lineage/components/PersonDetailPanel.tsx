@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   Calendar,
   Camera,
@@ -10,6 +11,18 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { useProjectId } from '../../../hooks/useProjectId';
+import { useArticleStore } from '../../../store/useArticleStore';
+import {
+  DEFAULT_LINEAGE_TREE,
+  findFirstChartId,
+  useLineageStore,
+} from '../../../store/useLineageStore';
+import { STATUS_LABELS } from '../../articles/articleLabels';
+import { buildBiographyMentionHtml } from '../../articles/domain/personMention';
+import type { ArticleDocument } from '../../articles/types';
+import { findArticlesReferencingPerson } from '../../books/domain/bookArticleAudit';
+import { buildPersonSummary } from '../domain/personSummary';
 import {
   getPersonDateDisplay,
   readGenealogyDate,
@@ -26,6 +39,7 @@ import {
 import { PersonAliasRecord, PersonRecord } from '../types';
 import {
   formatAliasItemDisplayName,
+  computeAutoRankLabel,
   formatAliasItemRomanized,
   getPersonAliasItems,
   normalizeEventType,
@@ -86,6 +100,32 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   width,
   onClose,
 }) => {
+  const navigate = useNavigate();
+  const activeProjectId = useProjectId();
+  const articlesByKey = useArticleStore((s) => s.articlesByKey);
+  const treesByProject = useLineageStore((s) => s.treesByProject);
+  const selectedNodeIdByProject = useLineageStore(
+    (s) => s.selectedNodeIdByProject,
+  );
+
+  const chartId = useMemo(() => {
+    const tree = treesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE;
+    return (
+      selectedNodeIdByProject[activeProjectId] ||
+      findFirstChartId(tree) ||
+      String(tree[0]?.id || '')
+    );
+  }, [treesByProject, activeProjectId, selectedNodeIdByProject]);
+
+  const projectArticles = useMemo(() => {
+    const prefix = `${activeProjectId}::`;
+    const out: Record<string, ArticleDocument> = {};
+    for (const [key, doc] of Object.entries(articlesByKey)) {
+      if (key.startsWith(prefix)) out[key] = doc;
+    }
+    return out;
+  }, [articlesByKey, activeProjectId]);
+
   // Modals for Portrait, Unified Event Editor, Vital Quick Edit, Alias & Parent-Child Relation
   const [portraitModalOpen, setPortraitModalOpen] = useState(false);
   const [eventEditContext, setEventEditContext] =
@@ -162,6 +202,39 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
     () => (person ? getPersonAliasItems(person) : []),
     [person]
   );
+
+  const linkedArticles = useMemo(
+    () =>
+      person ? findArticlesReferencingPerson(person.id, projectArticles) : [],
+    [person, projectArticles],
+  );
+
+  const handleGenerateBiographyDraft = useCallback(() => {
+    if (!person) return;
+    const childrenNames = allPersons
+      .filter((p) => p.fatherId === person.id || p.motherId === person.id)
+      .map((p) => p.name);
+    const spouses = allPersons.filter((p) => p.spouseOfId === person.id);
+    const rank = computeAutoRankLabel(person, allPersons);
+    const summary = buildPersonSummary(
+      person,
+      allPersons,
+      childrenNames,
+      spouses,
+      rank,
+    );
+    const contentHtml = buildBiographyMentionHtml(person, chartId, summary);
+    useArticleStore.getState().addArticle(activeProjectId, undefined, {
+      title: `${person.name}公传略`,
+      docType: 'biography',
+      templateId: 'biography',
+      contentHtml,
+    });
+    void navigate({
+      to: '/projects/$projectId/articles',
+      params: { projectId: activeProjectId },
+    });
+  }, [person, allPersons, chartId, activeProjectId, navigate]);
 
   if (!person) return null;
 
@@ -807,6 +880,65 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                 )}
               </div>
             </div>
+          )}
+        </section>
+
+        {/* 传记简介与关联谱文 */}
+        <section
+          data-testid="section-card-linked-articles"
+          className="px-5 py-4 border-b border-border/70"
+        >
+          {person.biography?.trim() && (
+            <div className="mb-4">
+              <div className="text-[14px] font-semibold text-foreground mb-2">
+                传记简介
+              </div>
+              <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap">
+                {person.biography.trim()}
+              </p>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[14px] font-semibold text-foreground">
+              关联谱文
+            </span>
+            <button
+              type="button"
+              onClick={handleGenerateBiographyDraft}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12.5px] font-semibold text-primary hover:bg-[hsl(var(--surface-active))] transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Plus size={13} aria-hidden="true" />
+              <span>生成传略初稿</span>
+            </button>
+          </div>
+          {linkedArticles.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">
+              尚未有谱文引用此人，可点击「生成传略初稿」从世系资料起草传记篇章。
+            </p>
+          ) : (
+            <ul className="space-y-1.5">
+              {linkedArticles.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void navigate({
+                        to: '/projects/$projectId/articles',
+                        params: { projectId: activeProjectId },
+                      })
+                    }
+                    className="w-full text-left rounded-lg px-2.5 py-2 -mx-2.5 hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
+                  >
+                    <div className="text-[13px] font-medium text-foreground truncate">
+                      {item.title}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {STATUS_LABELS[item.status]}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 

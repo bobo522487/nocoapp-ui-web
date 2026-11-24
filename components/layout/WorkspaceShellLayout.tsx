@@ -1,13 +1,27 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet } from '@tanstack/react-router';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useResizable } from '../../hooks/useResizable';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { errorMessage } from '../../lib/api';
+import PageError from '../../features/dashboard/components/PageError';
 
 const WorkspaceShellLayout: React.FC = () => {
+  const [hydrateError, setHydrateError] = useState<string | null>(null);
+
+  const hydrate = () => {
+    setHydrateError(null);
+    void useWorkspaceStore
+      .getState()
+      .hydrateFromApi()
+      .catch((error: unknown) => {
+        setHydrateError(errorMessage(error));
+      });
+  };
+
   useEffect(() => {
-    void useWorkspaceStore.getState().hydrateFromApi().catch(() => {});
+    hydrate();
   }, []);
 
   const {
@@ -41,7 +55,13 @@ const WorkspaceShellLayout: React.FC = () => {
         <Header />
 
         <main className="flex-1 flex overflow-hidden relative bg-background min-w-0">
-          <Outlet />
+          {hydrateError ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <PageError message={hydrateError} onRetry={hydrate} />
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

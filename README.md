@@ -1,31 +1,31 @@
-# 云谱前端（apps/web）
+# 云谱前端
 
-云谱工作区前端，基于 React 19 + Vite 8 + TypeScript + Tailwind 4 + Zustand + React Router 6。
+云谱工作区前端，单包。React 19 + Vite 8 + TypeScript + Tailwind 4 + Zustand + TanStack Router。
 
-## 本地运行
-
-前置条件：Node.js、pnpm 12（仓库根 `package.json` 声明）。
+## 本机对接本地后端
 
 ```bash
-pnpm install
-pnpm --filter nocoapp-dev dev        # 开发服务器 http://localhost:3000，/api 代理到 127.0.0.1:3001
-pnpm --filter nocoapp-dev lint       # tsc --noEmit
-pnpm --filter nocoapp-dev build      # 生产构建
+npm install
+# .env.local 中设置：
+# VITE_API_PROXY_TARGET=http://127.0.0.1:3001
+npm run dev
 ```
 
-代理目标可用 `VITE_API_PROXY_TARGET` 覆盖（见 `.env.example`）。
+开发服务器是 http://localhost:3000 ，`/api` 代理到 `VITE_API_PROXY_TARGET`。此时代码不注册 mock。后端关掉时页面停在错误态。
 
-## 离线 Mock 开发
+## AI Studio 或无代理预览
 
-开发阶段前后端分离时，可启用 Mock 后端（**仅开发环境生效，生产构建剔除**）：
+不设置 `VITE_API_PROXY_TARGET` 时，`features/auth/enableMock.ts` 注册 direct mock，请求不发往网络。预览打开后停在登录页。演示账号是 `demo@yunpu.cn` / `demo123456`。
+
+显式关闭 mock：`VITE_ENABLE_MOCK=0`。有代理时即使设了 `VITE_ENABLE_MOCK=1` 也不会走 mock。
+
+## 检查
 
 ```bash
-cp .env.example .env.local
-# 把 VITE_ENABLE_MOCK 设为 1
-pnpm --filter nocoapp-dev dev
+npm test
+npm run lint
+npm run build
 ```
-
-开关逻辑在 `features/auth/enableMock.ts`：`import.meta.env.DEV && VITE_ENABLE_MOCK === '1'` 时才注册 mock handler。未启用时后端不可达会明确报错，不会静默返回假数据。
 
 ## 目录结构
 

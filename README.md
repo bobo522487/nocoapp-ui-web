@@ -2,13 +2,15 @@
 
 云谱工作区前端，单包。React 19 + Vite 8 + TypeScript + Tailwind 4 + Zustand + TanStack Router。
 
+包管理用 **Bun**（以 `bun.lock` 为准）。
+
 ## 本机对接本地后端
 
 ```bash
-npm install
+bun install
 # .env.local 中设置：
 # VITE_API_PROXY_TARGET=http://127.0.0.1:3001
-npm run dev
+bun run dev
 ```
 
 开发服务器是 http://localhost:3000 ，`/api` 代理到 `VITE_API_PROXY_TARGET`。此时代码不注册 mock。后端关掉时页面停在错误态。
@@ -22,9 +24,9 @@ npm run dev
 ## 检查
 
 ```bash
-npm test
-npm run lint
-npm run build
+bun test
+bun run lint
+bun run build
 ```
 
 ## 目录结构

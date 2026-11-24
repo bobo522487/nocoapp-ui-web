@@ -18,6 +18,11 @@ import {
   getPersonPlaceDisplay,
   readGenealogyPlace,
 } from '../../place-input';
+import {
+  applyAliasDelete,
+  applyAliasSave,
+  formatVitalGenderText,
+} from '../domain/personDetailActions';
 import { PersonAliasRecord, PersonRecord } from '../types';
 import {
   formatAliasItemDisplayName,
@@ -25,7 +30,6 @@ import {
   getPersonAliasItems,
   normalizeEventType,
   normalizePersonForSave,
-  syncAliasesFromItems,
 } from '../utils/personHelpers';
 import {
   EventEditContext,
@@ -42,6 +46,7 @@ import {
 } from '../utils/personTimeline';
 import { ParentChildRelationModal } from './ParentChildRelationModal';
 import { AliasEditContext, PersonAliasModal } from './PersonAliasModal';
+import { PersonAvatarPortrait } from './PersonAvatarPortrait';
 import { PersonEventModal } from './PersonEventModal';
 import { PersonFamilySection } from './PersonFamilySection';
 import { PersonPortraitModal } from './PersonPortraitModal';
@@ -68,51 +73,6 @@ interface PersonDetailPanelProps {
   width: number;
   onClose?: () => void;
 }
-
-interface AvatarPortraitProps {
-  avatarUrl?: string;
-  displayName: string;
-  gender: 'male' | 'female' | 'unknown';
-  sizeClass: string;
-  textClass?: string;
-}
-
-const AvatarPortrait: React.FC<AvatarPortraitProps> = ({
-  avatarUrl,
-  displayName,
-  gender,
-  sizeClass,
-  textClass = 'text-sm',
-}) => {
-  const toneClass =
-    gender === 'female'
-      ? 'bg-[#ED5481]/12 text-[#B6335A] dark:bg-[#D16686]/15 dark:text-[#E590AA] border-[#ED5481]/25 dark:border-[#D16686]/30'
-      : gender === 'male'
-        ? 'bg-[#2097B7]/12 text-[#057091] dark:bg-[#3E9EB8]/15 dark:text-[#6EC2DB] border-[#2097B7]/25 dark:border-[#3E9EB8]/30'
-        : 'bg-[#E8EAEA] text-[#56585A] dark:bg-slate-700 dark:text-slate-300 border-[#D8DADA] dark:border-slate-600';
-
-  return (
-    <div
-      className={cn(
-        'rounded-full overflow-hidden border flex items-center justify-center shrink-0 font-bold select-none',
-        sizeClass,
-        textClass,
-        toneClass
-      )}
-    >
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={displayName}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span>{displayName ? displayName.slice(0, 1) : '族'}</span>
-      )}
-    </div>
-  );
-};
 
 export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   person,
@@ -209,12 +169,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
   const isRoot = person.generation === 1 && !isSpouseNode;
 
   // Vitals formatted values
-  const vitalGenderText =
-    person.gender === 'male'
-      ? '男'
-      : person.gender === 'female'
-        ? '女'
-        : '未知';
+  const vitalGenderText = formatVitalGenderText(person.gender);
 
   const vitalBirthDateText = getPersonDateDisplay(person, 'birth').trim();
   const vitalBirthPlaceText = getPersonPlaceDisplay(person, 'birth').trim();
@@ -469,30 +424,11 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
     ctx: AliasEditContext,
     nextAlias: PersonAliasRecord
   ) => {
-    const currentItems = getPersonAliasItems(person);
-    const nextItems =
-      ctx.mode === 'create'
-        ? [...currentItems, nextAlias]
-        : currentItems.map((it, idx) =>
-            idx === ctx.index || it.id === ctx.initialAlias.id ? nextAlias : it
-          );
-    const syncedAliases = syncAliasesFromItems(nextItems);
-    onUpdatePerson(person.id, {
-      aliasItems: nextItems.length > 0 ? nextItems : undefined,
-      aliases: syncedAliases.length > 0 ? syncedAliases : undefined,
-    });
+    onUpdatePerson(person.id, applyAliasSave(person, ctx, nextAlias));
   };
 
   const handleAliasDelete = (ctx: AliasEditContext) => {
-    const currentItems = getPersonAliasItems(person);
-    const nextItems = currentItems.filter(
-      (it, idx) => idx !== ctx.index && it.id !== ctx.initialAlias.id
-    );
-    const syncedAliases = syncAliasesFromItems(nextItems);
-    onUpdatePerson(person.id, {
-      aliasItems: nextItems.length > 0 ? nextItems : undefined,
-      aliases: syncedAliases.length > 0 ? syncedAliases : undefined,
-    });
+    onUpdatePerson(person.id, applyAliasDelete(person, ctx));
   };
 
   return (
@@ -524,7 +460,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
               aria-label={person.avatarUrl ? '管理肖像照片' : '添加肖像照片'}
               className="group relative rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <AvatarPortrait
+              <PersonAvatarPortrait
                 avatarUrl={person.avatarUrl}
                 displayName={displayName}
                 gender={person.gender}
@@ -1007,7 +943,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                                   }
                                   className="inline-flex items-center gap-2 py-0.5 text-[13px] font-medium text-primary hover:underline underline-offset-2 cursor-pointer"
                                 >
-                                  <AvatarPortrait
+                                  <PersonAvatarPortrait
                                     avatarUrl={ev.relatedPerson.avatarUrl}
                                     displayName={ev.relatedPerson.displayName}
                                     gender={ev.relatedPerson.gender}
@@ -1020,7 +956,7 @@ export const PersonDetailPanel: React.FC<PersonDetailPanelProps> = ({
                                 </button>
                               ) : (
                                 <span className="inline-flex items-center gap-2 py-0.5 text-[13px] font-medium text-foreground">
-                                  <AvatarPortrait
+                                  <PersonAvatarPortrait
                                     avatarUrl={ev.relatedPerson.avatarUrl}
                                     displayName={ev.relatedPerson.displayName}
                                     gender={ev.relatedPerson.gender}

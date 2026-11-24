@@ -1,7 +1,7 @@
 import type {
   AddRelativeContext,
   AddRelativeSubmitPayload,
-} from '../components/AddRelativeModal';
+} from './addRelativeTypes';
 import type { PersonLifeEvent, PersonRecord } from '../types';
 import { normalizePersonForSave } from '../utils/personHelpers';
 import { addParentToPersons, collectSubtreeIds } from './lineageGraph';

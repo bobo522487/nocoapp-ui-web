@@ -28,11 +28,11 @@ import {
 } from '../domain/relativeMutations';
 import { LineageTreeView } from '../components/LineageTreeView';
 import { PersonDetailPanel } from '../components/PersonDetailPanel';
-import {
+import { AddRelativeModal } from '../components/AddRelativeModal';
+import type {
   AddRelativeContext,
-  AddRelativeModal,
   AddRelativeSubmitPayload,
-} from '../components/AddRelativeModal';
+} from '../domain/addRelativeTypes';
 import { LineageEditorModal } from '../../project/components/LineageEditorModal';
 
 const LineagePage: React.FC = () => {

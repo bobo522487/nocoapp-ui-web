@@ -4,7 +4,7 @@ import { loadDb, saveDb, type MockOrganization } from '../auth/mockAuth';
 // 控制台 Mock：数据结构、错误码与真实信封逐字段一致（contracts/console-api.md §8）。
 // 由 mockAuth 的 handleMockRequest 末尾委托调用；不匹配的路径返回 undefined。
 
-const STORAGE_KEY = 'nocoapp:mock-console';
+const STORAGE_KEY = 'nocoapp:mock-console:v2';
 
 type MockProject = {
   id: string;
@@ -56,7 +56,7 @@ function createSeedConsoleDb(): ConsoleDb {
     projects: [
       {
         id: 'proj-chen-yimen',
-        organizationId: 'ws-personal',
+        organizationId: 'org-demo-personal',
         name: '义门陈氏宗谱',
         status: 'in_progress',
         surname: '陈',
@@ -71,7 +71,7 @@ function createSeedConsoleDb(): ConsoleDb {
       },
       {
         id: 'proj-han-royal',
-        organizationId: 'ws-personal',
+        organizationId: 'org-demo-personal',
         name: '两汉刘氏天潢谱',
         status: 'completed',
         surname: '刘',
@@ -86,7 +86,7 @@ function createSeedConsoleDb(): ConsoleDb {
       },
       {
         id: 'proj-peng-ancestors',
-        organizationId: 'ws-team',
+        organizationId: 'org-demo-team',
         name: '彭城远祖合修谱',
         status: 'in_progress',
         surname: '彭',
@@ -102,7 +102,7 @@ function createSeedConsoleDb(): ConsoleDb {
     ],
     members: {},
     invites: {},
-    activatedAt: { 'ws-personal': Date.now() },
+    activatedAt: { 'org-demo-personal': Date.now() },
   };
 }
 

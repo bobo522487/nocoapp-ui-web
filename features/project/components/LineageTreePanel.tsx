@@ -14,6 +14,7 @@ import {
 } from '../../../store/useLineageStore';
 import { createSeedPersonsForChart } from '../../lineage/lineageData';
 import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import { LineageEditorModal } from './LineageEditorModal';
 
 interface LineageModalState {
@@ -31,7 +32,7 @@ export const LineageTreePanel: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   const treesByProject = useLineageStore((s) => s.treesByProject);
@@ -73,8 +74,8 @@ export const LineageTreePanel: React.FC = () => {
       parentId,
       initialValue: {
         name: '',
-        surname: activeProject?.primarySurname || '',
-        hallName: activeProject?.primaryName || '',
+        surname: surnameOf(activeProject),
+        hallName: activeProject?.hallName || '',
         progenitor: '',
         region: null,
       },
@@ -93,7 +94,7 @@ export const LineageTreePanel: React.FC = () => {
           : chartId.startsWith('lineage-other-') ||
               chartId.startsWith('lineage-ancestor-')
             ? ''
-            : activeProject?.primarySurname || '';
+            : surnameOf(activeProject);
     const persons =
       personsByChart[key] ||
       createSeedPersonsForChart(chartId, node.data?.name, fallbackSurname);

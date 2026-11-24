@@ -23,6 +23,8 @@ import { BookCatalogStep } from './BookCatalogStep';
 import { BookEditionsStep } from './BookEditionsStep';
 import { BookLayoutStep } from './BookLayoutStep';
 import { BookMetaModal } from './BookMetaModal';
+import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import { HelpTipButton, type HelpTipKey } from './HelpTipButton';
 
 const STEPS: Array<{
@@ -91,10 +93,10 @@ export const BookWorkspace: React.FC = () => {
     if (!articleTreesByProject[activeProjectId]) {
       ensureArticleInitialized(activeProjectId, {
         familyName: activeProject?.name,
-        surname: activeProject?.primarySurname,
-        hallName: activeProject?.primaryName,
-        ancestor: activeProject?.ancestor,
-        region: activeProject?.region,
+        surname: surnameOf(activeProject) || undefined,
+        hallName: activeProject?.hallName ?? undefined,
+        ancestor: activeProject?.ancestor ?? undefined,
+        region: parsePlaceText(activeProject?.originText ?? undefined),
       });
       return;
     }
@@ -104,10 +106,10 @@ export const BookWorkspace: React.FC = () => {
 
     ensureBookInitialized(activeProjectId, {
       familyName: activeProject?.name,
-      surname: activeProject?.primarySurname,
-      hallName: activeProject?.primaryName,
-      editor: activeProject?.primaryName
-        ? `${activeProject.primaryName}编委会`
+      surname: surnameOf(activeProject) || undefined,
+      hallName: activeProject?.hallName ?? undefined,
+      editor: activeProject?.hallName
+        ? `${activeProject.hallName}编委会`
         : '家族编委会',
       articlesByKey,
       articleTree: articleTreesByProject[activeProjectId],
@@ -117,10 +119,10 @@ export const BookWorkspace: React.FC = () => {
   }, [
     activeProjectId,
     activeProject?.name,
-    activeProject?.primarySurname,
-    activeProject?.primaryName,
+    activeProject?.surname,
+    activeProject?.hallName,
     activeProject?.ancestor,
-    activeProject?.region,
+    activeProject?.originText,
     articleTreesByProject,
     articlesByKey,
     lineageTreesByProject,
@@ -161,7 +163,7 @@ export const BookWorkspace: React.FC = () => {
       articlesByKey,
       lineageTree,
       personsByChart,
-      projectSurname: activeProject?.primarySurname,
+      projectSurname: surnameOf(activeProject) || undefined,
     });
     setActiveStep(activeBook.id, 'editions');
   };
@@ -198,10 +200,10 @@ export const BookWorkspace: React.FC = () => {
             bookName: activeProject?.name
               ? `${activeProject.name}族谱`
               : '家族宗谱',
-            headerName: activeProject?.primarySurname
-              ? `${activeProject.primarySurname}氏宗谱`
+            headerName: surnameOf(activeProject)
+              ? `${surnameOf(activeProject)}氏宗谱`
               : '家族宗谱',
-            hallName: activeProject?.primaryName || '敦睦堂',
+            hallName: activeProject?.hallName || '敦睦堂',
             volumeNo: '卷一',
             editor: '家族编委会',
             compilationDate: new Date().toISOString().slice(0, 10),

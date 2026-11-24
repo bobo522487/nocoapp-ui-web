@@ -1,12 +1,19 @@
 export class ApiError extends Error {
+  code: string;
+  status: number;
+  details?: Record<string, unknown>;
+
   constructor(
     message: string,
-    readonly code: string,
-    readonly status: number,
-    readonly details?: Record<string, unknown>,
+    code: string,
+    status: number,
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+    this.details = details;
   }
 }
 
@@ -42,6 +49,12 @@ export function registerMockHandler(
 ): void {
   mockHandler = handler;
   directMock = Boolean(options?.direct);
+}
+
+export function resetApiTransportForTests(): void {
+  mockMode = false;
+  directMock = false;
+  mockHandler = null;
 }
 
 function setMockMode(next: boolean): void {
@@ -108,7 +121,7 @@ export async function apiRequest<T>(
       body,
       credentials: 'include',
       // 连接挂起（后端半死、代理无响应）时也要 reject，
-      // 否则永远走不到 Mock 降级，页面会永久卡在加载态。
+      // 超时必须 reject，调用方才能进入错误态。
       signal: AbortSignal.timeout(10_000),
     });
 
@@ -134,21 +147,6 @@ export async function apiRequest<T>(
         notifyUnauthorized();
       }
       throw error;
-    }
-    if (mockHandler) {
-      setMockMode(true);
-      try {
-        return mockHandler(path, options) as T;
-      } catch (mockError) {
-        if (
-          mockError instanceof ApiError &&
-          mockError.status === 401 &&
-          !path.startsWith('/api/v1/auth/sign-in')
-        ) {
-          notifyUnauthorized();
-        }
-        throw mockError;
-      }
     }
     throw new ApiError('API 不可达', 'UNREACHABLE', 0);
   }

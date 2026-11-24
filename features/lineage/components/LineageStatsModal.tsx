@@ -10,6 +10,7 @@ import {
   useLineageStore,
 } from '../../../store/useLineageStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { surnameOf } from '../../dashboard/projectView';
 import { createSeedPersonsForChart } from '../lineageData';
 import {
   computeLineageStats,
@@ -43,7 +44,7 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
 
   const activeProject =
     projects.find((p) => p.id === projectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   const lineageTree = useMemo(
@@ -97,7 +98,7 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
     ) {
       return '';
     }
-    return activeProject?.primarySurname || '';
+    return surnameOf(activeProject);
   };
 
   const stats = useMemo(() => {
@@ -131,7 +132,7 @@ export const LineageStatsModal: React.FC<LineageStatsModalProps> = ({
     activeChart,
     allCharts,
     personsByChart,
-    activeProject?.primarySurname,
+    activeProject?.surname,
   ]);
 
   if (!open) return null;

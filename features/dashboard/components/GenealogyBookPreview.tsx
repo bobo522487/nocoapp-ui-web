@@ -3,13 +3,15 @@ import { Star } from 'lucide-react';
 import { AssetColorTheme } from '../../../types';
 import { ASSET_COLOR_PALETTES } from '../../../store/useWorkspaceStore';
 import { formatPlacePath, type GenealogyPlace } from '../../place-input';
+import type { ProjectStatus } from '../api';
+import { statusLabel } from '../projectView';
 
 interface GenealogyBookPreviewProps {
   projectName: string;
   primaryName: string;
-  primarySurname: string;
+  surname: string;
   region?: GenealogyPlace | null;
-  projectState: '0' | '1';
+  status: ProjectStatus;
   projectLevel: number;
   colorTheme: AssetColorTheme;
 }
@@ -59,9 +61,9 @@ const COVER_THEMES: Record<
 export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
   projectName,
   primaryName,
-  primarySurname,
+  surname,
   region,
-  projectState,
+  status,
   projectLevel,
   colorTheme,
 }) => {
@@ -69,7 +71,7 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
   const cover = COVER_THEMES[colorTheme] || COVER_THEMES.sky;
   const hasTitle = Boolean(primaryName.trim());
   const displayTitle = hasTitle ? primaryName.trim() : '右侧输入主题名';
-  const displaySurname = primarySurname.trim();
+  const displaySurname = surname.trim();
   const displayRegion = formatPlacePath(region, ' · ') || '未设置地区';
 
   return (
@@ -185,7 +187,7 @@ export const GenealogyBookPreview: React.FC<GenealogyBookPreviewProps> = ({
           <span className="truncate">云谱封面实时预览</span>
         </div>
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
-          <span>{projectState === '1' ? '已完成' : '进行中'}</span>
+          <span>{statusLabel(status)}</span>
           <span aria-hidden="true">·</span>
           <span>重要等级 {projectLevel} 星</span>
         </div>

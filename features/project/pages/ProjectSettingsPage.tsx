@@ -13,7 +13,7 @@ import {
   fetchProject,
   updateProjectRequest,
 } from '../../dashboard/api';
-import { ApiError, errorMessage } from '../../../lib/api';
+import { errorMessage } from '../../../lib/api';
 import {
   FamilyProfileFields,
   validateFamilyProfile,
@@ -26,7 +26,6 @@ const ProjectSettingsPage: React.FC = () => {
   const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
-  const updateProject = useWorkspaceStore((s) => s.updateProject);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const dropProject = useWorkspaceStore((s) => s.dropProject);
 
@@ -36,10 +35,10 @@ const ProjectSettingsPage: React.FC = () => {
 
   const [values, setValues] = useState<FamilyProfileFormValues>(() => ({
     familyName: activeProject?.name || '',
-    familySurname: activeProject?.primarySurname || '',
+    familySurname: activeProject?.surname || '',
     ancestor: activeProject?.ancestor || '',
-    hallName: activeProject?.primaryName || '',
-    regionPlace: parsePlaceText(activeProject?.region),
+    hallName: activeProject?.hallName || '',
+    regionPlace: parsePlaceText(activeProject?.originText ?? undefined),
     description: activeProject?.description || '',
   }));
 
@@ -59,10 +58,10 @@ const ProjectSettingsPage: React.FC = () => {
     if (activeProject) {
       setValues({
         familyName: activeProject.name || '',
-        familySurname: activeProject.primarySurname || '',
+        familySurname: activeProject.surname || '',
         ancestor: activeProject.ancestor || '',
-        hallName: activeProject.primaryName || '',
-        regionPlace: parsePlaceText(activeProject.region),
+        hallName: activeProject.hallName || '',
+        regionPlace: parsePlaceText(activeProject.originText ?? undefined),
         description: activeProject.description || '',
       });
     }
@@ -150,25 +149,7 @@ const ProjectSettingsPage: React.FC = () => {
       setSavedToast(true);
       setTimeout(() => setSavedToast(false), 2000);
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-
-      if (isOfflineOrLocalOnly) {
-        updateProject(targetProjectId, {
-          name: trimmedName,
-          primarySurname: trimmedSurname,
-          ancestor: trimmedAncestor,
-          primaryName: trimmedHall || undefined,
-          region: values.regionPlace,
-          description: trimmedDesc,
-        });
-        setSavedToast(true);
-        setTimeout(() => setSavedToast(false), 2000);
-      } else {
-        setSaveError(errorMessage(err));
-      }
+      setSaveError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -183,18 +164,8 @@ const ProjectSettingsPage: React.FC = () => {
       dropProject(targetProjectId);
       void navigate({ to: '/' });
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-
-      if (isOfflineOrLocalOnly) {
-        dropProject(targetProjectId);
-        void navigate({ to: '/' });
-      } else {
-        setDeleteError(errorMessage(err));
-        setConfirmDelete(false);
-      }
+      setDeleteError(errorMessage(err));
+      setConfirmDelete(false);
     } finally {
       setDeleting(false);
     }

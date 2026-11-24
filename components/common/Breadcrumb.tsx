@@ -18,10 +18,12 @@ import { useMatchRoute, useNavigate, useParams } from '@tanstack/react-router';
 import { ProjectColoredIcon } from './NocoIcons';
 import type { AssetEditorSubmitValues } from '../../features/dashboard/components/AssetEditorModal';
 import { createProjectRequest } from '../../features/dashboard/api';
+import { toCreateProjectPayload } from '../../features/dashboard/projectPayload';
 import { useProjectId } from '../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useLineageStore } from '../../store/useLineageStore';
-import { formatGenealogyPlace } from '../../features/place-input';
+import { parsePlaceText } from '../../features/place-input';
+import { errorMessage } from '../../lib/api';
 
 const AssetEditorModal = lazy(() =>
   import('../../features/dashboard/components/AssetEditorModal').then((m) => ({
@@ -51,7 +53,6 @@ const Breadcrumb: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
   const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);
-  const createProject = useWorkspaceStore((s) => s.createProject);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const duplicateProject = useWorkspaceStore((s) => s.duplicateProject);
 
@@ -60,6 +61,8 @@ const Breadcrumb: React.FC = () => {
   const [copiedId, setCopiedId] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [breadcrumbError, setBreadcrumbError] = useState<string | null>(null);
 
   const projDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +89,7 @@ const Breadcrumb: React.FC = () => {
   }, []);
 
   const workspaceProjects = projects.filter(
-    (p) => p.workspaceId === activeWorkspaceId
+    (p) => p.organizationId === activeWorkspaceId
   );
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
@@ -121,25 +124,17 @@ const Breadcrumb: React.FC = () => {
   }
 
   const handleCreateProject = async (values: AssetEditorSubmitValues) => {
+    setCreateError(null);
     setCreatingProject(true);
     try {
-      const result = await createProjectRequest(activeWorkspaceId, {
-        name: values.name.trim(),
-        status: values.projectState === '1' ? 'completed' : 'in_progress',
-        surname: values.primarySurname?.trim(),
-        ancestor: values.ancestor?.trim(),
-        hallName: values.primaryName?.trim(),
-        originText: formatGenealogyPlace(values.region).trim() || undefined,
-        description: values.description.trim() || undefined,
-        colorTheme: values.colorTheme,
-        projectLevel: values.projectLevel ?? 1,
-      });
+      const payload = toCreateProjectPayload(values);
+      const result = await createProjectRequest(activeWorkspaceId, payload);
       if (values.ancestor?.trim()) {
         useLineageStore.getState().initializeProjectLineage(result.project.id, {
           familyName: values.name,
           ancestor: values.ancestor,
-          surname: values.primarySurname,
-          region: values.region,
+          surname: values.surname,
+          region: parsePlaceText(values.originText),
         });
       }
       syncProject(result.project);
@@ -149,31 +144,8 @@ const Breadcrumb: React.FC = () => {
         to: '/projects/$projectId',
         params: { projectId: result.project.id },
       });
-    } catch {
-      const created = createProject({
-        name: values.name,
-        description: values.description,
-        colorTheme: values.colorTheme,
-        primarySurname: values.primarySurname,
-        ancestor: values.ancestor,
-        region: values.region,
-        primaryName: values.primaryName,
-        projectState: values.projectState,
-        projectLevel: values.projectLevel,
-      });
-      if (values.ancestor?.trim()) {
-        useLineageStore.getState().initializeProjectLineage(created.id, {
-          familyName: values.name,
-          ancestor: values.ancestor,
-          surname: values.primarySurname,
-          region: values.region,
-        });
-      }
-      setIsCreateProjectOpen(false);
-      void navigate({
-        to: '/projects/$projectId',
-        params: { projectId: created.id },
-      });
+    } catch (error) {
+      setCreateError(errorMessage(error));
     } finally {
       setCreatingProject(false);
     }
@@ -343,14 +315,18 @@ const Breadcrumb: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const copy = duplicateProject(activeProject.id);
                         setIsProjMenuOpen(false);
-                        if (copy) {
-                          void navigate({
-                            to: '/projects/$projectId',
-                            params: { projectId: copy.id },
+                        void duplicateProject(activeProject.id)
+                          .then((copy) => {
+                            if (!copy) return;
+                            void navigate({
+                              to: '/projects/$projectId',
+                              params: { projectId: copy.id },
+                            });
+                          })
+                          .catch((error: unknown) => {
+                            setBreadcrumbError(errorMessage(error));
                           });
-                        }
                       }}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >
@@ -363,6 +339,8 @@ const Breadcrumb: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setIsProjMenuOpen(false);
+                    setCreateError(null);
+                    setBreadcrumbError(null);
                     setIsCreateProjectOpen(true);
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-primary hover:bg-accent/70 transition-colors cursor-pointer"
@@ -389,6 +367,11 @@ const Breadcrumb: React.FC = () => {
             </div>
           </>
         )}
+        {breadcrumbError && (
+          <p className="text-[12px] text-destructive truncate max-w-[240px] shrink-0">
+            {breadcrumbError}
+          </p>
+        )}
       </div>
 
       {isCreateProjectOpen && (
@@ -398,8 +381,12 @@ const Breadcrumb: React.FC = () => {
             mode="create"
             kind="project"
             submitting={creatingProject}
+            error={createError}
             onClose={() => {
-              if (!creatingProject) setIsCreateProjectOpen(false);
+              if (!creatingProject) {
+                setIsCreateProjectOpen(false);
+                setCreateError(null);
+              }
             }}
             onSubmit={(values) => void handleCreateProject(values)}
           />

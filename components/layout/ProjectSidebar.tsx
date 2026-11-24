@@ -16,6 +16,7 @@ import { useCommandPalette } from './CommandPaletteModal';
 import { useProjectId } from '../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
+import { surnameOf } from '../../features/dashboard/projectView';
 
 interface ProjectSidebarProps {
   width: number;
@@ -34,7 +35,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
   const projects = useWorkspaceStore((s) => s.projects);
 
   const workspaceProjects = projects.filter(
-    (p) => p.workspaceId === activeWorkspaceId
+    (p) => p.organizationId === activeWorkspaceId
   );
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
@@ -201,7 +202,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground text-[12px]">家族姓氏</span>
                 <span className="truncate font-medium">
-                  {activeProject?.primarySurname || '未设置'}
+                  {surnameOf(activeProject) || '未设置'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -213,7 +214,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground text-[12px]">堂号</span>
                 <span className="truncate font-medium">
-                  {activeProject?.primaryName || '未设置'}
+                  {activeProject?.hallName || '未设置'}
                 </span>
               </div>
             </div>

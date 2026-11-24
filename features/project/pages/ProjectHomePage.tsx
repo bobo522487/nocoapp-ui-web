@@ -26,9 +26,21 @@ import {
 import { useArticleStore } from '../../../store/useArticleStore';
 import { countArticlesInTree } from '../../articles/articleData';
 import { useBookStore } from '../../../store/useBookStore';
-import { fetchProject, updateProjectRequest } from '../../dashboard/api';
-import { ApiError, errorMessage } from '../../../lib/api';
-import { formatGenealogyPlace, formatPlacePath } from '../../place-input';
+import {
+  fetchProject,
+  updateProjectRequest,
+  type ProjectStatus,
+} from '../../dashboard/api';
+import { toCreateProjectPayload } from '../../dashboard/projectPayload';
+import { errorMessage } from '../../../lib/api';
+import {
+  formatGenealogyPlace,
+  parsePlaceText,
+} from '../../place-input';
+import {
+  formatProjectUpdatedAt,
+  surnameOf,
+} from '../../dashboard/projectView';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +49,6 @@ const ProjectHomePage: React.FC = () => {
   const isDarkMode = usePreferencesStore((s) => s.isDarkMode);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
-  const updateProject = useWorkspaceStore((s) => s.updateProject);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
 
@@ -46,12 +57,13 @@ const ProjectHomePage: React.FC = () => {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
   const targetProjectId = activeProject?.id || activeProjectId;
 
@@ -59,11 +71,13 @@ const ProjectHomePage: React.FC = () => {
     if (!targetProjectId) return;
     let cancelled = false;
     setExpectedUpdatedAt(null);
+    setProjectStatus(null);
 
     void fetchProject(targetProjectId)
       .then(({ project }) => {
         if (cancelled) return;
         setExpectedUpdatedAt(project.updatedAt);
+        setProjectStatus(project.status);
         syncProject(project);
       })
       .catch(() => {
@@ -132,37 +146,24 @@ const ProjectHomePage: React.FC = () => {
         const latest = await fetchProject(targetProjectId);
         versionStamp = latest.project.updatedAt;
       }
+      const payload = toCreateProjectPayload(values);
+      const { status: _formStatus, ...payloadWithoutStatus } = payload;
       const { project } = await updateProjectRequest(targetProjectId, {
-        name: values.name.trim(),
-        surname: values.primarySurname?.trim() || null,
-        ancestor: values.ancestor?.trim() || null,
-        hallName: values.primaryName?.trim() || null,
-        originText: formatGenealogyPlace(values.region).trim() || null,
-        description: values.description.trim() || null,
+        ...payloadWithoutStatus,
+        ...(projectStatus !== null ? { status: projectStatus } : {}),
+        surname: payload.surname ?? null,
+        ancestor: payload.ancestor ?? null,
+        hallName: payload.hallName ?? null,
+        originText: payload.originText ?? null,
+        description: payload.description ?? null,
         expectedUpdatedAt: versionStamp,
       });
       setExpectedUpdatedAt(project.updatedAt);
+      setProjectStatus(project.status);
       syncProject(project);
       setIsEditOpen(false);
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-      if (isOfflineOrLocalOnly) {
-        updateProject(targetProjectId, {
-          name: values.name,
-          description: values.description,
-          colorTheme: values.colorTheme,
-          primarySurname: values.primarySurname,
-          ancestor: values.ancestor,
-          region: values.region,
-          primaryName: values.primaryName,
-        });
-        setIsEditOpen(false);
-      } else {
-        setEditError(errorMessage(err));
-      }
+      setEditError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -193,13 +194,16 @@ const ProjectHomePage: React.FC = () => {
                   <h1 className="yp-h1 text-foreground truncate">
                     {activeProject?.name || '家族工作台'}
                   </h1>
-                  {activeProject?.primaryName && (
+                  {activeProject?.hallName && (
                     <span className="text-[13px] font-medium text-muted-foreground whitespace-nowrap">
-                      · {activeProject.primaryName}
+                      · {activeProject.hallName}
                     </span>
                   )}
                   <span className="text-[12px] font-medium text-muted-foreground tabular-nums whitespace-nowrap">
-                    · 更新于 {activeProject?.updatedAt || '刚刚'}
+                    · 更新于{' '}
+                    {activeProject?.updatedAt
+                      ? formatProjectUpdatedAt(activeProject.updatedAt)
+                      : '刚刚'}
                   </span>
                 </div>
                 <p className="text-[13px] text-muted-foreground mt-0.5 truncate">
@@ -297,7 +301,7 @@ const ProjectHomePage: React.FC = () => {
                 <div className="p-4 space-y-1">
                   <div className="text-[12px] text-muted-foreground">家族姓氏</div>
                   <div className="text-[14px] font-semibold text-foreground">
-                    {activeProject?.primarySurname || '未填写'}
+                    {surnameOf(activeProject) || '未填写'}
                   </div>
                 </div>
                 <div className="p-4 space-y-1">
@@ -309,13 +313,15 @@ const ProjectHomePage: React.FC = () => {
                 <div className="p-4 space-y-1">
                   <div className="text-[12px] text-muted-foreground">堂号</div>
                   <div className="text-[14px] font-semibold text-foreground">
-                    {activeProject?.primaryName || '未填写'}
+                    {activeProject?.hallName || '未填写'}
                   </div>
                 </div>
                 <div className="p-4 space-y-1">
                   <div className="text-[12px] text-muted-foreground">所在地区</div>
                   <div className="text-[14px] font-semibold text-foreground">
-                    {formatPlacePath(activeProject?.region, ' / ') || '未填写'}
+                    {formatGenealogyPlace(
+                      parsePlaceText(activeProject?.originText ?? undefined),
+                    ) || '未填写'}
                   </div>
                 </div>
               </div>
@@ -343,13 +349,13 @@ const ProjectHomePage: React.FC = () => {
               activeProject
                 ? {
                     name: activeProject.name,
-                    description: activeProject.description,
+                    description: activeProject.description ?? '',
                     colorTheme: activeProject.colorTheme,
-                    primarySurname: activeProject.primarySurname,
-                    ancestor: activeProject.ancestor,
-                    region: activeProject.region,
-                    primaryName: activeProject.primaryName,
-                    projectState: activeProject.projectState,
+                    surname: activeProject.surname ?? '',
+                    ancestor: activeProject.ancestor ?? undefined,
+                    originText: activeProject.originText ?? '',
+                    hallName: activeProject.hallName ?? '',
+                    status: projectStatus ?? activeProject.status,
                     projectLevel: activeProject.projectLevel,
                   }
                 : undefined

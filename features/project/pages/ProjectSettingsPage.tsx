@@ -6,7 +6,7 @@ import {
   formatGenealogyPlace,
   parsePlaceText,
 } from '../../place-input';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
   deleteProjectRequest,
@@ -23,7 +23,7 @@ import {
 
 const ProjectSettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
   const updateProject = useWorkspaceStore((s) => s.updateProject);

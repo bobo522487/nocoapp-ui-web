@@ -3,7 +3,7 @@ import { Folder, FolderOpen, FolderPlus, GitFork, Plus } from 'lucide-react';
 import { Tree } from '../../../components/common/Tree/Tree';
 import { FlattenedItem } from '../../../components/common/Tree/types';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
   DEFAULT_LINEAGE_TREE,
@@ -25,7 +25,7 @@ interface LineageModalState {
 }
 
 export const LineageTreePanel: React.FC = () => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -98,7 +98,8 @@ export const LineageTreePanel: React.FC = () => {
       personsByChart[key] ||
       createSeedPersonsForChart(chartId, node.data?.name, fallbackSurname);
     const rootPerson =
-      persons.find((p) => p.generation === 1 && !p.fatherId) || persons[0];
+      persons.find((p) => p.generation === 1 && !p.fatherId && !p.motherId) ||
+      persons[0];
 
     setModalState({
       open: true,

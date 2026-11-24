@@ -1,8 +1,18 @@
-import ELK, { ElkNode } from 'elkjs/lib/elk.bundled.js';
+import type { ElkNode } from 'elkjs/lib/elk.bundled.js';
 import { GenealogyFlowNode, GenealogyFlowEdge } from '../types';
 import { FS_CARD_H, FS_CARD_W } from './layoutBuilder';
 
-const elk = new ELK();
+let elkPromise: Promise<{ layout: (graph: ElkNode) => Promise<ElkNode> }> | null =
+  null;
+
+function getElkInstance() {
+  if (!elkPromise) {
+    elkPromise = import('elkjs/lib/elk.bundled.js').then(
+      ({ default: ELK }) => new ELK()
+    );
+  }
+  return elkPromise;
+}
 
 export async function layoutWithElk(
   nodes: GenealogyFlowNode[],
@@ -53,6 +63,7 @@ export async function layoutWithElk(
   };
 
   try {
+    const elk = await getElkInstance();
     const layouted = await elk.layout(elkGraph);
 
     const updatedGraphNodes = graphNodes.map((node) => {

@@ -1,9 +1,7 @@
 import { PersonRecord } from '../../types';
 import { formatGivenName } from '../../utils/nameUtils';
-import {
-  buildLineageGraphIndex,
-  getSpouseSortScore,
-} from '../../utils/personHelpers';
+import { buildLineageGraph } from '../../domain/lineageGraph';
+import { getSpouseSortScore } from '../../utils/personHelpers';
 import {
   ClanHeaderFlowNode,
   GenealogyFlowEdge,
@@ -59,7 +57,7 @@ export function buildGenealogyGraph(
     clanSurname = '',
   } = options;
 
-  const graphIndex = buildLineageGraphIndex(persons);
+  const graphIndex = buildLineageGraph(persons);
   const rawChildrenMap = graphIndex.childrenByFatherId;
   const allSpousesByPartner = graphIndex.spousesByPartnerId;
 
@@ -108,11 +106,14 @@ export function buildGenealogyGraph(
     }
   });
 
-  const rootPersons = visiblePersons.filter(
-    (p) =>
-      (!p.fatherId || !allVisibleIds.has(p.fatherId)) &&
-      !(p.spouseOfId && allVisibleIds.has(p.spouseOfId))
-  );
+  const rootPersons = visiblePersons.filter((p) => {
+    if (p.spouseOfId && allVisibleIds.has(p.spouseOfId)) return false;
+    const hasVisibleFather = Boolean(p.fatherId && allVisibleIds.has(p.fatherId));
+    const hasVisibleMother = Boolean(
+      !p.fatherId && p.motherId && allVisibleIds.has(p.motherId)
+    );
+    return !hasVisibleFather && !hasVisibleMother;
+  });
   const roots =
     rootPersons.length > 0
       ? rootPersons
@@ -266,6 +267,7 @@ export function buildGenealogyGraph(
       person.id === primaryRootId &&
       (person.generation || 1) === 1 &&
       !person.fatherId &&
+      !person.motherId &&
       !person.spouseOfId;
 
     const canAddParent = true;

@@ -2,11 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TreeItem } from '../components/common/Tree/types';
 import {
-  findItemDeep,
-  removeItem,
-  setProperty,
-} from '../components/common/Tree/utilities';
-import { createAppStorage } from './storageAdapter';
+  collectSubtreeIdsByType,
+  duplicateTreeNode,
+  findTreeNode,
+  insertTreeNode,
+  preserveCollapsedChildren,
+  removeTreeNode,
+  updateTreeNodeData,
+} from '../lib/treeOps';
+import { createAsyncEntityStorage } from './storageAdapter';
 import {
   computeWordCount,
   createInitialArticleSeed,
@@ -19,36 +23,6 @@ import type {
   ArticleMetaInput,
   ProjectArticleSeedContext,
 } from '../features/articles/types';
-
-function preserveCollapsedChildren(
-  prevItems: TreeItem[],
-  nextItems: TreeItem[]
-): TreeItem[] {
-  return nextItems.map((item) => {
-    const prevNode = findItemDeep(prevItems, item.id);
-    const restoredChildren =
-      item.collapsed &&
-      item.children.length === 0 &&
-      prevNode?.children?.length
-        ? prevNode.children
-        : preserveCollapsedChildren(prevItems, item.children || []);
-    return {
-      ...item,
-      children: restoredChildren,
-    };
-  });
-}
-
-function collectArticleIds(node: TreeItem): string[] {
-  const ids: string[] = [];
-  if (node.type === 'article') {
-    ids.push(String(node.id));
-  }
-  for (const child of node.children || []) {
-    ids.push(...collectArticleIds(child));
-  }
-  return ids;
-}
 
 interface ArticleState {
   treesByProject: Record<string, TreeItem[]>;
@@ -70,7 +44,9 @@ interface ArticleState {
   updateArticleContent: (
     projectId: string,
     articleId: string,
-    updates: Partial<Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentHtml'>>
+    updates: Partial<
+      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentHtml'>
+    >
   ) => void;
   updateArticleMeta: (
     projectId: string,
@@ -90,43 +66,32 @@ export const useArticleStore = create<ArticleState>()(
       articlesByKey: {},
 
       ensureProjectInitialized: (projectId, ctx) => {
-        if (!projectId) return;
-        const existingTree = get().treesByProject[projectId];
-        if (existingTree !== undefined) return;
-
+        if (!projectId || get().treesByProject[projectId] !== undefined) return;
         const seed = createInitialArticleSeed(projectId, ctx);
         set((state) => {
           if (state.treesByProject[projectId] !== undefined) return state;
           return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: seed.tree,
-            },
+            treesByProject: { ...state.treesByProject, [projectId]: seed.tree },
             selectedNodeIdByProject: {
               ...state.selectedNodeIdByProject,
               [projectId]:
-                state.selectedNodeIdByProject[projectId] ||
-                seed.defaultSelectedId,
+                state.selectedNodeIdByProject[projectId] || seed.defaultSelectedId,
             },
-            articlesByKey: {
-              ...state.articlesByKey,
-              ...seed.articles,
-            },
+            articlesByKey: { ...state.articlesByKey, ...seed.articles },
           };
         });
       },
 
       setTree: (projectId, nextItems) =>
-        set((state) => {
-          const prevItems = state.treesByProject[projectId] || [];
-          const merged = preserveCollapsedChildren(prevItems, nextItems);
-          return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: merged,
-            },
-          };
-        }),
+        set((state) => ({
+          treesByProject: {
+            ...state.treesByProject,
+            [projectId]: preserveCollapsedChildren(
+              state.treesByProject[projectId] || [],
+              nextItems
+            ),
+          },
+        })),
 
       selectNode: (projectId, nodeId) =>
         set((state) => ({
@@ -162,21 +127,17 @@ export const useArticleStore = create<ArticleState>()(
       addArticle: (projectId, parentId, meta) => {
         const id = `article-${Date.now()}`;
         const title = meta?.title?.trim() || '未命名谱文';
-        const subtitle = meta?.subtitle?.trim() || '';
-        const author = meta?.author?.trim() || '家族编委会';
         const initialHtml = `<p>请在此处开始撰写「${title}」正文内容……</p>`;
-
         const doc: ArticleDocument = {
           id,
           title,
-          subtitle,
-          author,
+          subtitle: meta?.subtitle?.trim() || '',
+          author: meta?.author?.trim() || '家族编委会',
           contentHtml: initialHtml,
           wordCount: computeWordCount(initialHtml),
           updatedAt: formatNowTimestamp(),
         };
 
-        const current = get().treesByProject[projectId] || [];
         const newNode: TreeItem = {
           id,
           type: 'article',
@@ -184,44 +145,18 @@ export const useArticleStore = create<ArticleState>()(
           children: [],
         };
 
-        let nextTree: TreeItem[];
-        if (parentId) {
-          const insertIntoParent = (items: TreeItem[]): TreeItem[] =>
-            items.map((item) => {
-              if (String(item.id) === String(parentId)) {
-                return {
-                  ...item,
-                  collapsed: false,
-                  children: [...(item.children || []), newNode],
-                };
-              }
-              if (item.children?.length) {
-                return {
-                  ...item,
-                  children: insertIntoParent(item.children),
-                };
-              }
-              return item;
-            });
-          nextTree = insertIntoParent(current);
-        } else {
-          nextTree = [...current, newNode];
-        }
-
+        const current = get().treesByProject[projectId] || [];
         const key = makeArticleStorageKey(projectId, id);
         set((state) => ({
           treesByProject: {
             ...state.treesByProject,
-            [projectId]: nextTree,
+            [projectId]: insertTreeNode(current, newNode, parentId),
           },
           selectedNodeIdByProject: {
             ...state.selectedNodeIdByProject,
             [projectId]: id,
           },
-          articlesByKey: {
-            ...state.articlesByKey,
-            [key]: doc,
-          },
+          articlesByKey: { ...state.articlesByKey, [key]: doc },
         }));
         return id;
       },
@@ -231,7 +166,7 @@ export const useArticleStore = create<ArticleState>()(
           const key = makeArticleStorageKey(projectId, articleId);
           const existing = state.articlesByKey[key];
           const currentTree = state.treesByProject[projectId] || [];
-          const treeNode = findItemDeep(currentTree, articleId);
+          const treeNode = findTreeNode(currentTree, articleId);
 
           const nextTitle =
             updates.title !== undefined
@@ -258,30 +193,22 @@ export const useArticleStore = create<ArticleState>()(
             updatedAt: formatNowTimestamp(),
           };
 
-          let nextTree = currentTree;
-          if (
-            updates.title !== undefined &&
-            updates.title.trim() &&
+          const shouldUpdateTreeTitle =
+            Boolean(updates.title?.trim()) &&
             treeNode &&
-            treeNode.data?.name !== updates.title.trim()
-          ) {
-            nextTree = setProperty(
-              JSON.parse(JSON.stringify(currentTree)),
-              articleId,
-              'data',
-              (data) => ({ ...data, name: updates.title!.trim() })
-            );
-          }
+            treeNode.data?.name !== updates.title!.trim();
 
           return {
             treesByProject: {
               ...state.treesByProject,
-              [projectId]: nextTree,
+              [projectId]: shouldUpdateTreeTitle
+                ? updateTreeNodeData(currentTree, articleId, (data) => ({
+                    ...data,
+                    name: updates.title!.trim(),
+                  }))
+                : currentTree,
             },
-            articlesByKey: {
-              ...state.articlesByKey,
-              [key]: nextDoc,
-            },
+            articlesByKey: { ...state.articlesByKey, [key]: nextDoc },
           };
         }),
 
@@ -291,13 +218,6 @@ export const useArticleStore = create<ArticleState>()(
           const key = makeArticleStorageKey(projectId, articleId);
           const existing = state.articlesByKey[key];
           const currentTree = state.treesByProject[projectId] || [];
-
-          const nextTree = setProperty(
-            JSON.parse(JSON.stringify(currentTree)),
-            articleId,
-            'data',
-            (data) => ({ ...data, name: title })
-          );
 
           const nextDoc: ArticleDocument = {
             id: articleId,
@@ -312,12 +232,12 @@ export const useArticleStore = create<ArticleState>()(
           return {
             treesByProject: {
               ...state.treesByProject,
-              [projectId]: nextTree,
+              [projectId]: updateTreeNodeData(currentTree, articleId, (data) => ({
+                ...data,
+                name: title,
+              })),
             },
-            articlesByKey: {
-              ...state.articlesByKey,
-              [key]: nextDoc,
-            },
+            articlesByKey: { ...state.articlesByKey, [key]: nextDoc },
           };
         }),
 
@@ -326,13 +246,7 @@ export const useArticleStore = create<ArticleState>()(
           const trimmed = name.trim();
           if (!trimmed) return state;
           const currentTree = state.treesByProject[projectId] || [];
-          const node = findItemDeep(currentTree, id);
-          const nextTree = setProperty(
-            JSON.parse(JSON.stringify(currentTree)),
-            id,
-            'data',
-            (data) => ({ ...data, name: trimmed })
-          );
+          const node = findTreeNode(currentTree, id);
 
           let nextArticles = state.articlesByKey;
           if (node?.type === 'article') {
@@ -341,11 +255,7 @@ export const useArticleStore = create<ArticleState>()(
             if (existing) {
               nextArticles = {
                 ...state.articlesByKey,
-                [key]: {
-                  ...existing,
-                  title: trimmed,
-                  updatedAt: formatNowTimestamp(),
-                },
+                [key]: { ...existing, title: trimmed, updatedAt: formatNowTimestamp() },
               };
             }
           }
@@ -353,7 +263,10 @@ export const useArticleStore = create<ArticleState>()(
           return {
             treesByProject: {
               ...state.treesByProject,
-              [projectId]: nextTree,
+              [projectId]: updateTreeNodeData(currentTree, id, (data) => ({
+                ...data,
+                name: trimmed,
+              })),
             },
             articlesByKey: nextArticles,
           };
@@ -362,67 +275,24 @@ export const useArticleStore = create<ArticleState>()(
       duplicateNode: (projectId, id) =>
         set((state) => {
           const currentTree = state.treesByProject[projectId] || [];
-          const suffix = String(Date.now()).slice(-4);
           const nextArticles = { ...state.articlesByKey };
-
-          const cloneWithDocs = (node: TreeItem, isRootClone: boolean): TreeItem => {
-            const newId = `${String(node.id)}-copy-${suffix}-${Math.random()
-              .toString(36)
-              .slice(2, 6)}`;
-            const nextName = isRootClone
-              ? `${node.data?.name || String(node.id)} (副本)`
-              : node.data?.name || String(node.id);
-
-            if (node.type === 'article') {
-              const srcKey = makeArticleStorageKey(projectId, String(node.id));
-              const dstKey = makeArticleStorageKey(projectId, newId);
-              const srcDoc = state.articlesByKey[srcKey];
-              if (srcDoc) {
-                nextArticles[dstKey] = {
-                  ...srcDoc,
-                  id: newId,
-                  title: nextName,
-                  updatedAt: formatNowTimestamp(),
-                };
-              }
-            }
-
-            return {
-              ...node,
-              id: newId,
-              data: {
-                ...node.data,
-                name: nextName,
-              },
-              children: (node.children || []).map((child) =>
-                cloneWithDocs(child, false)
-              ),
+          const nextTree = duplicateTreeNode(currentTree, id, (srcId, dstId, node) => {
+            if (node.type !== 'article') return;
+            const srcDoc =
+              state.articlesByKey[makeArticleStorageKey(projectId, srcId)];
+            if (!srcDoc) return;
+            nextArticles[makeArticleStorageKey(projectId, dstId)] = {
+              ...srcDoc,
+              id: dstId,
+              title:
+                srcId === id
+                  ? `${node.data?.name || srcId} (副本)`
+                  : node.data?.name || srcId,
+              updatedAt: formatNowTimestamp(),
             };
-          };
-
-          const insertCopy = (items: TreeItem[]): TreeItem[] => {
-            const result: TreeItem[] = [];
-            for (const item of items) {
-              if (String(item.id) === String(id)) {
-                result.push(item);
-                result.push(cloneWithDocs(item, true));
-              } else if (item.children?.length) {
-                result.push({
-                  ...item,
-                  children: insertCopy(item.children),
-                });
-              } else {
-                result.push(item);
-              }
-            }
-            return result;
-          };
-
+          });
           return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: insertCopy(currentTree),
-            },
+            treesByProject: { ...state.treesByProject, [projectId]: nextTree },
             articlesByKey: nextArticles,
           };
         }),
@@ -430,14 +300,12 @@ export const useArticleStore = create<ArticleState>()(
       removeNode: (projectId, id) =>
         set((state) => {
           const currentTree = state.treesByProject[projectId] || [];
-          const targetNode = findItemDeep(currentTree, id);
-          const removedIds = targetNode ? collectArticleIds(targetNode) : [id];
+          const targetNode = findTreeNode(currentTree, id);
+          const removedIds = targetNode
+            ? collectSubtreeIdsByType(targetNode, 'article')
+            : [id];
 
-          const nextTree = removeItem(
-            JSON.parse(JSON.stringify(currentTree)),
-            id
-          );
-
+          const nextTree = removeTreeNode(currentTree, id);
           const nextArticles = { ...state.articlesByKey };
           for (const aid of removedIds) {
             delete nextArticles[makeArticleStorageKey(projectId, aid)];
@@ -448,27 +316,22 @@ export const useArticleStore = create<ArticleState>()(
             currentSelected === id ||
             (currentSelected ? removedIds.includes(currentSelected) : false);
 
-          const nextSelected = wasSelectedRemoved
-            ? findFirstArticleId(nextTree) || String(nextTree[0]?.id || '')
-            : currentSelected;
-
           return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: nextTree,
-            },
+            treesByProject: { ...state.treesByProject, [projectId]: nextTree },
             selectedNodeIdByProject: {
               ...state.selectedNodeIdByProject,
-              [projectId]: nextSelected,
+              [projectId]: wasSelectedRemoved
+                ? findFirstArticleId(nextTree) || String(nextTree[0]?.id || '')
+                : currentSelected,
             },
             articlesByKey: nextArticles,
           };
         }),
     }),
     {
-      name: 'nocoapp:articles',
+      name: 'yunpu:articles',
       version: 1,
-      storage: createAppStorage(),
+      storage: createAsyncEntityStorage(),
     }
   )
 );

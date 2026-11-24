@@ -7,7 +7,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
@@ -28,7 +28,7 @@ interface BookModalState {
 }
 
 export const BookListPanel: React.FC = () => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);

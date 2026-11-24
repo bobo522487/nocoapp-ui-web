@@ -17,8 +17,8 @@ import { Select } from '../../../components/ui/select';
 import { getPersonDateDisplay } from '../../date-input';
 import { getPersonPlaceDisplay } from '../../place-input';
 import { formatGivenName } from '../utils/nameUtils';
+import { buildLineageGraph } from '../domain/lineageGraph';
 import {
-  buildLineageGraphIndex,
   computeAutoRankLabel,
   formatPersonAliases,
   getPersonPrimaryTitle,
@@ -51,7 +51,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
     return () => clearTimeout(timer);
   }, [confirmDeleteId]);
 
-  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
+  const graphIndex = useMemo(() => buildLineageGraph(persons), [persons]);
   const maxGen = Math.max(...persons.map((p) => p.generation || 1), 1);
 
   const normalizedQuery = searchTerm.trim().toLowerCase();

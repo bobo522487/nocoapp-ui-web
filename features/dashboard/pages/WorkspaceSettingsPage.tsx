@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { errorMessage } from '../../../lib/api';
-import { usePreferencesStore } from '../../../store/usePreferencesStore';
+import { useAuthStore } from '../../auth/useAuthStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
   changePasswordRequest,
@@ -139,7 +139,7 @@ const WorkspaceSettingsPage: React.FC = () => {
     try {
       const result = await updateAccountRequest(displayName.trim());
       setAccount((prev) => ({ ...prev, account: result }));
-      usePreferencesStore.getState().updateUser({ name: result.name });
+      useAuthStore.getState().setUserName(result.name);
       setAccountMessage('显示名已保存');
     } catch (error) {
       setAccountMessage(errorMessage(error));

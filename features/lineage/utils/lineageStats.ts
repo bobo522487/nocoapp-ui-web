@@ -1,6 +1,7 @@
 import { TreeItem } from '../../../components/common/Tree/types';
+import { collectTreeNodesByType } from '../../../lib/treeOps';
+import { buildLineageGraph } from '../domain/lineageGraph';
 import { PersonRecord } from '../types';
-import { buildLineageGraphIndex } from './personHelpers';
 
 export interface ChartEntry {
   chartId: string;
@@ -46,30 +47,18 @@ export interface LineageStatsSummary {
 }
 
 export function flattenChartsInTree(items: TreeItem[]): ChartEntry[] {
-  const result: ChartEntry[] = [];
-  const walk = (nodes: TreeItem[]) => {
-    for (const node of nodes) {
-      if (node.type === 'chart') {
-        result.push({
-          chartId: String(node.id),
-          chartName: node.data?.name || String(node.id),
-          index: result.length + 1,
-        });
-      }
-      if (node.children?.length) {
-        walk(node.children);
-      }
-    }
-  };
-  walk(items);
-  return result;
+  return collectTreeNodesByType(items, 'chart').map((node, index) => ({
+    chartId: String(node.id),
+    chartName: node.data?.name || String(node.id),
+    index: index + 1,
+  }));
 }
 
 export function computeLineageStats(
   persons: PersonRecord[],
   chartCount = 1
 ): LineageStatsSummary {
-  const index = buildLineageGraphIndex(persons);
+  const index = buildLineageGraph(persons);
 
   let allMaleCount = 0;
   let allMaleLiving = 0;

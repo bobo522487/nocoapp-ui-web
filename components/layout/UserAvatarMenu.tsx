@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   Bell,
@@ -15,7 +15,11 @@ import {
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 import { useAuthStore } from '../../features/auth/useAuthStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
-import ProfileSettingsDialog from '../../features/profile/components/ProfileSettingsDialog';
+import { useCurrentUserProfile } from '../../hooks/useCurrentUserProfile';
+
+const ProfileSettingsDialog = lazy(
+  () => import('../../features/profile/components/ProfileSettingsDialog')
+);
 import { ThemeMode } from '../../types';
 import { Button } from '../ui/button';
 import { ModalBody, ModalFooter, ModalHeader, ModalShell } from '../ui/modal';
@@ -28,7 +32,7 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
   variant = 'sidebar',
 }) => {
   const navigate = useNavigate();
-  const user = usePreferencesStore((s) => s.user);
+  const user = useCurrentUserProfile();
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
   const signOut = useAuthStore((s) => s.signOut);
@@ -289,10 +293,14 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
           {userMenuPopover}
         </div>
 
-        <ProfileSettingsDialog
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-        />
+        {isSettingsOpen && (
+          <Suspense fallback={null}>
+            <ProfileSettingsDialog
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+            />
+          </Suspense>
+        )}
 
         {renderInfoModal()}
       </>
@@ -409,10 +417,14 @@ export const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({
         </div>
       </div>
 
-      <ProfileSettingsDialog
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      {isSettingsOpen && (
+        <Suspense fallback={null}>
+          <ProfileSettingsDialog
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
 
       {renderInfoModal()}
     </>

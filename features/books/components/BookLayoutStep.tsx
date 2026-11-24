@@ -1,7 +1,7 @@
 import React from 'react';
 import { BookOpen, Check, Sparkles } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useBookStore } from '../../../store/useBookStore';
 import {
   BINDING_LABELS,
@@ -71,7 +71,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
   book,
   onSaveAndGenerate,
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const updateLayoutConfig = useBookStore((s) => s.updateLayoutConfig);
 
   const cfg = book.layoutConfig;

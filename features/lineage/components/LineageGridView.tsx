@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { PersonRecord } from '../types';
 import { Crown, Heart, MapPin, Award } from 'lucide-react';
 import { formatGivenName } from '../utils/nameUtils';
+import { buildLineageGraph } from '../domain/lineageGraph';
 import {
-  buildLineageGraphIndex,
   computeAutoRankLabel,
   formatPersonAliases,
   getPersonPrimaryTitle,
@@ -25,7 +25,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
   onSelectPerson,
   onAddChild,
 }) => {
-  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
+  const graphIndex = useMemo(() => buildLineageGraph(persons), [persons]);
   const maxGen = Math.max(...persons.map((p) => p.generation), 1);
   const generations = Array.from(
     { length: Math.max(Math.min(maxGen, 5), 1) },

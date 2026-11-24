@@ -14,7 +14,7 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useBookStore } from '../../../store/useBookStore';
 import ConfirmDialog from '../../dashboard/components/ConfirmDialog';
 import type {
@@ -61,7 +61,7 @@ function describeLineageScope(node: CatalogLineageNode): string {
 }
 
 export const BookCatalogStep: React.FC<BookCatalogStepProps> = ({ book }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const toggleSectionCollapsed = useBookStore((s) => s.toggleSectionCollapsed);
   const toggleChapterCollapsed = useBookStore((s) => s.toggleChapterCollapsed);

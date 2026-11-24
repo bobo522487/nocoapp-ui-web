@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -14,38 +14,26 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router';
+import { useMatchRoute, useNavigate, useParams } from '@tanstack/react-router';
 import { ProjectColoredIcon } from './NocoIcons';
-import {
-  AssetEditorModal,
-  AssetEditorSubmitValues,
-} from '../../features/dashboard/components/AssetEditorModal';
+import type { AssetEditorSubmitValues } from '../../features/dashboard/components/AssetEditorModal';
 import { createProjectRequest } from '../../features/dashboard/api';
-import { ViewMode } from '../../types';
-import { useRouteContext } from '../../hooks/useRouteContext';
+import { useProjectId } from '../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useLineageStore } from '../../store/useLineageStore';
 import { formatGenealogyPlace } from '../../features/place-input';
 
-const VIEW_BADGE_CONFIG: Partial<
-  Record<
-    ViewMode,
-    { label: string; icon: React.ElementType; mutedIcon?: boolean }
-  >
-> = {
-  [ViewMode.HOME]: { label: '首页', icon: Home },
-  [ViewMode.MEMBERS]: { label: '成员', icon: Users },
-  [ViewMode.WORKSPACE_SETTINGS]: { label: '设置', icon: Settings, mutedIcon: true },
-  [ViewMode.PROJECT_HOME]: { label: '概览', icon: Compass },
-  [ViewMode.LINEAGE]: { label: '世系', icon: GitFork },
-  [ViewMode.ARTICLES]: { label: '谱文', icon: ScrollText },
-  [ViewMode.BOOKS]: { label: '谱书', icon: BookOpen },
-  [ViewMode.PROJECT_SETTINGS]: {
-    label: '家族设置',
-    icon: Settings,
-    mutedIcon: true,
-  },
-};
+const AssetEditorModal = lazy(() =>
+  import('../../features/dashboard/components/AssetEditorModal').then((m) => ({
+    default: m.AssetEditorModal,
+  }))
+);
+
+interface ViewBadgeConfig {
+  label: string;
+  icon: React.ElementType;
+  mutedIcon?: boolean;
+}
 
 const Separator: React.FC = () => (
   <span className="text-muted-foreground/45 mx-1 text-[15px] font-light select-none shrink-0">
@@ -55,7 +43,10 @@ const Separator: React.FC = () => (
 
 const Breadcrumb: React.FC = () => {
   const navigate = useNavigate();
-  const { activeView, activeProjectId, isWorkspaceShell } = useRouteContext();
+  const matchRoute = useMatchRoute();
+  const params = useParams({ strict: false }) as { projectId?: string };
+  const isWorkspaceShell = !params.projectId;
+  const activeProjectId = useProjectId();
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
@@ -106,10 +97,28 @@ const Breadcrumb: React.FC = () => {
     p.name.toLowerCase().includes(projSearch.toLowerCase())
   );
 
-  const viewBadge =
-    isWorkspaceShell && activeView === ViewMode.PROJECTS
-      ? null
-      : VIEW_BADGE_CONFIG[activeView];
+  let viewBadge: ViewBadgeConfig | null = null;
+  if (isWorkspaceShell) {
+    if (matchRoute({ to: '/home' })) {
+      viewBadge = { label: '首页', icon: Home };
+    } else if (matchRoute({ to: '/members' })) {
+      viewBadge = { label: '成员', icon: Users };
+    } else if (matchRoute({ to: '/settings' })) {
+      viewBadge = { label: '设置', icon: Settings, mutedIcon: true };
+    }
+  } else if (activeProjectId) {
+    if (matchRoute({ to: '/projects/$projectId/lineage', params: { projectId: activeProjectId } })) {
+      viewBadge = { label: '世系', icon: GitFork };
+    } else if (matchRoute({ to: '/projects/$projectId/articles', params: { projectId: activeProjectId } })) {
+      viewBadge = { label: '谱文', icon: ScrollText };
+    } else if (matchRoute({ to: '/projects/$projectId/books', params: { projectId: activeProjectId } })) {
+      viewBadge = { label: '谱书', icon: BookOpen };
+    } else if (matchRoute({ to: '/projects/$projectId/settings', params: { projectId: activeProjectId } })) {
+      viewBadge = { label: '家族设置', icon: Settings, mutedIcon: true };
+    } else if (matchRoute({ to: '/projects/$projectId', params: { projectId: activeProjectId } })) {
+      viewBadge = { label: '概览', icon: Compass };
+    }
+  }
 
   const handleCreateProject = async (values: AssetEditorSubmitValues) => {
     setCreatingProject(true);
@@ -382,16 +391,20 @@ const Breadcrumb: React.FC = () => {
         )}
       </div>
 
-      <AssetEditorModal
-        open={isCreateProjectOpen}
-        mode="create"
-        kind="project"
-        submitting={creatingProject}
-        onClose={() => {
-          if (!creatingProject) setIsCreateProjectOpen(false);
-        }}
-        onSubmit={(values) => void handleCreateProject(values)}
-      />
+      {isCreateProjectOpen && (
+        <Suspense fallback={null}>
+          <AssetEditorModal
+            open={isCreateProjectOpen}
+            mode="create"
+            kind="project"
+            submitting={creatingProject}
+            onClose={() => {
+              if (!creatingProject) setIsCreateProjectOpen(false);
+            }}
+            onSubmit={(values) => void handleCreateProject(values)}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

@@ -1,22 +1,49 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { BarChart3, PanelLeftOpen } from 'lucide-react';
+import { useMatchRoute } from '@tanstack/react-router';
 import Breadcrumb from '../common/Breadcrumb';
 import { Button } from '../ui/button';
-import { LineageStatsModal } from '../../features/lineage/components/LineageStatsModal';
-import { ViewMode } from '../../types';
-import { useRouteContext } from '../../hooks/useRouteContext';
+import { useProjectId } from '../../hooks/useProjectId';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 
+const LineageStatsModal = lazy(() =>
+  import('../../features/lineage/components/LineageStatsModal').then((m) => ({
+    default: m.LineageStatsModal,
+  }))
+);
+
 const ProjectTopbar: React.FC = () => {
-  const { activeProjectId, activeView } = useRouteContext();
+  const matchRoute = useMatchRoute();
+  const activeProjectId = useProjectId();
 
   const isCollapsed = usePreferencesStore((s) => s.isProjectSidebarCollapsed);
   const setCollapsed = usePreferencesStore((s) => s.setProjectSidebarCollapsed);
 
   const [isStatsOpen, setIsStatsOpen] = useState(false);
 
-  const showStatsButton =
-    activeView === ViewMode.PROJECT_HOME || activeView === ViewMode.LINEAGE;
+  const showStatsButton = Boolean(
+    activeProjectId &&
+      (matchRoute({
+        to: '/projects/$projectId/lineage',
+        params: { projectId: activeProjectId },
+      }) ||
+        (!matchRoute({
+          to: '/projects/$projectId/articles',
+          params: { projectId: activeProjectId },
+        }) &&
+          !matchRoute({
+            to: '/projects/$projectId/books',
+            params: { projectId: activeProjectId },
+          }) &&
+          !matchRoute({
+            to: '/projects/$projectId/settings',
+            params: { projectId: activeProjectId },
+          }) &&
+          matchRoute({
+            to: '/projects/$projectId',
+            params: { projectId: activeProjectId },
+          })))
+  );
 
   return (
     <>
@@ -59,11 +86,15 @@ const ProjectTopbar: React.FC = () => {
         )}
       </header>
 
-      <LineageStatsModal
-        open={isStatsOpen}
-        projectId={activeProjectId}
-        onClose={() => setIsStatsOpen(false)}
-      />
+      {isStatsOpen && (
+        <Suspense fallback={null}>
+          <LineageStatsModal
+            open={isStatsOpen}
+            projectId={activeProjectId}
+            onClose={() => setIsStatsOpen(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

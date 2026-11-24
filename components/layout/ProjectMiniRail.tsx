@@ -9,16 +9,16 @@ import {
   ScrollText,
   Settings,
 } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router';
-import { ViewMode } from '../../types';
+import { useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { WorkspaceLogoIcon } from '../common/NocoIcons';
 import UserAvatarMenu from './UserAvatarMenu';
-import { useRouteContext } from '../../hooks/useRouteContext';
+import { useProjectId } from '../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 
 const ProjectMiniRail: React.FC = () => {
   const navigate = useNavigate();
-  const { activeView, activeProjectId } = useRouteContext();
+  const matchRoute = useMatchRoute();
+  const activeProjectId = useProjectId();
 
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -55,11 +55,45 @@ const ProjectMiniRail: React.FC = () => {
     };
   }, []);
 
-  const isHomeActive = activeView === ViewMode.PROJECT_HOME;
-  const isLineageActive = activeView === ViewMode.LINEAGE;
-  const isArticlesActive = activeView === ViewMode.ARTICLES;
-  const isBooksActive = activeView === ViewMode.BOOKS;
-  const isSettingsActive = activeView === ViewMode.PROJECT_SETTINGS;
+  const isLineageActive = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/lineage',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isArticlesActive = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/articles',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isBooksActive = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/books',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isSettingsActive = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/settings',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isHomeActive = Boolean(
+    activeProjectId &&
+      !isLineageActive &&
+      !isArticlesActive &&
+      !isBooksActive &&
+      !isSettingsActive &&
+      matchRoute({
+        to: '/projects/$projectId',
+        params: { projectId: activeProjectId },
+      })
+  );
 
   const railButtonClass = (active: boolean) =>
     `w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${

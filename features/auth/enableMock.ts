@@ -1,3 +1,5 @@
+import { registerMockHandler } from '../../lib/api';
+
 /**
  * Mock 后端开关。
  *
@@ -13,7 +15,6 @@ export function shouldEnableMock(): boolean {
 /** 按需加载并注册本地 mock 后端；返回是否实际启用。 */
 export async function maybeEnableMock(): Promise<boolean> {
   if (!shouldEnableMock()) return false;
-  const { registerMockHandler } = await import('../../lib/api');
   const { handleMockRequest } = await import('./mockAuth');
   registerMockHandler(handleMockRequest, {
     direct: !import.meta.env.VITE_API_PROXY_TARGET,

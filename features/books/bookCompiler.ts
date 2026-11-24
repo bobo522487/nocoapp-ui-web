@@ -1,14 +1,15 @@
 import type { TreeItem } from '../../components/common/Tree/types';
+import { findTreeNode } from '../../lib/treeOps';
 import type { ArticleDocument } from '../articles/types';
 import {
   computeWordCount,
   extractPlainTextFromHtml,
   makeArticleStorageKey,
 } from '../articles/articleData';
+import { buildLineageGraph } from '../lineage/domain/lineageGraph';
 import { createSeedPersonsForChart } from '../lineage/lineageData';
 import type { PersonRecord } from '../lineage/types';
 import {
-  buildLineageGraphIndex,
   computeAutoRankLabel,
   formatPersonAliases,
   getPersonPrimaryTitle,
@@ -85,18 +86,7 @@ export function resolveChartPersons(
   personsByChart: Record<string, PersonRecord[]>,
   projectSurname?: string
 ): { chartName: string; persons: PersonRecord[] } {
-  const findNode = (items: TreeItem[]): TreeItem | null => {
-    for (const item of items) {
-      if (String(item.id) === String(chartId)) return item;
-      if (item.children?.length) {
-        const hit = findNode(item.children);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  };
-
-  const node = findNode(lineageTree);
+  const node = findTreeNode(lineageTree, chartId);
   const chartName = node?.data?.name || '世系图谱';
   const key = `${projectId}::${chartId}`;
   const stored = personsByChart[key];
@@ -131,22 +121,7 @@ export function sliceLineagePersons(
   if (!startPerson) return [];
 
   const startGen = startPerson.generation || 1;
-  const childrenByParent = new Map<string, PersonRecord[]>();
-  for (const p of allPersons) {
-    if (p.fatherId && !p.spouseOfId) {
-      const list = childrenByParent.get(p.fatherId) || [];
-      list.push(p);
-      childrenByParent.set(p.fatherId, list);
-    }
-  }
-
-  for (const [, list] of childrenByParent) {
-    list.sort((a, b) => {
-      const oa = a.siblingOrder ?? a.biographyOrder ?? 50;
-      const ob = b.siblingOrder ?? b.biographyOrder ?? 50;
-      return oa - ob;
-    });
-  }
+  const { childrenByFatherId: childrenByParent } = buildLineageGraph(allPersons);
 
   const result: PersonRecord[] = [];
   const visited = new Set<string>();
@@ -459,13 +434,14 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
     const sliced = sliceLineagePersons(chartPersons, leaf);
     sliced.forEach((p) => uniqueMemberIds.add(p.id));
 
-    const chartIndex = buildLineageGraphIndex(chartPersons);
+    const chartIndex = buildLineageGraph(chartPersons);
     const childrenMap = new Map<string, string[]>();
     for (const p of sliced) {
-      if (p.fatherId && !p.spouseOfId) {
-        const arr = childrenMap.get(p.fatherId) || [];
+      const parentId = p.fatherId || p.motherId;
+      if (parentId && !p.spouseOfId) {
+        const arr = childrenMap.get(parentId) || [];
         arr.push(p.name);
-        childrenMap.set(p.fatherId, arr);
+        childrenMap.set(parentId, arr);
       }
     }
 
@@ -474,7 +450,8 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
 
     // 1. 世系表 (allocate page numbers first or collect entries)
     const entries: CompiledLineageEntry[] = sliced.map((p) => {
-      const father = p.fatherId ? chartIndex.personById.get(p.fatherId) : undefined;
+      const parentId = p.fatherId || p.motherId;
+      const father = parentId ? chartIndex.personById.get(parentId) : undefined;
       const kids = childrenMap.get(p.id) || [];
       const spouses = chartIndex.spousesByPartnerId.get(p.id) || [];
       const rank = computeAutoRankLabel(p, chartPersons);

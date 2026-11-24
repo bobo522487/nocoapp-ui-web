@@ -224,10 +224,13 @@ export function buildLineageGraphIndex(
       const list = spousesByPartnerId.get(p.spouseOfId);
       if (list) list.push(p);
       else spousesByPartnerId.set(p.spouseOfId, [p]);
-    } else if (p.fatherId) {
-      const list = childrenByFatherId.get(p.fatherId);
-      if (list) list.push(p);
-      else childrenByFatherId.set(p.fatherId, [p]);
+    } else {
+      const primaryParentId = p.fatherId || p.motherId || null;
+      if (primaryParentId && personById.has(primaryParentId)) {
+        const list = childrenByFatherId.get(primaryParentId);
+        if (list) list.push(p);
+        else childrenByFatherId.set(primaryParentId, [p]);
+      }
     }
   }
 
@@ -247,7 +250,7 @@ export function buildLineageGraphIndex(
 }
 
 /**
- * Derive children from the single-source-of-truth person graph using fatherId,
+ * Derive children from the single-source-of-truth person graph using fatherId or motherId,
  * sorted chronologically by birth date when available (with siblingOrder fallback).
  */
 export function getDerivedChildren(
@@ -255,7 +258,9 @@ export function getDerivedChildren(
   parentId: string
 ): PersonRecord[] {
   return sortChildrenChronologically(
-    allPersons.filter((p) => p.fatherId === parentId && !p.spouseOfId)
+    allPersons.filter(
+      (p) => !p.spouseOfId && (p.fatherId === parentId || p.motherId === parentId)
+    )
   );
 }
 
@@ -296,7 +301,11 @@ export function getDescendantExclusionSet(
   while (changed) {
     changed = false;
     for (const p of allPersons) {
-      if (p.fatherId && excluded.has(p.fatherId) && !excluded.has(p.id)) {
+      if (
+        ((p.fatherId && excluded.has(p.fatherId)) ||
+          (p.motherId && excluded.has(p.motherId))) &&
+        !excluded.has(p.id)
+      ) {
         excluded.add(p.id);
         changed = true;
       }
@@ -375,13 +384,14 @@ export function computeAutoRankLabel(
   if (person.spouseOfId) {
     return '';
   }
-  if (!person.fatherId) {
+  const primaryParentId = person.fatherId || person.motherId;
+  if (!primaryParentId) {
     return person.generation === 1 ? '始祖' : '首节点';
   }
   if (person.gender === 'unknown') {
     return '';
   }
-  const allChildren = getDerivedChildren(allPersons, person.fatherId);
+  const allChildren = getDerivedChildren(allPersons, primaryParentId);
   const isFemale = person.gender === 'female';
   const sameGenderGroup = allChildren.filter((c) => c.gender === person.gender);
 
@@ -663,9 +673,11 @@ export function normalizePersonForSave(
   draft: PersonRecord,
   allPersons: PersonRecord[]
 ): PersonRecord {
-  const father = draft.fatherId
+  const primaryParent = draft.fatherId
     ? allPersons.find((p) => p.id === draft.fatherId)
-    : null;
+    : draft.motherId
+      ? allPersons.find((p) => p.id === draft.motherId)
+      : null;
 
   const hasStructuredAliasItems = draft.aliasItems !== undefined;
   const cleanedAliasItems = hasStructuredAliasItems
@@ -783,8 +795,8 @@ export function normalizePersonForSave(
     status: draft.status,
     generation: draft.spouseOfId
       ? draft.generation
-      : father
-        ? father.generation + 1
+      : primaryParent
+        ? primaryParent.generation + 1
         : draft.generation || 1,
     generationWord: draft.generationWord?.trim() || undefined,
     hangOrder: draft.hangOrder?.trim() || undefined,
@@ -889,16 +901,18 @@ export function buildBiographyPreviewData(
   const legalNameText = draft.legalName ? `（${draft.legalName}）` : '';
   const statusBadge = draft.status === 'living' ? '存' : '歿';
 
-  const father = draft.fatherId
+  const parent = draft.fatherId
     ? allPersons.find((p) => p.id === draft.fatherId)
-    : null;
-  const fatherLabel = father ? formatGivenName(father.name, effectiveSurname) : '';
+    : draft.motherId
+      ? allPersons.find((p) => p.id === draft.motherId)
+      : null;
+  const parentLabel = parent ? formatGivenName(parent.name, effectiveSurname) : '';
 
   const kinshipParts: string[] = [];
   const resolvedRank = computeAutoRankLabel(draft, allPersons);
   if (draft.relationTitle) {
     kinshipParts.push(draft.relationTitle);
-  } else if (fatherLabel) {
+  } else if (parentLabel) {
     const customRelation =
       draft.relationType &&
       draft.relationType !== '生子' &&
@@ -911,8 +925,8 @@ export function buildBiographyPreviewData(
       (draft.gender === 'female' ? '女' : '子');
     kinshipParts.push(
       displayRank.startsWith('之')
-        ? `${fatherLabel}${displayRank}`
-        : `${fatherLabel}之${displayRank}`
+        ? `${parentLabel}${displayRank}`
+        : `${parentLabel}之${displayRank}`
     );
   } else if (draft.generation === 1 && !draft.spouseOfId) {
     kinshipParts.push('开基始祖');

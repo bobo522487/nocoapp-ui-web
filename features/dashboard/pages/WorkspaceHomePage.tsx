@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, FolderPlus, UserPlus } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
-import { usePreferencesStore } from '../../../store/usePreferencesStore';
+import { useCurrentUserProfile } from '../../../hooks/useCurrentUserProfile';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useLineageStore } from '../../../store/useLineageStore';
 import { errorMessage } from '../../../lib/api';
@@ -31,7 +31,7 @@ const EMPTY: HomeState = { loading: true, error: null, detail: null, projects: [
 
 const WorkspaceHomePage: React.FC = () => {
   const navigate = useNavigate();
-  const user = usePreferencesStore((s) => s.user);
+  const user = useCurrentUserProfile();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);

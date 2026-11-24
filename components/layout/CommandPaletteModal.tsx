@@ -6,7 +6,7 @@ import { ProjectColoredIcon } from '../common/NocoIcons';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useArticleStore } from '../../store/useArticleStore';
 import type { TreeItem } from '../common/Tree/types';
-import { useRouteContext } from '../../hooks/useRouteContext';
+import { useProjectId } from '../../hooks/useProjectId';
 
 interface CommandPaletteContextValue {
   isOpen: boolean;
@@ -78,7 +78,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   onClose,
 }) => {
   const navigate = useNavigate();
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveProjectId = useWorkspaceStore((s) => s.setActiveProjectId);

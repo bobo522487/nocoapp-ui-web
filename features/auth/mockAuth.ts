@@ -1,5 +1,8 @@
 import { ApiError, type RequestOptions } from '../../lib/api';
 import { handleConsoleMock } from '../dashboard/mockConsole';
+import { DEMO_ACCOUNT } from './demoAccount';
+
+export { DEMO_ACCOUNT };
 
 export type MockUser = {
   id: string;
@@ -23,13 +26,6 @@ export type MockDb = {
 };
 
 const STORAGE_KEY = 'nocoapp:mock-auth';
-
-export const DEMO_ACCOUNT = {
-  id: 'user-demo',
-  email: 'demo@yunpu.cn',
-  password: 'demo123456',
-  name: '云谱修编者',
-} as const;
 
 function createSeedDb(): MockDb {
   return {

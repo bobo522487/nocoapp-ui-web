@@ -9,7 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useBookStore } from '../../../store/useBookStore';
 import ConfirmDialog from '../../dashboard/components/ConfirmDialog';
 import {
@@ -44,7 +44,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
   book,
   onGenerateNewEdition,
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const deleteEdition = useBookStore((s) => s.deleteEdition);
   const finalizeEditionPrint = useBookStore((s) => s.finalizeEditionPrint);
 

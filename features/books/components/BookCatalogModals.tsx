@@ -17,7 +17,8 @@ import type { TreeItem } from '../../../components/common/Tree/types';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { findFirstTreeNodeByType } from '../../../lib/treeOps';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
   DEFAULT_LINEAGE_TREE,
@@ -205,7 +206,7 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const projects = useWorkspaceStore((s) => s.projects);
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
@@ -468,7 +469,7 @@ export const EditCatalogDocModal: React.FC<EditCatalogDocModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const articlesByKey = useArticleStore((s) => s.articlesByKey);
 
@@ -855,7 +856,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const projects = useWorkspaceStore((s) => s.projects);
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const treesByProject = useLineageStore((s) => s.treesByProject);
@@ -882,17 +883,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
     if (!open) return;
     setError('');
     const tree = treesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE;
-    const findFirstChart = (items: TreeItem[]): TreeItem | null => {
-      for (const item of items) {
-        if (item.type === 'chart') return item;
-        if (item.children?.length) {
-          const hit = findFirstChart(item.children);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
-    const firstChart = findFirstChart(tree);
+    const firstChart = findFirstTreeNodeByType(tree, 'chart');
     if (firstChart) {
       const resolved = resolveChartPersons(
         activeProjectId,

@@ -8,13 +8,12 @@ import {
   Search,
   Sliders,
 } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router';
-import { ViewMode } from '../../types';
+import { useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { LineageTreePanel } from '../../features/project/components/LineageTreePanel';
 import { ArticleTreePanel } from '../../features/project/components/ArticleTreePanel';
 import { BookListPanel } from '../../features/books/components/BookListPanel';
 import { useCommandPalette } from './CommandPaletteModal';
-import { useRouteContext } from '../../hooks/useRouteContext';
+import { useProjectId } from '../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 
@@ -24,7 +23,8 @@ interface ProjectSidebarProps {
 
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
   const navigate = useNavigate();
-  const { activeView, activeProjectId } = useRouteContext();
+  const matchRoute = useMatchRoute();
+  const activeProjectId = useProjectId();
   const { openPalette } = useCommandPalette();
 
   const isCollapsed = usePreferencesStore((s) => s.isProjectSidebarCollapsed);
@@ -45,15 +45,42 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
     return null;
   }
 
-  const isSettingsMode = activeView === ViewMode.PROJECT_SETTINGS;
+  const isSettingsMode = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/settings',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isLineageMode = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/lineage',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isArticlesMode = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/articles',
+        params: { projectId: activeProjectId },
+      })
+  );
+  const isBooksMode = Boolean(
+    activeProjectId &&
+      matchRoute({
+        to: '/projects/$projectId/books',
+        params: { projectId: activeProjectId },
+      })
+  );
 
   const sidebarTitle = isSettingsMode
     ? '家族配置'
-    : activeView === ViewMode.LINEAGE
+    : isLineageMode
       ? '世系导航'
-      : activeView === ViewMode.ARTICLES
+      : isArticlesMode
         ? '谱文导航'
-        : activeView === ViewMode.BOOKS
+        : isBooksMode
           ? '谱书目录'
           : '家族档案';
 
@@ -157,11 +184,11 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
             在此可维护当前家族的名称、姓氏、始迁祖、堂号、所在地区与家族简介。
           </div>
         </div>
-      ) : activeView === ViewMode.LINEAGE ? (
+      ) : isLineageMode ? (
         <LineageTreePanel />
-      ) : activeView === ViewMode.ARTICLES ? (
+      ) : isArticlesMode ? (
         <ArticleTreePanel />
-      ) : activeView === ViewMode.BOOKS ? (
+      ) : isBooksMode ? (
         <BookListPanel />
       ) : (
         <div className="flex-1 min-h-0 flex flex-col overflow-y-auto py-3 px-2.5 space-y-5">

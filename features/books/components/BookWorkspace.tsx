@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useArticleStore } from '../../../store/useArticleStore';
 import { useBookStore } from '../../../store/useBookStore';
 import {
@@ -56,7 +56,7 @@ const STEPS: Array<{
 ];
 
 export const BookWorkspace: React.FC = () => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
   const activeProject = projects.find((p) => p.id === activeProjectId);

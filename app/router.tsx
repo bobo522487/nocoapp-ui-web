@@ -1,26 +1,25 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import {
   Navigate,
   Outlet,
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   redirect,
 } from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
-import MainLayout from '../components/layout/MainLayout';
-import DashboardPage from '../features/dashboard/pages/DashboardPage';
-import WorkspaceHomePage from '../features/dashboard/pages/WorkspaceHomePage';
-import MembersPage from '../features/dashboard/pages/MembersPage';
-import WorkspaceSettingsPage from '../features/dashboard/pages/WorkspaceSettingsPage';
-import ProjectHomePage from '../features/project/pages/ProjectHomePage';
-import ProjectSettingsPage from '../features/project/pages/ProjectSettingsPage';
-import GenealogySectionPage from '../features/project/pages/GenealogySectionPage';
-import LoginPage from '../features/auth/pages/LoginPage';
-import RegisterPage from '../features/auth/pages/RegisterPage';
-import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
-import OnboardingPage from '../features/auth/pages/OnboardingPage';
+import WorkspaceShellLayout from '../components/layout/WorkspaceShellLayout';
+import ProjectShellLayout from '../components/layout/ProjectShellLayout';
+import { CommandPaletteProvider } from '../components/layout/CommandPaletteModal';
 import { useAuthStore } from '../features/auth/useAuthStore';
+
+const TanStackRouterDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-router-devtools').then((m) => ({
+        default: m.TanStackRouterDevtools,
+      }))
+    )
+  : () => null;
 
 export function sanitizeRedirectPath(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
@@ -40,7 +39,11 @@ function parseInviteSearch(search: Record<string, unknown>): { invite?: string }
 const RootComponent: React.FC = () => (
   <>
     <Outlet />
-    <TanStackRouterDevtools position="bottom-right" />
+    {import.meta.env.DEV && (
+      <Suspense fallback={null}>
+        <TanStackRouterDevtools position="bottom-right" />
+      </Suspense>
+    )}
   </>
 );
 
@@ -61,6 +64,12 @@ const AuthGuardLayout: React.FC = () => {
 
   return <Outlet />;
 };
+
+const ConsoleShellProvider: React.FC = () => (
+  <CommandPaletteProvider>
+    <Outlet />
+  </CommandPaletteProvider>
+);
 
 const rootRoute = createRootRoute({
   component: RootComponent,
@@ -85,7 +94,7 @@ const loginRoute = createRoute({
       throw redirect({ to: '/home', replace: true });
     }
   },
-  component: LoginPage,
+  component: lazyRouteComponent(() => import('../features/auth/pages/LoginPage')),
 });
 
 const registerRoute = createRoute({
@@ -101,13 +110,17 @@ const registerRoute = createRoute({
       });
     }
   },
-  component: RegisterPage,
+  component: lazyRouteComponent(
+    () => import('../features/auth/pages/RegisterPage')
+  ),
 });
 
 const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forgot-password',
-  component: ForgotPasswordPage,
+  component: lazyRouteComponent(
+    () => import('../features/auth/pages/ForgotPasswordPage')
+  ),
 });
 
 /** 邀请链接入口：`/invite/$token` → 引导页并预填令牌。 */
@@ -148,14 +161,15 @@ const onboardingRoute = createRoute({
   beforeLoad: ({ search }) => {
     const { status, defaultOrganization } = useAuthStore.getState();
     if (status === 'authenticated' && defaultOrganization && !search.invite) {
-      // 带邀请链接进入时即使已有组织也允许兑换（spec 003 US3 场景 7）。
       throw redirect({ to: '/home', replace: true });
     }
   },
-  component: OnboardingPage,
+  component: lazyRouteComponent(
+    () => import('../features/auth/pages/OnboardingPage')
+  ),
 });
 
-/** 引导状态（无可用组织）时不渲染控制台四页，整体重定向到 /onboarding。 */
+/** 引导状态（无可用组织）时不渲染控制台，整体重定向到 /onboarding。 */
 const consoleGateRoute = createRoute({
   getParentRoute: () => authLayoutRoute,
   id: '_console',
@@ -165,150 +179,101 @@ const consoleGateRoute = createRoute({
       throw redirect({ to: '/onboarding', replace: true });
     }
   },
-  component: MainLayout,
+  component: ConsoleShellProvider,
 });
 
-// Workspace Shell Routes
-const indexRoute = createRoute({
+// Workspace Shell Layout & Routes
+const workspaceShellRoute = createRoute({
   getParentRoute: () => consoleGateRoute,
+  id: '_workspaceShell',
+  component: WorkspaceShellLayout,
+});
+
+const indexRoute = createRoute({
+  getParentRoute: () => workspaceShellRoute,
   path: '/',
-  component: DashboardPage,
+  component: lazyRouteComponent(
+    () => import('../features/dashboard/pages/DashboardPage')
+  ),
 });
 
 const projectsIndexRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: '/projects',
-  component: DashboardPage,
+  component: lazyRouteComponent(
+    () => import('../features/dashboard/pages/DashboardPage')
+  ),
 });
 
 const homeRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: '/home',
-  component: WorkspaceHomePage,
+  component: lazyRouteComponent(
+    () => import('../features/dashboard/pages/WorkspaceHomePage')
+  ),
 });
 
 const membersRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: '/members',
-  component: MembersPage,
+  component: lazyRouteComponent(
+    () => import('../features/dashboard/pages/MembersPage')
+  ),
 });
 
 const settingsRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: '/settings',
-  component: WorkspaceSettingsPage,
+  component: lazyRouteComponent(
+    () => import('../features/dashboard/pages/WorkspaceSettingsPage')
+  ),
 });
 
-// Project Shell Routes
-const projectHomeRoute = createRoute({
+// Project Shell Layout & Routes
+const projectShellRoute = createRoute({
   getParentRoute: () => consoleGateRoute,
+  id: '_projectShell',
+  component: ProjectShellLayout,
+});
+
+const projectHomeRoute = createRoute({
+  getParentRoute: () => projectShellRoute,
   path: '/projects/$projectId',
-  component: ProjectHomePage,
+  component: lazyRouteComponent(
+    () => import('../features/project/pages/ProjectHomePage')
+  ),
 });
 
 const projectLineageRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => projectShellRoute,
   path: '/projects/$projectId/lineage',
-  component: () => <GenealogySectionPage section="lineage" />,
+  component: lazyRouteComponent(
+    () => import('../features/lineage/pages/LineagePage')
+  ),
 });
 
 const projectArticlesRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => projectShellRoute,
   path: '/projects/$projectId/articles',
-  component: () => <GenealogySectionPage section="articles" />,
+  component: lazyRouteComponent(
+    () => import('../features/articles/pages/ArticlesPage')
+  ),
 });
 
 const projectBooksRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => projectShellRoute,
   path: '/projects/$projectId/books',
-  component: () => <GenealogySectionPage section="books" />,
+  component: lazyRouteComponent(
+    () => import('../features/books/pages/BooksPage')
+  ),
 });
 
 const projectSettingsRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
+  getParentRoute: () => projectShellRoute,
   path: '/projects/$projectId/settings',
-  component: ProjectSettingsPage,
-});
-
-// 已下线的模板功能（应用构建/数据表/数据源/代码文件）统一回落到项目首页或工作区首页
-const projectDataFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/projects/$projectId/data/$tableId',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/projects/$projectId',
-      params: { projectId: params.projectId },
-      replace: true,
-    });
-  },
-});
-
-const projectDatasourcesFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/projects/$projectId/datasources/$',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/projects/$projectId',
-      params: { projectId: params.projectId },
-      replace: true,
-    });
-  },
-});
-
-const projectFilesFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/projects/$projectId/files',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/projects/$projectId',
-      params: { projectId: params.projectId },
-      replace: true,
-    });
-  },
-});
-
-const projectAppsFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/projects/$projectId/apps/$',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/projects/$projectId',
-      params: { projectId: params.projectId },
-      replace: true,
-    });
-  },
-});
-
-const appsFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/apps/$',
-  beforeLoad: () => {
-    throw redirect({ to: '/', replace: true });
-  },
-});
-
-const dataFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/data/$',
-  beforeLoad: () => {
-    throw redirect({ to: '/', replace: true });
-  },
-});
-
-const datasourcesFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/datasources/$',
-  beforeLoad: () => {
-    throw redirect({ to: '/', replace: true });
-  },
-});
-
-const filesFallbackRoute = createRoute({
-  getParentRoute: () => consoleGateRoute,
-  path: '/files',
-  beforeLoad: () => {
-    throw redirect({ to: '/', replace: true });
-  },
+  component: lazyRouteComponent(
+    () => import('../features/project/pages/ProjectSettingsPage')
+  ),
 });
 
 const consoleCatchAllRoute = createRoute({
@@ -327,24 +292,20 @@ const routeTree = rootRoute.addChildren([
   authLayoutRoute.addChildren([
     onboardingRoute,
     consoleGateRoute.addChildren([
-      indexRoute,
-      projectsIndexRoute,
-      homeRoute,
-      membersRoute,
-      settingsRoute,
-      projectHomeRoute,
-      projectLineageRoute,
-      projectArticlesRoute,
-      projectBooksRoute,
-      projectSettingsRoute,
-      projectDataFallbackRoute,
-      projectDatasourcesFallbackRoute,
-      projectFilesFallbackRoute,
-      projectAppsFallbackRoute,
-      appsFallbackRoute,
-      dataFallbackRoute,
-      datasourcesFallbackRoute,
-      filesFallbackRoute,
+      workspaceShellRoute.addChildren([
+        indexRoute,
+        projectsIndexRoute,
+        homeRoute,
+        membersRoute,
+        settingsRoute,
+      ]),
+      projectShellRoute.addChildren([
+        projectHomeRoute,
+        projectLineageRoute,
+        projectArticlesRoute,
+        projectBooksRoute,
+        projectSettingsRoute,
+      ]),
       consoleCatchAllRoute,
     ]),
   ]),

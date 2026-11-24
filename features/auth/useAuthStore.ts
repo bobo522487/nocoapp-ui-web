@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { errorMessage } from '../../lib/api';
-import { usePreferencesStore } from '../../store/usePreferencesStore';
 import {
   fetchSession,
   signInRequest,
@@ -13,31 +12,6 @@ import {
 } from './api';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
-
-function roleLabel(organization: OrganizationSummary | null): string {
-  if (!organization) return '成员';
-  if (organization.isOwner) return '工作区管理员';
-  if (organization.role === 'admin') return '管理员';
-  if (organization.role === 'editor') return '编辑者';
-  return '查看者';
-}
-
-function syncProfile(user: AuthUser, organization: OrganizationSummary | null): void {
-  usePreferencesStore.getState().updateUser({
-    name: user.name || user.email,
-    email: user.email,
-    role: roleLabel(organization),
-  });
-}
-
-function clearProfile(): void {
-  usePreferencesStore.getState().updateUser({
-    name: '',
-    email: '',
-    role: '',
-    bio: '',
-  });
-}
 
 interface AuthState {
   status: AuthStatus;
@@ -58,6 +32,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   /** 任意请求返回 401（会话失效）时调用：清会话，RequireAuth 随即跳转登录。 */
   markUnauthorized: () => void;
+  setUserName: (name: string) => void;
   clearError: () => void;
 }
 
@@ -86,11 +61,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           onboarding: false,
           error: null,
         });
-        clearProfile();
         return;
       }
 
-      syncProfile(session.user, session.defaultOrganization);
       set({
         status: 'authenticated',
         user: session.user,
@@ -106,7 +79,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         onboarding: false,
         error: errorMessage(error),
       });
-      clearProfile();
     }
   },
 
@@ -114,7 +86,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({ error: null });
     try {
       const payload = await signInRequest(email, password);
-      syncProfile(payload.user, payload.defaultOrganization);
       set({
         status: 'authenticated',
         user: payload.user,
@@ -133,7 +104,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({ error: null });
     try {
       const payload = await signUpRequest(email, password, inviteToken);
-      syncProfile(payload.user, payload.defaultOrganization);
       set({
         status: 'authenticated',
         user: payload.user,
@@ -159,7 +129,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         onboarding: false,
         error: null,
       });
-      clearProfile();
     }
   },
 
@@ -171,8 +140,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       onboarding: false,
       error: null,
     });
-    clearProfile();
   },
+
+  setUserName: (name) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, name } : null,
+    })),
 
   clearError: () => set({ error: null }),
 }));

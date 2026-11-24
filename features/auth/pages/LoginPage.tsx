@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { isMockMode, subscribeMockMode } from '../../../lib/api';
-import { DEMO_ACCOUNT } from '../mockAuth';
+import { DEMO_ACCOUNT } from '../demoAccount';
 import { useAuthStore } from '../useAuthStore';
 
 const LoginPage: React.FC = () => {

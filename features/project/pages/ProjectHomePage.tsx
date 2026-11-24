@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -10,12 +10,15 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { ProjectColoredIcon } from '../../../components/common/NocoIcons';
 import { Button } from '../../../components/ui/button';
-import {
-  AssetEditorModal,
-  AssetEditorSubmitValues,
-} from '../../dashboard/components/AssetEditorModal';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import type { AssetEditorSubmitValues } from '../../dashboard/components/AssetEditorModal';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
+
+const AssetEditorModal = lazy(() =>
+  import('../../dashboard/components/AssetEditorModal').then((m) => ({
+    default: m.AssetEditorModal,
+  }))
+);
 import {
   ASSET_COLOR_PALETTES,
   useWorkspaceStore,
@@ -29,7 +32,7 @@ import { formatGenealogyPlace, formatPlacePath } from '../../place-input';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const isDarkMode = usePreferencesStore((s) => s.isDarkMode);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -328,34 +331,38 @@ const ProjectHomePage: React.FC = () => {
         </div>
       </div>
 
-      <AssetEditorModal
-        open={isEditOpen}
-        mode="edit"
-        kind="project"
-        submitting={saving}
-        error={editError}
-        initialValue={
-          activeProject
-            ? {
-                name: activeProject.name,
-                description: activeProject.description,
-                colorTheme: activeProject.colorTheme,
-                primarySurname: activeProject.primarySurname,
-                ancestor: activeProject.ancestor,
-                region: activeProject.region,
-                primaryName: activeProject.primaryName,
-                projectState: activeProject.projectState,
-                projectLevel: activeProject.projectLevel,
-              }
-            : undefined
-        }
-        onClose={() => {
-          if (saving) return;
-          setIsEditOpen(false);
-          setEditError(null);
-        }}
-        onSubmit={(values) => void handleSaveProject(values)}
-      />
+      {isEditOpen && (
+        <Suspense fallback={null}>
+          <AssetEditorModal
+            open={isEditOpen}
+            mode="edit"
+            kind="project"
+            submitting={saving}
+            error={editError}
+            initialValue={
+              activeProject
+                ? {
+                    name: activeProject.name,
+                    description: activeProject.description,
+                    colorTheme: activeProject.colorTheme,
+                    primarySurname: activeProject.primarySurname,
+                    ancestor: activeProject.ancestor,
+                    region: activeProject.region,
+                    primaryName: activeProject.primaryName,
+                    projectState: activeProject.projectState,
+                    projectLevel: activeProject.projectLevel,
+                  }
+                : undefined
+            }
+            onClose={() => {
+              if (saving) return;
+              setIsEditOpen(false);
+              setEditError(null);
+            }}
+            onSubmit={(values) => void handleSaveProject(values)}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

@@ -1,17 +1,5 @@
 import type { GenealogyPlace } from './features/place-input/place.types';
 
-export enum ViewMode {
-  HOME = 'HOME',
-  PROJECTS = 'PROJECTS',
-  MEMBERS = 'MEMBERS',
-  WORKSPACE_SETTINGS = 'WORKSPACE_SETTINGS',
-  PROJECT_HOME = 'PROJECT_HOME',
-  LINEAGE = 'LINEAGE',
-  ARTICLES = 'ARTICLES',
-  BOOKS = 'BOOKS',
-  PROJECT_SETTINGS = 'PROJECT_SETTINGS',
-}
-
 export type AppTheme = 'archival';
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -41,27 +29,6 @@ export interface ProjectItem {
   primaryName?: string;
   projectState?: '0' | '1';
   projectLevel?: number;
-}
-
-export interface AppItem {
-  id: string;
-  workspaceId: string;
-  name: string;
-  description?: string;
-  colorTheme: AssetColorTheme;
-  ownerType: 'owned' | 'shared';
-  defaultPageId: string;
-  updatedAt: string;
-}
-
-export interface WorkspaceMember {
-  id: string;
-  workspaceId: string;
-  name: string;
-  email: string;
-  role: '所有者' | '管理员' | '编辑者' | '查看者';
-  joinedAt: string;
-  avatarColor: string;
 }
 
 export interface WorkspaceNotification {

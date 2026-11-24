@@ -6,7 +6,7 @@ import {
   Search,
   UserCheck,
 } from 'lucide-react';
-import type { TreeItem } from '../../../components/common/Tree/types';
+import { collectTreeNodesByType } from '../../../lib/treeOps';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import {
@@ -14,10 +14,10 @@ import {
   useLineageStore,
 } from '../../../store/useLineageStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import type { PersonRecord } from '../../lineage/types';
+import { buildLineageGraph } from '../../lineage/domain/lineageGraph';
 import {
-  buildLineageGraphIndex,
   computeAutoRankLabel,
   formatPersonAliases,
 } from '../../lineage/utils/personHelpers';
@@ -37,24 +37,6 @@ interface LineageQuickPanelProps {
   className?: string;
 }
 
-function collectCharts(
-  items: TreeItem[]
-): Array<{ id: string; name: string }> {
-  const result: Array<{ id: string; name: string }> = [];
-  for (const item of items) {
-    if (item.type === 'chart') {
-      result.push({
-        id: String(item.id),
-        name: item.data?.name || String(item.id),
-      });
-    }
-    if (item.children?.length) {
-      result.push(...collectCharts(item.children));
-    }
-  }
-  return result;
-}
-
 export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   mode,
   initialChartId,
@@ -62,7 +44,7 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   onSelectMember,
   className = '',
 }) => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
   const projects = useWorkspaceStore((s) => s.projects);
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
@@ -75,7 +57,11 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   );
 
   const chartOptions = useMemo(
-    () => collectCharts(lineageTree),
+    () =>
+      collectTreeNodesByType(lineageTree, 'chart').map((item) => ({
+        id: String(item.id),
+        name: item.data?.name || String(item.id),
+      })),
     [lineageTree]
   );
 
@@ -118,14 +104,17 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   );
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
 
-  const graphIndex = useMemo(() => buildLineageGraphIndex(persons), [persons]);
+  const graphIndex = useMemo(() => buildLineageGraph(persons), [persons]);
   const personMap = graphIndex.personById;
   const childrenMap = graphIndex.childrenByFatherId;
 
   const rootPersons = useMemo(
     () =>
       persons.filter(
-        (p) => !p.spouseOfId && (!p.fatherId || !personMap.has(p.fatherId))
+        (p) =>
+          !p.spouseOfId &&
+          (!p.fatherId || !personMap.has(p.fatherId)) &&
+          (!p.motherId || !personMap.has(p.motherId))
       ),
     [persons, personMap]
   );
@@ -171,10 +160,17 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
     const updates: Record<string, boolean> = {};
     let curr: PersonRecord | undefined = person;
     const guard = new Set<string>();
-    while (curr?.fatherId && !guard.has(curr.fatherId)) {
-      guard.add(curr.fatherId);
-      updates[curr.fatherId] = false;
-      curr = personMap.get(curr.fatherId);
+    while (curr) {
+      const parentId =
+        curr.fatherId && personMap.has(curr.fatherId)
+          ? curr.fatherId
+          : curr.motherId && personMap.has(curr.motherId)
+            ? curr.motherId
+            : undefined;
+      if (!parentId || guard.has(parentId)) break;
+      guard.add(parentId);
+      updates[parentId] = false;
+      curr = personMap.get(parentId);
     }
     setCollapsedIds((prev) => ({ ...prev, ...updates }));
     setFocusedPersonId(person.id);

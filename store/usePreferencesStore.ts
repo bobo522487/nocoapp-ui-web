@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppTheme, ThemeMode, UserProfile } from '../types';
+import { AppTheme, ThemeMode } from '../types';
 import {
   BiographyPreviewPreferences,
   DrawerLayoutMode,
@@ -35,7 +35,7 @@ interface PreferencesState {
   isProjectSidebarCollapsed: boolean;
   lineageDrawerMode: DrawerLayoutMode;
   biographyPreviewPrefs: BiographyPreviewPreferences;
-  user: UserProfile;
+  profileBio: string;
   setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   setAppTheme: (theme: AppTheme) => void;
@@ -45,7 +45,7 @@ interface PreferencesState {
   updateBiographyPreviewPrefs: (
     updates: Partial<BiographyPreviewPreferences>
   ) => void;
-  updateUser: (updates: Partial<UserProfile>) => void;
+  setProfileBio: (bio: string) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -57,12 +57,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       isProjectSidebarCollapsed: false,
       lineageDrawerMode: 'narrow',
       biographyPreviewPrefs: DEFAULT_BIOGRAPHY_PREVIEW_PREFS,
-      user: {
-        name: '',
-        email: '',
-        role: '',
-        bio: '',
-      },
+      profileBio: '',
       setThemeMode: (themeMode) =>
         set({
           themeMode,
@@ -90,20 +85,25 @@ export const usePreferencesStore = create<PreferencesState>()(
             ...updates,
           },
         })),
-      updateUser: (updates) =>
-        set((state) => ({ user: { ...state.user, ...updates } })),
+      setProfileBio: (profileBio) => set({ profileBio }),
     }),
     {
       name: 'nocoapp:preferences',
-      version: 4,
+      version: 5,
       storage: createAppStorage(),
       migrate: (persistedState: unknown, version: number) => {
         const state = (persistedState ?? {}) as Record<string, unknown>;
-        if (version < 4) {
-          const { isAuthenticated: _removed, ...rest } = state;
+        if (version < 5) {
+          const legacyUser = state.user as { bio?: string } | undefined;
+          const { isAuthenticated: _removedAuth, user: _removedUser, ...rest } =
+            state;
           return {
             ...rest,
             theme: 'archival',
+            profileBio:
+              typeof state.profileBio === 'string'
+                ? state.profileBio
+                : legacyUser?.bio || '',
           } as unknown as PreferencesState;
         }
         return state as unknown as PreferencesState;

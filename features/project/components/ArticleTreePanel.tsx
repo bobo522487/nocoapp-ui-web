@@ -3,7 +3,7 @@ import { FileText, Folder, FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { Tree } from '../../../components/common/Tree/Tree';
 import type { FlattenedItem } from '../../../components/common/Tree/types';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
-import { useRouteContext } from '../../../hooks/useRouteContext';
+import { useProjectId } from '../../../hooks/useProjectId';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
@@ -22,7 +22,7 @@ interface ArticleModalState {
 }
 
 export const ArticleTreePanel: React.FC = () => {
-  const { activeProjectId } = useRouteContext();
+  const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);

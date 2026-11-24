@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FolderPlus, X } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
-import type { TreeItem } from '../../../components/common/Tree/types';
+import { collectTreeNodesByType } from '../../../lib/treeOps';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
   DEFAULT_LINEAGE_TREE,
@@ -11,7 +11,7 @@ import {
 } from '../../../store/useLineageStore';
 import { useArticleStore } from '../../../store/useArticleStore';
 import { useBookStore } from '../../../store/useBookStore';
-import { usePreferencesStore } from '../../../store/usePreferencesStore';
+import { useCurrentUserProfile } from '../../../hooks/useCurrentUserProfile';
 import { createSeedPersonsForChart } from '../../lineage/lineageData';
 import { countArticlesInTree } from '../../articles/articleData';
 import { errorMessage } from '../../../lib/api';
@@ -43,15 +43,6 @@ const statusFromState = (
 ): ProjectStatus =>
   state === '1' ? 'completed' : original === 'planning' ? 'planning' : 'in_progress';
 
-function collectChartNodes(items: TreeItem[]): TreeItem[] {
-  const out: TreeItem[] = [];
-  for (const item of items) {
-    if (item.type === 'chart') out.push(item);
-    if (item.children?.length) out.push(...collectChartNodes(item.children));
-  }
-  return out;
-}
-
 type PageState = {
   loading: boolean;
   error: string | null;
@@ -70,7 +61,7 @@ const EMPTY: PageState = {
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const user = usePreferencesStore((s) => s.user);
+  const user = useCurrentUserProfile();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeProjectId = useWorkspaceStore((s) => s.activeProjectId);
   const zibeiByProject = useWorkspaceStore((s) => s.zibeiByProject || {});
@@ -169,7 +160,7 @@ const DashboardPage: React.FC = () => {
     const map: Record<string, FamilyCardMetrics> = {};
     for (const project of state.projects) {
       const lineageTree = treesByProject[project.id] ?? DEFAULT_LINEAGE_TREE;
-      const chartNodes = collectChartNodes(lineageTree);
+      const chartNodes = collectTreeNodesByType(lineageTree, 'chart');
       let personCount = 0;
       for (const chart of chartNodes) {
         const cId = String(chart.id);
@@ -225,7 +216,7 @@ const DashboardPage: React.FC = () => {
   const handleExportFamily = (project: ProjectRecord) => {
     try {
       const lineageTree = treesByProject[project.id] ?? DEFAULT_LINEAGE_TREE;
-      const chartNodes = collectChartNodes(lineageTree);
+      const chartNodes = collectTreeNodesByType(lineageTree, 'chart');
       const lineageCharts: Record<string, unknown> = {};
       for (const chart of chartNodes) {
         const cId = String(chart.id);

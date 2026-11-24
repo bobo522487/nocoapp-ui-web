@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { ThemeMode } from '../../../types';
 import { usePreferencesStore } from '../../../store/usePreferencesStore';
+import { useAuthStore } from '../../auth/useAuthStore';
+import { useCurrentUserProfile } from '../../../hooks/useCurrentUserProfile';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -28,8 +30,9 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
   const [activeTab, setActiveTab] = useState<'general' | 'appearance'>('general');
   const [isMounted, setIsMounted] = useState(false);
 
-  const user = usePreferencesStore((s) => s.user);
-  const updateUser = usePreferencesStore((s) => s.updateUser);
+  const user = useCurrentUserProfile();
+  const setUserName = useAuthStore((s) => s.setUserName);
+  const setProfileBio = usePreferencesStore((s) => s.setProfileBio);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
 
@@ -59,7 +62,8 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
   if (!isMounted || !isOpen) return null;
 
   const handleSave = () => {
-    updateUser({ name, bio });
+    setUserName(name);
+    setProfileBio(bio);
     onClose();
   };
 

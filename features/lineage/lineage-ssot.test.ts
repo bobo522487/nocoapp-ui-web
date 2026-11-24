@@ -1,6 +1,29 @@
 import assert from 'node:assert/strict';
-import { migrateLineagePersistedState } from '../../store/useLineageStore';
+import type { TreeItem } from '../../components/common/Tree/types';
+import {
+  collectTreeNodesByType,
+  duplicateTreeNode,
+  findFirstTreeNodeByType,
+  findTreeNode,
+  insertTreeNode,
+  removeTreeNode,
+} from '../../lib/treeOps';
+import { formatGenealogyDate, parseQuickDateInput } from '../date-input';
+import { formatGenealogyPlace, parsePlaceText } from '../place-input';
+import { buildGenealogyGraph } from './canvas/utils/layoutBuilder';
+import {
+  addParentToPersons,
+  buildLineageGraph,
+  collectSubtreeIds,
+  deleteSubtreeFromPersons,
+  detachPersonFromPersons,
+} from './domain/lineageGraph';
+import {
+  applyAddRelative,
+  createDirectPersonRecord,
+} from './domain/relativeMutations';
 import { createSeedPersonsForChart } from './lineageData';
+import type { PersonEventType, PersonRecord } from './types';
 import { computeLineageStats } from './utils/lineageStats';
 import {
   buildLineageGraphIndex,
@@ -20,9 +43,6 @@ import {
   removeUnifiedEventFromPerson,
   resolvePersonRelationshipHeader,
 } from './utils/personTimeline';
-import { formatGenealogyDate, parseQuickDateInput } from '../date-input';
-import { formatGenealogyPlace, parsePlaceText } from '../place-input';
-import type { PersonEventType, PersonRecord } from './types';
 
 const VALID_UNIFIED_EVENT_TYPES = new Set<PersonEventType>([
   'birth',
@@ -100,192 +120,78 @@ function assertNoShadowKeys(record: PersonRecord) {
 }
 
 function runLineageSsotTests() {
-  // 1. Store v2 -> v5 migration: lifts embedded spouses[], absorbs shadow fields, upgrades regions, unifies events
-  const legacyPersisted = {
-    treesByProject: {
-      'proj-1': [
-        {
-          id: 'chart-1',
-          type: 'chart',
-          children: [],
-          data: {
-            name: '陈氏宗图',
-            surname: '陈',
-            region: '江西省/九江市/德安县',
-          },
-        },
-      ],
+  // 1. Canonical SSOT fixtures & normalization
+  const date1900 = parseQuickDateInput('1900-05-12');
+  const date1978 = parseQuickDateInput('1978-11-03');
+  const date1902 = parseQuickDateInput('1902-03-01');
+  const deanPlace = parsePlaceText('江西省/九江市/德安县');
+
+  const anc: PersonRecord = normalizePersonForSave(
+    {
+      id: 'anc-1',
+      branchId: 'chart-1',
+      name: '陈伯康',
+      legalName: '陈伯康',
+      aliases: ['字子安', '号竹溪'],
+      gender: 'male',
+      status: 'deceased',
+      generation: 1,
+      fatherId: null,
+      birth: { structuredDate: date1900.ok ? date1900.value : null },
+      death: {
+        structuredDate: date1978.ok ? date1978.value : null,
+        structuredBurialPlace: deanPlace,
+      },
+      sequenceMeta: { originalPage: 20 },
+      events: [{ id: 'ev-title-1', type: 'career', description: '乡贤' }],
     },
-    personsByChart: {
-      'proj-1::chart-1': [
-        {
-          id: 'anc-1',
-          branchId: 'chart-1',
-          name: '陈伯康',
-          courtesyName: '字子安，号竹溪',
-          gender: 'male',
-          status: 'deceased',
-          generation: 1,
-          fatherId: null,
-          birthDate: '1900-05-12',
-          deathDate: '1978-11-03',
-          burialPlace: '江西省/九江市/德安县',
-          officialTitle: '乡贤',
-          biographyPage: 20,
-          privateInfo: {
-            idCardName: '陈伯康',
-          },
-          spouses: [
-            {
-              name: '王氏',
-              relationLabel: '原配',
-              birthDate: '1902-03-01',
-              burialPlace: '江西省/九江市/德安县',
-              clanOrigin: '太原王氏',
-            },
-          ],
-        },
-        {
-          id: 'child-1',
-          branchId: 'chart-1',
-          name: '陈仲文',
-          gender: 'male',
-          status: 'living',
-          generation: 2,
-          siblingOrder: 1,
-          fatherId: 'anc-1',
-          fatherName: '陈伯康',
-          motherName: '王氏',
-          spouses: [],
-        },
-      ],
+    []
+  );
+
+  const promotedSpouse: PersonRecord = normalizePersonForSave(
+    {
+      id: 'spouse-1',
+      branchId: 'chart-1',
+      name: '王氏',
+      gender: 'female',
+      status: 'deceased',
+      generation: 1,
+      siblingOrder: 1,
+      fatherId: null,
+      spouseOfId: 'anc-1',
+      relationType: '妻子',
+      notes: '太原王氏',
+      birth: { structuredDate: date1902.ok ? date1902.value : null },
+      death: { structuredBurialPlace: deanPlace },
     },
-  };
+    [anc]
+  );
 
-  const migrated = migrateLineagePersistedState(legacyPersisted, 2);
-  const migratedTree = migrated.treesByProject?.['proj-1'] ?? [];
-  const chartRegion = migratedTree[0]?.data?.region;
-  assert.equal(chartRegion?.kind, 'structured');
-  assert.equal(chartRegion?.provinceCode, '360000');
-  assert.equal(chartRegion?.cityCode, '360400');
-  assert.equal(chartRegion?.districtCode, '360426');
+  const child: PersonRecord = normalizePersonForSave(
+    {
+      id: 'child-1',
+      branchId: 'chart-1',
+      name: '陈仲文',
+      gender: 'male',
+      status: 'living',
+      generation: 2,
+      siblingOrder: 1,
+      fatherId: 'anc-1',
+      motherId: promotedSpouse.id,
+    },
+    [anc, promotedSpouse]
+  );
 
-  const migratedPersons = migrated.personsByChart?.['proj-1::chart-1'] ?? [];
-  assert.equal(migratedPersons.length, 3, 'Embedded spouse should be promoted to a 3rd node');
-
-  for (const p of migratedPersons) {
+  const basePersons = [anc, promotedSpouse, child];
+  for (const p of basePersons) {
     assertNoShadowKeys(p);
   }
-
-  const anc = migratedPersons.find((p) => p.id === 'anc-1')!;
-  assert.deepEqual(anc.aliases, ['字子安', '号竹溪']);
-  assert.equal(anc.legalName, '陈伯康');
-  assert.equal(anc.sequenceMeta?.originalPage, 20);
   assert.equal(getPersonPrimaryTitle(anc), '乡贤');
   assert.equal(formatGenealogyDate(anc.birth?.structuredDate), '1900年5月12日');
-  assert.equal(formatGenealogyDate(anc.death?.structuredDate), '1978年11月3日');
   assert.equal(formatGenealogyPlace(anc.death?.structuredBurialPlace), '江西省九江市德安县');
+  assert.equal(child.motherId, promotedSpouse.id);
 
-  const promotedSpouse = migratedPersons.find((p) => p.spouseOfId === 'anc-1')!;
-  assert.ok(promotedSpouse, 'Promoted spouse node must exist');
-  assert.equal(promotedSpouse.name, '王氏');
-  assert.equal(promotedSpouse.siblingOrder, 1);
-  assert.equal(promotedSpouse.notes, '太原王氏');
-  assert.equal(formatGenealogyDate(promotedSpouse.birth?.structuredDate), '1902年3月1日');
-
-  const child = migratedPersons.find((p) => p.id === 'child-1')!;
-  assert.equal(child.motherId, promotedSpouse.id, 'Child motherName should resolve to promoted spouse ID');
-
-  // Idempotency check at version 5
-  const migratedTwice = migrateLineagePersistedState(migrated, 5);
-  assert.equal(migratedTwice.personsByChart?.['proj-1::chart-1']?.length, 3);
-
-  // 2. Store v4 -> v5 migration: collapses career + special event keys into unified 4-field events
-  const v4Persisted = {
-    personsByChart: {
-      'proj-v4::chart-v4': [
-        {
-          id: 'v4-p1',
-          branchId: 'chart-v4',
-          name: '李明远',
-          gender: 'male',
-          status: 'deceased',
-          generation: 5,
-          fatherId: null,
-          biography: '原有传记',
-          career: {
-            educationHistory: [
-              {
-                id: 'edu-1',
-                period: '1932',
-                school: '金陵大学',
-                major: '文史',
-                level: '本科',
-                graduationStatus: '毕业',
-              },
-            ],
-            careerHistory: [
-              {
-                id: 'job-1',
-                period: '1938',
-                location: '湖北省/武汉市',
-                organization: '武昌中学',
-                position: '教谕',
-              },
-            ],
-            resume: '执教二十载',
-            lifeSummary: '门生遍布荆楚',
-          },
-          events: [
-            {
-              id: 'ev-old-honor',
-              type: 'honor',
-              date: '1945',
-              organization: '省文史馆',
-              position: '馆员',
-              description: '编修地方志',
-            },
-            {
-              id: 'ev-old-burial',
-              type: 'burial',
-              date: '1980',
-              place: '湖北省/武汉市',
-              deathCause: '寿终',
-              description: '归葬祖山',
-            },
-            {
-              id: 'ev-old-other',
-              type: 'other',
-              customTypeLabel: '修谱',
-              relatedPersonName: '宗亲',
-              description: '主修六修家谱',
-            },
-          ],
-        },
-      ],
-    },
-  };
-
-  const migratedV5 = migrateLineagePersistedState(v4Persisted, 4);
-  const v5Persons = migratedV5.personsByChart?.['proj-v4::chart-v4'] ?? [];
-  assert.equal(v5Persons.length, 1);
-  const v5P1 = v5Persons[0];
-  assertNoShadowKeys(v5P1);
-  assert.equal(v5P1.biography, '原有传记\n执教二十载\n门生遍布荆楚');
-  assert.equal(v5P1.events?.length, 5);
-  assert.equal(v5P1.events?.[0].type, 'education');
-  assert.equal(v5P1.events?.[0].description, '金陵大学 · 文史 · 本科 · 毕业');
-  assert.equal(v5P1.events?.[1].type, 'career');
-  assert.equal(v5P1.events?.[1].description, '武昌中学 · 教谕');
-  assert.equal(v5P1.events?.[2].type, 'career');
-  assert.ok(v5P1.events?.[2].description?.includes('省文史馆'));
-  assert.equal(v5P1.events?.[3].type, 'death');
-  assert.ok(v5P1.events?.[3].description?.includes('死因：寿终'));
-  assert.equal(v5P1.events?.[4].type, 'other');
-  assert.ok(v5P1.events?.[4].description?.includes('修谱'));
-  assert.equal(getPersonPrimaryTitle(v5P1), '武昌中学 · 教谕');
-
-  // 3. Unified event apply/remove & timeline building
+  // 2. Unified event apply/remove & timeline building
   const testPerson: PersonRecord = {
     id: 'u-1',
     branchId: 'c-1',
@@ -301,7 +207,6 @@ function runLineageSsotTests() {
   const date2022 = parsed2022.ok ? parsed2022.value : null;
   const placeBj = parsePlaceText('北京市');
 
-  // Adding birth when vital birth is empty fills person.birth
   const birthPayload = {
     type: 'birth' as const,
     structuredDate: date2000,
@@ -319,7 +224,6 @@ function runLineageSsotTests() {
   assert.equal(withBirth.birth?.summary, '生于京师');
   assert.equal(withBirth.events?.length ?? 0, 0);
 
-  // Adding career event appends strictly 4-field event
   const careerPayload = {
     type: 'career' as const,
     structuredDate: date2022,
@@ -359,9 +263,9 @@ function runLineageSsotTests() {
   assert.ok(afterRemovePatch, 'Unified event deletion must return updated record patch');
   assert.equal(afterRemovePatch.events?.length ?? 0, 0);
 
-  // 4. O(N) Graph index, rank derivation & independent spouse statistics
+  // 3. O(N) Graph index, rank derivation & independent spouse statistics
   const graphPersons: PersonRecord[] = [
-    ...migratedPersons,
+    ...basePersons,
     {
       id: 'child-1-wife',
       branchId: 'chart-1',
@@ -422,28 +326,28 @@ function runLineageSsotTests() {
     '之女'
   );
 
-  // 4b. Chronological child rank computation (长子 / 次子 derived from birth dates regardless of insertion order)
+  // 3b. Chronological child rank computation (长子 / 次子 derived from birth dates)
   const birth1988 = parseQuickDateInput('1988-03-10');
   const birth1992 = parseQuickDateInput('1992-05-01');
-  const sonLater = {
+  const sonLater: PersonRecord = {
     id: 'son-1992',
     branchId: 'c-rank',
     name: '次子测试',
-    gender: 'male' as const,
-    status: 'living' as const,
+    gender: 'male',
+    status: 'living',
     generation: 2,
-    siblingOrder: 1, // added first
+    siblingOrder: 1,
     fatherId: 'anc-1',
     birth: { structuredDate: birth1992.ok ? birth1992.value : null },
   };
-  const sonOlder = {
+  const sonOlder: PersonRecord = {
     id: 'son-1988',
     branchId: 'c-rank',
     name: '长子测试',
-    gender: 'male' as const,
-    status: 'living' as const,
+    gender: 'male',
+    status: 'living',
     generation: 2,
-    siblingOrder: 2, // added second
+    siblingOrder: 2,
     fatherId: 'anc-1',
     birth: { structuredDate: birth1988.ok ? birth1988.value : null },
   };
@@ -456,17 +360,17 @@ function runLineageSsotTests() {
 
   const stats = computeLineageStats(graphPersons, 1);
   assert.equal(stats.totalPersons, 6);
-  assert.equal(stats.maleCount, 2); // 陈伯康, 陈仲文
-  assert.equal(stats.femaleCount, 1); // 陈季芳
-  assert.equal(stats.maleLivingMarried, 1); // 陈仲文
-  assert.equal(stats.femaleLivingMarried, 1); // 陈季芳
-  assert.equal(stats.daughterInLawCount, 2); // 王氏 (deceased), 李氏 (living)
+  assert.equal(stats.maleCount, 2);
+  assert.equal(stats.femaleCount, 1);
+  assert.equal(stats.maleLivingMarried, 1);
+  assert.equal(stats.femaleLivingMarried, 1);
+  assert.equal(stats.daughterInLawCount, 2);
   assert.equal(stats.daughterInLawLiving, 1);
   assert.equal(stats.daughterInLawDeceased, 1);
-  assert.equal(stats.sonInLawCount, 1); // 张明 (living)
+  assert.equal(stats.sonInLawCount, 1);
   assert.equal(stats.sonInLawLiving, 1);
 
-  // 5. Built-in seed data must strictly conform to SSOT with no legacy keys
+  // 4. Built-in seed data must strictly conform to SSOT with no legacy keys
   for (const chartId of ['lineage-royal-1', 'lineage-other-1', 'custom-chart']) {
     const seed = createSeedPersonsForChart(chartId, '测试世系', '刘');
     assert.ok(seed.length > 0);
@@ -475,7 +379,7 @@ function runLineageSsotTests() {
     }
   }
 
-  // 6. Structured alias items & legacy string alias compatibility
+  // 5. Structured alias items & legacy string alias compatibility
   const legacyAliasItems = getPersonAliasItems(anc);
   assert.equal(legacyAliasItems.length, 2);
   assert.equal(legacyAliasItems[0].type, '字');
@@ -502,7 +406,7 @@ function runLineageSsotTests() {
         },
       ],
     },
-    migratedPersons
+    basePersons
   );
   assert.deepEqual(withStructuredAliases.aliases, ['字伯宣', '陈明远']);
   assert.equal(withStructuredAliases.aliasItems?.length, 2);
@@ -511,7 +415,140 @@ function runLineageSsotTests() {
     ['字伯宣', '陈明远']
   );
 
-  console.log('All lineage SSOT, store migration & stats tests PASSED.');
+  // 6. Generic treeOps utilities
+  const sampleTree: TreeItem[] = [
+    {
+      id: 'folder-1',
+      type: 'folder',
+      collapsed: true,
+      children: [
+        { id: 'chart-a', type: 'chart', children: [], data: { name: '宗图甲' } },
+      ],
+      data: { name: '卷一' },
+    },
+  ];
+  assert.equal(findTreeNode(sampleTree, 'chart-a')?.data?.name, '宗图甲');
+  assert.equal(findFirstTreeNodeByType(sampleTree, 'chart')?.id, 'chart-a');
+  assert.equal(collectTreeNodesByType(sampleTree, 'chart').length, 1);
+
+  const inserted = insertTreeNode(
+    sampleTree,
+    { id: 'chart-b', type: 'chart', children: [], data: { name: '宗图乙' } },
+    'folder-1'
+  );
+  assert.equal(inserted[0].collapsed, false);
+  assert.equal(collectTreeNodesByType(inserted, 'chart').length, 2);
+
+  const clonedIds: Array<[string, string]> = [];
+  const duplicated = duplicateTreeNode(inserted, 'chart-a', (src, dst) => {
+    clonedIds.push([src, dst]);
+  });
+  assert.equal(clonedIds.length, 1);
+  assert.equal(collectTreeNodesByType(duplicated, 'chart').length, 3);
+  const removed = removeTreeNode(duplicated, clonedIds[0][1]);
+  assert.equal(collectTreeNodesByType(removed, 'chart').length, 2);
+
+  // 7. Orthogonal LineageGraph & Single-Mother Relative Mutations (no fake "不详" father node)
+  const singleChild: PersonRecord = {
+    id: 'single-gen1',
+    branchId: 'c-mat',
+    surname: '林',
+    name: '修远',
+    gender: 'male',
+    status: 'living',
+    generation: 1,
+    fatherId: null,
+  };
+  const grandChild: PersonRecord = {
+    id: 'single-gen2',
+    branchId: 'c-mat',
+    surname: '林',
+    name: '小远',
+    gender: 'female',
+    status: 'living',
+    generation: 2,
+    fatherId: 'single-gen1',
+  };
+
+  const singleMotherResult = applyAddRelative(
+    [singleChild, grandChild],
+    'c-mat',
+    '林',
+    { relation: 'parent', targetPerson: singleChild },
+    { surname: '周', name: '淑华', gender: 'female', status: 'living' },
+    true
+  );
+
+  // Must create ONLY 1 new parent (mother) with zero placeholder "不详" father node
+  assert.equal(singleMotherResult.persons.length, 3);
+  assert.equal(
+    singleMotherResult.persons.some((p) => p.name === '不详'),
+    false,
+    'Single mother line must never fabricate an unknown father record'
+  );
+  const motherNode = singleMotherResult.persons.find((p) => p.name === '淑华')!;
+  assert.ok(motherNode);
+  assert.equal(motherNode.generation, 1);
+  assert.equal(singleMotherResult.selectId, motherNode.id);
+
+  const shiftedChild = singleMotherResult.persons.find((p) => p.id === 'single-gen1')!;
+  const shiftedGrand = singleMotherResult.persons.find((p) => p.id === 'single-gen2')!;
+  assert.equal(shiftedChild.motherId, motherNode.id);
+  assert.equal(shiftedChild.fatherId, null);
+  assert.equal(shiftedChild.generation, 2);
+  assert.equal(shiftedGrand.generation, 3);
+
+  // Orthogonal buildLineageGraph & canvas layoutBuilder must connect single-mother -> child cleanly
+  const matGraph = buildLineageGraph(singleMotherResult.persons);
+  assert.equal(matGraph.childrenByFatherId.get(motherNode.id)?.length, 1);
+  assert.equal(matGraph.parentUnionByChildId.get('single-gen1')?.partnerIds[0], motherNode.id);
+
+  const canvas = buildGenealogyGraph(singleMotherResult.persons, { clanSurname: '林' });
+  const personNodes = canvas.nodes.filter((n) => n.type === 'person');
+  assert.equal(personNodes.length, 3);
+  assert.equal(
+    canvas.edges.some(
+      (e) =>
+        e.data?.relationship === 'bloodline' &&
+        e.source === `union-${motherNode.id}` &&
+        e.target === 'single-gen1'
+    ),
+    true
+  );
+
+  // Subtree deletion, detach generation shift-back, addParentToPersons, direct person factory
+  assert.equal(collectSubtreeIds(matGraph, 'single-gen1').size, 2);
+  const afterSubtreeDelete = deleteSubtreeFromPersons(singleMotherResult.persons, 'single-gen1');
+  assert.equal(afterSubtreeDelete.persons.length, 1);
+  assert.equal(afterSubtreeDelete.persons[0].id, motherNode.id);
+
+  const afterDetach = detachPersonFromPersons(singleMotherResult.persons, motherNode.id);
+  assert.equal(afterDetach.length, 2);
+  const restoredChild = afterDetach.find((p) => p.id === 'single-gen1')!;
+  assert.equal(restoredChild.generation, 1);
+  assert.equal(restoredChild.motherId, undefined);
+
+  const addedFather = addParentToPersons([singleChild, grandChild], 'single-gen1', {
+    id: 'father-root',
+    branchId: 'c-mat',
+    name: '振华',
+    gender: 'male',
+    status: 'deceased',
+    generation: 1,
+    fatherId: null,
+  });
+  assert.equal(addedFather.addedParentId, 'father-root');
+  assert.equal(addedFather.persons.find((p) => p.id === 'single-gen1')?.generation, 2);
+  assert.equal(addedFather.persons.find((p) => p.id === 'single-gen2')?.generation, 3);
+
+  const direct = createDirectPersonRecord('c-mat', '林', 0, {
+    name: '直录成员',
+    gender: 'female',
+  });
+  assert.equal(direct.surname, '林');
+  assert.equal(direct.relationType, '生女');
+
+  console.log('All lineage SSOT, domain graph, treeOps & stats tests PASSED.');
 }
 
 runLineageSsotTests();

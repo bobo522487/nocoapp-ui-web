@@ -13,7 +13,6 @@ import {
   TextRun,
   WidthType,
 } from 'docx';
-import { Buffer } from 'node:buffer';
 import mammoth from 'mammoth';
 import type { ArticleAssetRecord } from '../assets/articleAssetStore';
 import { contentJsonToHtml, htmlToContentJson } from './htmlProjection';
@@ -177,8 +176,10 @@ export async function importDocxArrayBuffer(arrayBuffer: ArrayBuffer): Promise<{
   images: ArticleAssetRecord[];
 }> {
   const images: ArticleAssetRecord[] = [];
+  // Node mammoth reads `buffer` (ArrayBuffer works at runtime); browser build reads `arrayBuffer`.
+  const mammothZipInput = { arrayBuffer, buffer: arrayBuffer } as { arrayBuffer: ArrayBuffer };
   const result = await mammoth.convertToHtml(
-    { buffer: Buffer.from(arrayBuffer) },
+    mammothZipInput,
     {
       convertImage: mammoth.images.imgElement(async (image) => {
         const buffer = await image.read();

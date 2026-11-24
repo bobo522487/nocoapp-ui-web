@@ -9,6 +9,22 @@ import {
   tiptapJsonToDocx,
 } from './docxCodec.ts';
 
+test('段落内联注记 待考 导出为（注：待考）', () => {
+  const blocks = articleJsonToDocxBlocks({
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: '序文' },
+          { type: 'inlineAnnotation', attrs: { noteText: '待考' } },
+        ],
+      },
+    ],
+  });
+  assert.match(blocks[0]?.text ?? '', /（注：待考）/);
+});
+
 test('文件名是 docx，块遍历保留标题和人物兜底名', () => {
   assert.equal(sanitizeArticleFileName('重修/族谱'), '重修_族谱.docx');
   const blocks = articleJsonToDocxBlocks({

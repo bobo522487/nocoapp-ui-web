@@ -47,6 +47,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   const [theme, setTheme] = useState<ArticleTheme>('modern');
   const [, setSelectionTick] = useState(0);
   const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
+  const [wordIoError, setWordIoError] = useState<string | null>(null);
   const saveStateRef = useRef(saveState);
   saveStateRef.current = saveState;
 
@@ -160,42 +161,52 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   }, [article.contentJson, article.contentHtml]);
 
   const handleExportWord = async () => {
-    saveQueueRef.current?.flush();
-    const contentJson =
-      editor?.getJSON() ??
-      article.contentJson ??
-      htmlToContentJson(article.contentHtml || '<p></p>');
-    const doc = tiptapJsonToDocx(
-      {
-        title: article.title,
-        subtitle: article.subtitle,
-        author: article.author,
-        contentJson,
-      },
-      { hallName },
-    );
-    const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = sanitizeArticleFileName(article.title);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      saveQueueRef.current?.flush();
+      const contentJson =
+        editor?.getJSON() ??
+        article.contentJson ??
+        htmlToContentJson(article.contentHtml || '<p></p>');
+      const doc = tiptapJsonToDocx(
+        {
+          title: article.title,
+          subtitle: article.subtitle,
+          author: article.author,
+          contentJson,
+        },
+        { hallName },
+      );
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = sanitizeArticleFileName(article.title);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setWordIoError(null);
+    } catch {
+      setWordIoError('导出 Word 失败，请重试');
+    }
   };
 
   const handleImportWord = async (file: File) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const { contentJson, images } = await importDocxArrayBuffer(arrayBuffer);
-    const assetStore = createIndexedDbArticleAssetStore();
-    await Promise.all(images.map((img) => assetStore.put(img)));
-    saveQueueRef.current?.flush();
-    isSyncingContentRef.current = true;
-    onUpdateArticle({ contentJson });
-    editor?.commands.setContent(contentJson, false);
-    isSyncingContentRef.current = false;
-    setSaveState('saved');
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const { contentJson, images } = await importDocxArrayBuffer(arrayBuffer);
+      const assetStore = createIndexedDbArticleAssetStore();
+      await Promise.all(images.map((img) => assetStore.put(img)));
+      saveQueueRef.current?.flush();
+      isSyncingContentRef.current = true;
+      onUpdateArticle({ contentJson });
+      editor?.commands.setContent(contentJson, false);
+      isSyncingContentRef.current = false;
+      setSaveState('saved');
+      setWordIoError(null);
+    } catch {
+      setWordIoError('导入 Word 失败，请检查文件后重试');
+    }
   };
 
   const handlePrint = () => {
@@ -419,12 +430,16 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
           <span aria-hidden="true" className="hidden md:inline">
             ·
           </span>
-          <span className="inline-flex items-center gap-1 text-foreground/75 whitespace-nowrap">
-            <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
-            {saveState === 'saving'
-              ? '保存中...'
-              : `已自动保存 (${article.updatedAt})`}
-          </span>
+          {wordIoError ? (
+            <span className="text-destructive whitespace-nowrap">{wordIoError}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-foreground/75 whitespace-nowrap">
+              <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
+              {saveState === 'saving'
+                ? '保存中...'
+                : `已自动保存 (${article.updatedAt})`}
+            </span>
+          )}
         </div>
 
         {/* Zoom Controls */}

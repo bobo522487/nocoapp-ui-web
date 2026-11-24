@@ -49,3 +49,21 @@ test('空文档是 0，而不是伪造 1 段', () => {
 test('阅读时长按 300 字一分钟向上取整', () => {
   assert.equal(readingTimeLabel(301), '预计阅读 2 分钟');
 });
+
+test('inlineAnnotation 的 noteText 计入字数', () => {
+  const metrics = extractArticleMetrics({
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'inlineAnnotation',
+            attrs: { mode: 'interlinear', noteText: '待考' },
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(metrics.wordCount, 2);
+});

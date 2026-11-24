@@ -79,6 +79,9 @@ export function extractArticleMetrics(doc: JSONContent | null | undefined): Arti
     if (node.type === 'figureImage') {
       wordCount += countChars(String(node.attrs?.caption ?? ''));
     }
+    if (node.type === 'inlineAnnotation') {
+      wordCount += countChars(String(node.attrs?.noteText ?? ''));
+    }
     for (const child of node.content ?? []) visit(child);
   };
 

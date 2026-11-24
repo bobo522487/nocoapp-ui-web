@@ -1,3 +1,4 @@
+import './articleSchema.happy-dom.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generateHTML } from '@tiptap/core';

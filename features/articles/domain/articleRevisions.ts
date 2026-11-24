@@ -9,7 +9,7 @@ export function articleRevisionFromDocument(
   createdAt: string,
 ): ArticleRevision {
   return {
-    id: `rev-${doc.id}-${doc.version}`,
+    id: `rev-${doc.id}-${doc.version}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     articleId: doc.id,
     version: doc.version,
     title: doc.title,

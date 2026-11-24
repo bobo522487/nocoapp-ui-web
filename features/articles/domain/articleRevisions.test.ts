@@ -1,7 +1,32 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ArticleDocument, ArticleRevision } from '../types';
-import { appendArticleRevision, restoreArticleFromRevision } from './articleRevisions.ts';
+import {
+  appendArticleRevision,
+  articleRevisionFromDocument,
+  restoreArticleFromRevision,
+} from './articleRevisions.ts';
+
+test('同一文档版本两次记入修订时修订 id 不重复', () => {
+  const doc = {
+    id: 'a1',
+    title: '题',
+    docType: 'custom',
+    status: 'draft',
+    privacy: 'clan',
+    contentHtml: '<p></p>',
+    contentJson: { type: 'doc', content: [] },
+    linkedPersonIds: [],
+    linkedChartIds: [],
+    citations: [],
+    version: 3,
+    wordCount: 0,
+    updatedAt: 'now',
+  } as ArticleDocument;
+  const a = articleRevisionFromDocument(doc, '甲', '编者', 't1');
+  const b = articleRevisionFromDocument(doc, '乙', '编者', 't2');
+  assert.notEqual(a.id, b.id);
+});
 
 test('超过 30 份时丢掉最旧修订', () => {
   const existing: ArticleRevision[] = Array.from({ length: 30 }, (_, index) => ({

@@ -168,6 +168,22 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     }
   }, [article.id, article.contentHtml, article.contentJson, editor]);
 
+  // Reload editor when store content changes externally (e.g. revision restore) without switching article
+  useEffect(() => {
+    if (!editor) return;
+    if (activeArticleIdRef.current !== article.id) return;
+    if (!article.contentJson) return;
+    if (saveQueueRef.current?.hasPending()) return;
+
+    const editorJson = editor.getJSON();
+    if (JSON.stringify(editorJson) === JSON.stringify(article.contentJson)) return;
+
+    isSyncingContentRef.current = true;
+    editor.commands.setContent(article.contentJson, false);
+    isSyncingContentRef.current = false;
+    setSaveState('saved');
+  }, [article.contentJson, article.id, editor]);
+
   // Lazily persist contentJson from HTML as soon as the editor is ready (first open or after switch)
   useEffect(() => {
     if (!editor) return;

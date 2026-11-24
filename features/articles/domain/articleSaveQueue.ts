@@ -65,5 +65,8 @@ export function createArticleSaveQueue(options: {
       clearTimer();
       pending = null;
     },
+    hasPending() {
+      return pending !== null;
+    },
   };
 }

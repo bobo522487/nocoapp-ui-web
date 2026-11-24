@@ -85,7 +85,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   const projects = useWorkspaceStore((s) => s.projects);
 
   const workspaceProjects = projects.filter(
-    (p) => p.workspaceId === activeWorkspaceId
+    (p) => p.organizationId === activeWorkspaceId
   );
 
   const q = query.trim().toLowerCase();

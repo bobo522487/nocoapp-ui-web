@@ -88,7 +88,7 @@ const Breadcrumb: React.FC = () => {
   }, []);
 
   const workspaceProjects = projects.filter(
-    (p) => p.workspaceId === activeWorkspaceId
+    (p) => p.organizationId === activeWorkspaceId
   );
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||

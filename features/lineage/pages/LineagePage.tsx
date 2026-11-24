@@ -19,6 +19,7 @@ import {
   makeChartStorageKey,
   useLineageStore,
 } from '../../../store/useLineageStore';
+import { surnameOf } from '../../dashboard/projectView';
 import { createSeedPersonsForChart } from '../lineageData';
 import type { PersonRecord } from '../types';
 import {
@@ -66,7 +67,7 @@ const LineagePage: React.FC = () => {
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   const lineageTree = useMemo(
@@ -107,8 +108,8 @@ const LineagePage: React.FC = () => {
     ) {
       return '';
     }
-    return activeProject?.primarySurname || '';
-  }, [selectedLineageNode?.data?.surname, chartId, activeProject?.primarySurname]);
+    return surnameOf(activeProject);
+  }, [selectedLineageNode?.data?.surname, chartId, activeProject?.surname]);
 
   const chartPersons = useMemo(() => {
     if (!chartId || selectedLineageNode?.type === 'folder') return [];
@@ -381,7 +382,7 @@ const LineagePage: React.FC = () => {
                   {selectedLineageNode.data?.name || '世系'}
                 </h1>
                 <span className="text-[12px] text-muted-foreground truncate">
-                  {activeProject?.primaryName || activeProject?.name}
+                  {activeProject?.hallName || activeProject?.name}
                 </span>
               </div>
               <p className="text-[13px] text-muted-foreground mt-0.5">
@@ -478,8 +479,8 @@ const LineagePage: React.FC = () => {
         mode="create"
         initialValue={{
           name: '',
-          surname: activeProject?.primarySurname || '',
-          hallName: activeProject?.primaryName || '',
+          surname: surnameOf(activeProject),
+          hallName: activeProject?.hallName || '',
           progenitor: '',
           region: null,
         }}

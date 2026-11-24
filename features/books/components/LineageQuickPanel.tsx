@@ -21,6 +21,7 @@ import {
   computeAutoRankLabel,
   formatPersonAliases,
 } from '../../lineage/utils/personHelpers';
+import { surnameOf } from '../../dashboard/projectView';
 import { resolveChartPersons, toChineseNumeral } from '../bookCompiler';
 
 export interface SelectedLineageMember {
@@ -85,14 +86,14 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
       activeChartId,
       lineageTree,
       personsByChart,
-      activeProject?.primarySurname
+      surnameOf(activeProject) || undefined
     );
   }, [
     activeProjectId,
     activeChartId,
     lineageTree,
     personsByChart,
-    activeProject?.primarySurname,
+    activeProject?.surname,
   ]);
 
   const [genFilter, setGenFilter] = useState('');

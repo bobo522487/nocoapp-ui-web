@@ -11,6 +11,8 @@ import {
   makeArticleStorageKey,
 } from '../../articles/articleData';
 import type { ArticleMetaInput } from '../../articles/types';
+import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import { ArticleMetaModal } from '../../articles/components/ArticleMetaModal';
 
 interface ArticleModalState {
@@ -28,7 +30,7 @@ export const ArticleTreePanel: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   const treesByProject = useArticleStore((s) => s.treesByProject);
@@ -57,18 +59,18 @@ export const ArticleTreePanel: React.FC = () => {
     if (!activeProjectId) return;
     ensureProjectInitialized(activeProjectId, {
       familyName: activeProject?.name,
-      surname: activeProject?.primarySurname,
-      hallName: activeProject?.primaryName,
-      ancestor: activeProject?.ancestor,
-      region: activeProject?.region,
+      surname: surnameOf(activeProject) || undefined,
+      hallName: activeProject?.hallName ?? undefined,
+      ancestor: activeProject?.ancestor ?? undefined,
+      region: parsePlaceText(activeProject?.originText ?? undefined),
     });
   }, [
     activeProjectId,
     activeProject?.name,
-    activeProject?.primarySurname,
-    activeProject?.primaryName,
+    activeProject?.surname,
+    activeProject?.hallName,
     activeProject?.ancestor,
-    activeProject?.region,
+    activeProject?.originText,
     ensureProjectInitialized,
   ]);
 
@@ -93,8 +95,8 @@ export const ArticleTreePanel: React.FC = () => {
       initialValue: {
         title: '',
         subtitle: '',
-        author: activeProject?.primaryName
-          ? `${activeProject.primaryName}编委会`
+        author: activeProject?.hallName
+          ? `${activeProject.hallName}编委会`
           : '家族编委会',
       },
     });

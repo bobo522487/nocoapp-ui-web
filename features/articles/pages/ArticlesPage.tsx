@@ -20,6 +20,8 @@ import {
   findFirstArticleId,
   makeArticleStorageKey,
 } from '../articleData';
+import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import { WordArticleEditor } from '../components/WordArticleEditor';
 import { ArticleMetaModal } from '../components/ArticleMetaModal';
 
@@ -46,25 +48,25 @@ const ArticlesPage: React.FC = () => {
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   useEffect(() => {
     if (!activeProjectId) return;
     ensureArticleInitialized(activeProjectId, {
       familyName: activeProject?.name,
-      surname: activeProject?.primarySurname,
-      hallName: activeProject?.primaryName,
-      ancestor: activeProject?.ancestor,
-      region: activeProject?.region,
+      surname: surnameOf(activeProject) || undefined,
+      hallName: activeProject?.hallName ?? undefined,
+      ancestor: activeProject?.ancestor ?? undefined,
+      region: parsePlaceText(activeProject?.originText ?? undefined),
     });
   }, [
     activeProjectId,
     activeProject?.name,
-    activeProject?.primarySurname,
-    activeProject?.primaryName,
+    activeProject?.surname,
+    activeProject?.hallName,
     activeProject?.ancestor,
-    activeProject?.region,
+    activeProject?.originText,
     ensureArticleInitialized,
   ]);
 
@@ -105,8 +107,8 @@ const ArticlesPage: React.FC = () => {
         id,
         title: selectedArticleNode.data?.name || '未命名谱文',
         subtitle: '',
-        author: activeProject?.primaryName
-          ? `${activeProject.primaryName}编委会`
+        author: activeProject?.hallName
+          ? `${activeProject.hallName}编委会`
           : '家族编委会',
         contentHtml: '<p></p>',
         wordCount: 0,
@@ -117,7 +119,7 @@ const ArticlesPage: React.FC = () => {
     selectedArticleNode,
     activeProjectId,
     articlesByKey,
-    activeProject?.primaryName,
+    activeProject?.hallName,
   ]);
 
   if (activeArticleDoc) {
@@ -126,7 +128,7 @@ const ArticlesPage: React.FC = () => {
         <WordArticleEditor
           article={activeArticleDoc}
           familyName={activeProject?.name}
-          hallName={activeProject?.primaryName}
+          hallName={activeProject?.hallName ?? undefined}
           onUpdateArticle={(updates) =>
             updateArticleContent(activeProjectId, activeArticleDoc.id, updates)
           }
@@ -147,7 +149,7 @@ const ArticlesPage: React.FC = () => {
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="yp-h2 text-foreground truncate">谱文</h1>
                 <span className="text-[12px] text-muted-foreground truncate">
-                  {activeProject?.primaryName || activeProject?.name}
+                  {activeProject?.hallName || activeProject?.name}
                 </span>
               </div>
               <p className="text-[13px] text-muted-foreground mt-0.5">
@@ -320,8 +322,8 @@ const ArticlesPage: React.FC = () => {
             selectedArticleNode?.type === 'folder'
               ? selectedArticleNode.data?.name
               : '',
-          author: activeProject?.primaryName
-            ? `${activeProject.primaryName}编委会`
+          author: activeProject?.hallName
+            ? `${activeProject.hallName}编委会`
             : '家族编委会',
         }}
         onClose={() => setIsCreateArticleOpen(false)}

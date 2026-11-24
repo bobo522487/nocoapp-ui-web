@@ -35,10 +35,10 @@ const ProjectSettingsPage: React.FC = () => {
 
   const [values, setValues] = useState<FamilyProfileFormValues>(() => ({
     familyName: activeProject?.name || '',
-    familySurname: activeProject?.primarySurname || '',
+    familySurname: activeProject?.surname || '',
     ancestor: activeProject?.ancestor || '',
-    hallName: activeProject?.primaryName || '',
-    regionPlace: parsePlaceText(activeProject?.region),
+    hallName: activeProject?.hallName || '',
+    regionPlace: parsePlaceText(activeProject?.originText ?? undefined),
     description: activeProject?.description || '',
   }));
 
@@ -58,10 +58,10 @@ const ProjectSettingsPage: React.FC = () => {
     if (activeProject) {
       setValues({
         familyName: activeProject.name || '',
-        familySurname: activeProject.primarySurname || '',
+        familySurname: activeProject.surname || '',
         ancestor: activeProject.ancestor || '',
-        hallName: activeProject.primaryName || '',
-        regionPlace: parsePlaceText(activeProject.region),
+        hallName: activeProject.hallName || '',
+        regionPlace: parsePlaceText(activeProject.originText ?? undefined),
         description: activeProject.description || '',
       });
     }

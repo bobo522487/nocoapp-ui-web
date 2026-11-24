@@ -37,6 +37,8 @@ import type {
 } from '../types';
 import { FishtailOrnament } from './BookCoverThumb';
 import { HelpTipButton } from './HelpTipButton';
+import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import {
   LineageQuickPanel,
   type SelectedLineageMember,
@@ -223,10 +225,10 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
     if (!articleTreesByProject[activeProjectId]) {
       ensureInitialized(activeProjectId, {
         familyName: activeProject?.name,
-        surname: activeProject?.primarySurname,
-        hallName: activeProject?.primaryName,
-        ancestor: activeProject?.ancestor,
-        region: activeProject?.region,
+        surname: surnameOf(activeProject) || undefined,
+        hallName: activeProject?.hallName ?? undefined,
+        ancestor: activeProject?.ancestor ?? undefined,
+        region: parsePlaceText(activeProject?.originText ?? undefined),
       });
     }
   }, [
@@ -234,10 +236,10 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
     activeProjectId,
     articleTreesByProject,
     activeProject?.name,
-    activeProject?.primarySurname,
-    activeProject?.primaryName,
+    activeProject?.surname,
+    activeProject?.hallName,
     activeProject?.ancestor,
-    activeProject?.region,
+    activeProject?.originText,
     ensureInitialized,
   ]);
 
@@ -890,7 +892,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
         String(firstChart.id),
         tree,
         personsByChart,
-        activeProject?.primarySurname
+        surnameOf(activeProject) || undefined
       );
       const root =
         resolved.persons.find((p) => p.generation === 1 && !p.fatherId) ||
@@ -915,7 +917,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
   }, [
     open,
     activeProjectId,
-    activeProject?.primarySurname,
+    activeProject?.surname,
     book.bookName,
     treesByProject,
     personsByChart,

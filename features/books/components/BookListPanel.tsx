@@ -18,6 +18,8 @@ import { useBookStore } from '../../../store/useBookStore';
 import ConfirmDialog from '../../dashboard/components/ConfirmDialog';
 import type { BookMetaInput, BookRecord } from '../types';
 import { BookCoverThumb } from './BookCoverThumb';
+import { parsePlaceText } from '../../place-input';
+import { surnameOf } from '../../dashboard/projectView';
 import { BookMetaModal } from './BookMetaModal';
 
 interface BookModalState {
@@ -34,7 +36,7 @@ export const BookListPanel: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.workspaceId === activeWorkspaceId) ||
+    projects.find((p) => p.organizationId === activeWorkspaceId) ||
     projects[0];
 
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
@@ -71,10 +73,10 @@ export const BookListPanel: React.FC = () => {
     if (!articleTreesByProject[activeProjectId]) {
       ensureArticleInitialized(activeProjectId, {
         familyName: activeProject?.name,
-        surname: activeProject?.primarySurname,
-        hallName: activeProject?.primaryName,
-        ancestor: activeProject?.ancestor,
-        region: activeProject?.region,
+        surname: surnameOf(activeProject) || undefined,
+        hallName: activeProject?.hallName ?? undefined,
+        ancestor: activeProject?.ancestor ?? undefined,
+        region: parsePlaceText(activeProject?.originText ?? undefined),
       });
       return;
     }
@@ -84,10 +86,10 @@ export const BookListPanel: React.FC = () => {
 
     ensureBookInitialized(activeProjectId, {
       familyName: activeProject?.name,
-      surname: activeProject?.primarySurname,
-      hallName: activeProject?.primaryName,
-      editor: activeProject?.primaryName
-        ? `${activeProject.primaryName}编委会`
+      surname: surnameOf(activeProject) || undefined,
+      hallName: activeProject?.hallName ?? undefined,
+      editor: activeProject?.hallName
+        ? `${activeProject.hallName}编委会`
         : '家族编委会',
       articlesByKey,
       articleTree: articleTreesByProject[activeProjectId],
@@ -97,10 +99,10 @@ export const BookListPanel: React.FC = () => {
   }, [
     activeProjectId,
     activeProject?.name,
-    activeProject?.primarySurname,
-    activeProject?.primaryName,
+    activeProject?.surname,
+    activeProject?.hallName,
     activeProject?.ancestor,
-    activeProject?.region,
+    activeProject?.originText,
     articleTreesByProject,
     articlesByKey,
     lineageTreesByProject,
@@ -118,7 +120,7 @@ export const BookListPanel: React.FC = () => {
     selectedBookIdByProject[activeProjectId] || books[0]?.id || '';
 
   const openCreateModal = () => {
-    const surname = activeProject?.primarySurname || '';
+    const surname = surnameOf(activeProject);
     const familyLabel = activeProject?.name || '本族';
     setModalState({
       open: true,
@@ -128,10 +130,10 @@ export const BookListPanel: React.FC = () => {
           ? familyLabel
           : `${familyLabel}族谱`,
         headerName: surname ? `${surname}氏宗谱` : familyLabel,
-        hallName: activeProject?.primaryName || (surname ? `${surname}氏宗堂` : ''),
+        hallName: activeProject?.hallName || (surname ? `${surname}氏宗堂` : ''),
         volumeNo: `卷${books.length + 1}`,
-        editor: activeProject?.primaryName
-          ? `${activeProject.primaryName}编委会`
+        editor: activeProject?.hallName
+          ? `${activeProject.hallName}编委会`
           : '家族编委会',
         compilationDate: new Date().toISOString().slice(0, 10),
       },

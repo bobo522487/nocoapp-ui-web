@@ -12,12 +12,15 @@ import {
 } from '../lib/treeOps';
 import { createAsyncEntityStorage } from './storageAdapter';
 import {
-  computeWordCount,
   createInitialArticleSeed,
   findFirstArticleId,
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
+import { commitArticleContent } from '../features/articles/domain/articleCommit';
+import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
+import { migrateArticlesV1ToV2 } from '../features/articles/domain/migrateArticles';
+import type { JSONContent } from '@tiptap/core';
 import type {
   ArticleDocument,
   ArticleMetaInput,
@@ -44,9 +47,10 @@ interface ArticleState {
   updateArticleContent: (
     projectId: string,
     articleId: string,
-    updates: Partial<
-      Pick<ArticleDocument, 'title' | 'subtitle' | 'author' | 'contentHtml'>
-    >
+    updates: Partial<ArticleMetaInput> & {
+      contentJson?: JSONContent;
+      contentHtml?: string;
+    }
   ) => void;
   updateArticleMeta: (
     projectId: string,
@@ -127,16 +131,25 @@ export const useArticleStore = create<ArticleState>()(
       addArticle: (projectId, parentId, meta) => {
         const id = `article-${Date.now()}`;
         const title = meta?.title?.trim() || '未命名谱文';
-        const initialHtml = `<p>请在此处开始撰写「${title}」正文内容……</p>`;
-        const doc: ArticleDocument = {
+        const doc = commitArticleContent(
+          undefined,
           id,
-          title,
-          subtitle: meta?.subtitle?.trim() || '',
-          author: meta?.author?.trim() || '家族编委会',
-          contentHtml: initialHtml,
-          wordCount: computeWordCount(initialHtml),
-          updatedAt: formatNowTimestamp(),
-        };
+          {
+            title,
+            subtitle: meta?.subtitle,
+            author: meta?.author,
+            docType: meta?.docType,
+            contentHtml: meta?.contentHtml,
+            contentJson:
+              meta?.contentJson ??
+              (meta?.contentHtml
+                ? htmlToContentJson(meta.contentHtml)
+                : htmlToContentJson(
+                    `<p>请在此处开始撰写「${title}」正文内容……</p>`
+                  )),
+          },
+          formatNowTimestamp()
+        );
 
         const newNode: TreeItem = {
           id,
@@ -168,30 +181,19 @@ export const useArticleStore = create<ArticleState>()(
           const currentTree = state.treesByProject[projectId] || [];
           const treeNode = findTreeNode(currentTree, articleId);
 
-          const nextTitle =
-            updates.title !== undefined
-              ? updates.title
-              : existing?.title || treeNode?.data?.name || '未命名谱文';
-          const nextHtml =
-            updates.contentHtml !== undefined
-              ? updates.contentHtml
-              : existing?.contentHtml || '<p></p>';
-
-          const nextDoc: ArticleDocument = {
-            id: articleId,
-            title: nextTitle,
-            subtitle:
-              updates.subtitle !== undefined
-                ? updates.subtitle
-                : existing?.subtitle || '',
-            author:
-              updates.author !== undefined
-                ? updates.author
-                : existing?.author || '',
-            contentHtml: nextHtml,
-            wordCount: computeWordCount(nextHtml),
-            updatedAt: formatNowTimestamp(),
+          const mergedUpdates = {
+            ...updates,
+            title:
+              updates.title !== undefined
+                ? updates.title
+                : existing?.title || treeNode?.data?.name || '未命名谱文',
           };
+          const nextDoc = commitArticleContent(
+            existing,
+            articleId,
+            mergedUpdates,
+            formatNowTimestamp()
+          );
 
           const shouldUpdateTreeTitle =
             Boolean(updates.title?.trim()) &&
@@ -219,15 +221,26 @@ export const useArticleStore = create<ArticleState>()(
           const existing = state.articlesByKey[key];
           const currentTree = state.treesByProject[projectId] || [];
 
-          const nextDoc: ArticleDocument = {
-            id: articleId,
-            title,
-            subtitle: meta.subtitle?.trim() || '',
-            author: meta.author?.trim() || '',
-            contentHtml: existing?.contentHtml || '<p></p>',
-            wordCount: existing?.wordCount ?? 0,
-            updatedAt: formatNowTimestamp(),
-          };
+          const nextDoc: ArticleDocument = existing
+            ? {
+                ...existing,
+                title,
+                subtitle: meta.subtitle?.trim() || '',
+                author: meta.author?.trim() || '',
+                updatedAt: formatNowTimestamp(),
+                version: (existing.version ?? 0) + 1,
+              }
+            : commitArticleContent(
+                undefined,
+                articleId,
+                {
+                  title,
+                  subtitle: meta.subtitle,
+                  author: meta.author,
+                  contentHtml: '<p></p>',
+                },
+                formatNowTimestamp()
+              );
 
           return {
             treesByProject: {
@@ -255,7 +268,12 @@ export const useArticleStore = create<ArticleState>()(
             if (existing) {
               nextArticles = {
                 ...state.articlesByKey,
-                [key]: { ...existing, title: trimmed, updatedAt: formatNowTimestamp() },
+                [key]: {
+                  ...existing,
+                  title: trimmed,
+                  updatedAt: formatNowTimestamp(),
+                  version: (existing.version ?? 0) + 1,
+                },
               };
             }
           }
@@ -289,6 +307,7 @@ export const useArticleStore = create<ArticleState>()(
                   ? `${node.data?.name || srcId} (副本)`
                   : node.data?.name || srcId,
               updatedAt: formatNowTimestamp(),
+              version: (srcDoc.version ?? 0) + 1,
             };
           });
           return {
@@ -330,8 +349,10 @@ export const useArticleStore = create<ArticleState>()(
     }),
     {
       name: 'yunpu:articles',
-      version: 1,
+      version: 2,
       storage: createAsyncEntityStorage(),
+      migrate: (persisted, version) =>
+        version < 2 ? migrateArticlesV1ToV2(persisted) : persisted,
     }
   )
 );

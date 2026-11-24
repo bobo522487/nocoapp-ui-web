@@ -110,7 +110,14 @@ const ArticlesPage: React.FC = () => {
         author: activeProject?.hallName
           ? `${activeProject.hallName}编委会`
           : '家族编委会',
+        docType: 'custom',
+        status: 'draft',
+        privacy: 'clan',
         contentHtml: '<p></p>',
+        linkedPersonIds: [],
+        linkedChartIds: [],
+        citations: [],
+        version: 1,
         wordCount: 0,
         updatedAt: '刚刚',
       }

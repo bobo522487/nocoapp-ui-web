@@ -18,9 +18,12 @@ import { LineHeight } from './LineHeight';
 import { FigureImage } from './FigureImage';
 import { PersonMention } from './PersonMention';
 import { InlineAnnotation } from './InlineAnnotation';
+import { SlashCommand, PersonMentionSuggestion } from './SlashCommand';
+import type { MentionCandidate } from '../domain/personMention';
 
 export function createArticleExtensions(options?: {
   mentionView?: ComponentType<ReactNodeViewProps>;
+  people?: MentionCandidate[];
 }): AnyExtension[] {
   const personMention = options?.mentionView
     ? PersonMention.extend({
@@ -29,6 +32,8 @@ export function createArticleExtensions(options?: {
         },
       })
     : PersonMention;
+
+  const people = options?.people ?? [];
 
   return [
     StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -50,5 +55,7 @@ export function createArticleExtensions(options?: {
     Placeholder.configure({
       placeholder: '在此撰写谱文正文，支持标题、列表、引用与表格排版……',
     }),
+    SlashCommand,
+    PersonMentionSuggestion.configure({ people }),
   ];
 }

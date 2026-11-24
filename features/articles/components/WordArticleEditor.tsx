@@ -6,6 +6,10 @@ import { ArticleInspectorPanel } from './ArticleInspectorPanel';
 import { WordToolbar } from './WordToolbar';
 import type { ArticleDocument } from '../types';
 import { createArticleExtensions } from '../extensions/createArticleExtensions';
+import { createPersonMentionView } from './PersonMentionView';
+import type { MentionCandidate } from '../domain/personMention';
+import { useProjectId } from '../../../hooks/useProjectId';
+import { useLineageStore } from '../../../store/useLineageStore';
 import { contentJsonToHtml, htmlToContentJson } from '../domain/htmlProjection';
 import { createArticleSaveQueue } from '../domain/articleSaveQueue';
 import {
@@ -37,6 +41,28 @@ interface WordArticleEditorProps {
 
 const ZOOM_LEVELS = [0.75, 0.9, 1, 1.15, 1.25];
 
+function flattenMentionCandidates(
+  projectId: string | undefined,
+  personsByChart: Record<string, { id: string; name?: string; generation: number }[]>,
+): MentionCandidate[] {
+  if (!projectId) return [];
+  const prefix = `${projectId}::`;
+  const result: MentionCandidate[] = [];
+  for (const [key, persons] of Object.entries(personsByChart)) {
+    if (!key.startsWith(prefix)) continue;
+    const chartId = key.slice(prefix.length);
+    for (const person of persons) {
+      result.push({
+        personId: person.id,
+        chartId,
+        name: person.name || '未命名',
+        generation: person.generation,
+      });
+    }
+  }
+  return result;
+}
+
 export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   article,
   familyName,
@@ -59,6 +85,27 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   const activeArticleIdRef = useRef(article.id);
   const isSyncingContentRef = useRef(false);
 
+  const activeProjectId = useProjectId();
+  const personsByChart = useLineageStore((s) => s.personsByChart);
+
+  const mentionPeople = useMemo(
+    () => flattenMentionCandidates(activeProjectId, personsByChart),
+    [activeProjectId, personsByChart],
+  );
+
+  const mentionView = useMemo(
+    () =>
+      createPersonMentionView(
+        mentionPeople.map((p) => ({ id: p.personId, name: p.name })),
+      ),
+    [mentionPeople],
+  );
+
+  const extensions = useMemo(
+    () => createArticleExtensions({ people: mentionPeople, mentionView }),
+    [mentionPeople, mentionView],
+  );
+
   const saveQueueRef = useRef<ReturnType<typeof createArticleSaveQueue> | null>(
     null
   );
@@ -75,8 +122,9 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     });
   }
 
-  const editor = useEditor({
-    extensions: createArticleExtensions(),
+  const editor = useEditor(
+    {
+    extensions,
     content: article.contentJson ?? (article.contentHtml || '<p></p>'),
     editable: !isPreview,
     editorProps: {
@@ -98,7 +146,9 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     onTransaction: () => {
       setSelectionTick((t) => t + 1);
     },
-  });
+    },
+    [extensions],
+  );
 
   // Switch document content cleanly when user selects a different article in the sidebar
   useEffect(() => {

@@ -9,15 +9,12 @@ import {
   ModalShell,
 } from '../../../components/ui/modal';
 import { Select } from '../../../components/ui/select';
+import type { AliasEditContext } from '../domain/personDetailActions';
 import { PersonAliasRecord } from '../types';
 import { toGivenNamePinyin, toSurnamePinyin } from '../utils/nameUtils';
 import { ALIAS_TYPE_OPTIONS } from '../utils/personHelpers';
 
-export interface AliasEditContext {
-  mode: 'create' | 'edit';
-  index?: number;
-  initialAlias: PersonAliasRecord;
-}
+export type { AliasEditContext };
 
 interface PersonAliasModalProps {
   context: AliasEditContext | null;

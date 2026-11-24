@@ -9,14 +9,8 @@ import {
 } from '../../../components/ui/modal';
 import { Select } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
-import { PersonRecord, PersonRomanizedName, RelationKind } from '../types';
-import {
-  formatGivenName,
-  toGivenNamePinyin,
-  toSurnamePinyin,
-} from '../utils/nameUtils';
-import { getDerivedSpouses } from '../utils/personHelpers';
-import { extractYearLabel } from '../utils/personTimeline';
+import type { PersonRecord, PersonRomanizedName } from '../types';
+import { toGivenNamePinyin, toSurnamePinyin } from '../utils/nameUtils';
 import {
   DateInput,
   formatGenealogyDate,
@@ -27,38 +21,27 @@ import {
   formatGenealogyPlace,
   type GenealogyPlace,
 } from '../../place-input';
+import {
+  UNKNOWN_MOTHER_KEY,
+  formatPersonLifespan,
+  getChildRelationSelectOptions,
+  resolveChildRelationValue,
+  resolvePersonFullName,
+  buildMotherOptionsForFather,
+  type ChildRelationCategory,
+  type MotherOption,
+} from '../domain/addRelativeForm';
+import type {
+  AddRelativeContext,
+  AddRelativeRelation,
+  AddRelativeSubmitPayload,
+} from '../domain/addRelativeTypes';
 
-export type AddRelativeRelation = 'child' | 'spouse' | 'sibling' | 'parent';
-
-export interface AddRelativeContext {
-  relation: AddRelativeRelation;
-  targetPerson: PersonRecord;
-  defaultGender?: 'male' | 'female' | 'unknown';
-  motherInfo?: { motherId?: string; motherName?: string };
-  initiatedFrom?: 'father' | 'mother';
-}
-
-export interface AddRelativeSubmitPayload {
-  surname?: string;
-  name: string;
-  romanizedName?: PersonRomanizedName;
-  gender: 'male' | 'female' | 'unknown';
-  status: 'living' | 'deceased';
-  relationType?: RelationKind;
-  fatherRelationType?: RelationKind;
-  motherRelationType?: RelationKind;
-  motherId?: string;
-  motherName?: string;
-  shouldAutoCreateMother?: boolean;
-  birthDate?: GenealogyDate | null;
-  birthPlace?: GenealogyPlace | null;
-  deathDate?: GenealogyDate | null;
-  deathPlace?: GenealogyPlace | null;
-  deathCause?: string;
-  burialPlace?: GenealogyPlace | null;
-  marriageDate?: GenealogyDate | null;
-  marriagePlace?: GenealogyPlace | null;
-}
+export type {
+  AddRelativeContext,
+  AddRelativeRelation,
+  AddRelativeSubmitPayload,
+} from '../domain/addRelativeTypes';
 
 interface AddRelativeModalProps {
   context: AddRelativeContext | null;
@@ -77,137 +60,6 @@ const RELATION_TITLES: Record<AddRelativeRelation, string> = {
   sibling: '加入同胞',
   parent: '加入父母',
 };
-
-function resolvePersonFullName(
-  person: PersonRecord,
-  clanSurname: string = ''
-): string {
-  const isSpouse = Boolean(person.spouseOfId);
-  const effectiveSurname = isSpouse
-    ? person.surname?.trim() || ''
-    : person.surname?.trim() || clanSurname.trim();
-  const given = isSpouse
-    ? person.name.trim()
-    : formatGivenName(person.name, effectiveSurname);
-
-  if (effectiveSurname && given && !given.startsWith(effectiveSurname)) {
-    return `${effectiveSurname}${given}`;
-  }
-  return given || effectiveSurname || '未命名';
-}
-
-type ChildRelationCategory = 'biological' | 'adoptive_heir' | 'foster' | 'step';
-
-const UNKNOWN_MOTHER_KEY = '__unknown_mother__';
-
-interface MotherOption {
-  key: string;
-  id?: string;
-  name: string;
-  avatarUrl?: string;
-  lifespan?: string;
-  isAutoCreateUnknown?: boolean;
-}
-
-function formatLifespanYear(structuredDate?: GenealogyDate | null): string {
-  const label = extractYearLabel(structuredDate).trim();
-  if (!label) return '';
-  return /^-?\d+$/.test(label) ? `${label}年` : label;
-}
-
-function formatPersonLifespan(p: PersonRecord): string {
-  const birth = formatLifespanYear(p.birth?.structuredDate);
-  const death =
-    p.status === 'living'
-      ? '存'
-      : formatLifespanYear(p.death?.structuredDate) || '歿';
-
-  if (birth) return `${birth}–${death}`;
-  if (death !== '存' && death !== '歿') return `–${death}`;
-  return death;
-}
-
-function buildMotherOptionsForFather(
-  father: PersonRecord,
-  allPersons: PersonRecord[],
-  clanSurname: string
-): MotherOption[] {
-  const nodeSpouses = getDerivedSpouses(allPersons, father.id);
-  const rawOptions: MotherOption[] = nodeSpouses.map((sp) => ({
-    key: sp.id,
-    id: sp.id,
-    name: resolvePersonFullName(sp, clanSurname),
-    avatarUrl: sp.avatarUrl,
-    lifespan: formatPersonLifespan(sp),
-  }));
-
-  const knownOptions = rawOptions.filter((opt) => opt.name !== '不详');
-  const existingUnknown = rawOptions.find((opt) => opt.name === '不详');
-
-  if (existingUnknown) {
-    return [
-      ...knownOptions,
-      {
-        ...existingUnknown,
-        isAutoCreateUnknown: false,
-      },
-    ];
-  }
-
-  return [
-    ...knownOptions,
-    {
-      key: UNKNOWN_MOTHER_KEY,
-      id: undefined,
-      name: '不详',
-      isAutoCreateUnknown: true,
-    },
-  ];
-}
-
-function resolveChildRelationValue(
-  category: ChildRelationCategory,
-  gender: 'male' | 'female' | 'unknown'
-): RelationKind {
-  switch (category) {
-    case 'adoptive_heir':
-      return '过继';
-    case 'foster':
-      return gender === 'female' ? '养女' : '养子';
-    case 'step':
-      return gender === 'female' ? '继女' : '继子';
-    case 'biological':
-    default:
-      return gender === 'female' ? '生女' : '生子';
-  }
-}
-
-function getChildRelationSelectOptions(
-  gender: 'male' | 'female' | 'unknown'
-): Array<{ value: ChildRelationCategory; label: string }> {
-  if (gender === 'female') {
-    return [
-      { value: 'biological', label: '生女' },
-      { value: 'adoptive_heir', label: '过继 / 嗣女' },
-      { value: 'foster', label: '养女' },
-      { value: 'step', label: '继女' },
-    ];
-  }
-  if (gender === 'male') {
-    return [
-      { value: 'biological', label: '生子' },
-      { value: 'adoptive_heir', label: '过继 / 嗣子' },
-      { value: 'foster', label: '养子' },
-      { value: 'step', label: '继子' },
-    ];
-  }
-  return [
-    { value: 'biological', label: '生子女' },
-    { value: 'adoptive_heir', label: '过继 / 嗣子' },
-    { value: 'foster', label: '养子女' },
-    { value: 'step', label: '继子女' },
-  ];
-}
 
 interface BlueThemeRadioProps {
   name: string;

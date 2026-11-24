@@ -24,8 +24,8 @@ import {
   type OrgDetail,
   type ProjectColorTheme,
   type ProjectRecord,
-  type ProjectStatus,
 } from '../api';
+import { toCreateProjectPayload } from '../projectPayload';
 import PageSkeleton from '../components/PageSkeleton';
 import PageError from '../components/PageError';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -35,13 +35,7 @@ import {
 } from '../components/AssetEditorModal';
 import { FamilyCard, type FamilyCardMetrics } from '../components/FamilyCard';
 import { ZibeiSettingsModal } from '../components/ZibeiSettingsModal';
-import { formatGenealogyPlace } from '../../place-input';
-
-const statusFromState = (
-  state: '0' | '1',
-  original?: ProjectStatus
-): ProjectStatus =>
-  state === '1' ? 'completed' : original === 'planning' ? 'planning' : 'in_progress';
+import { parsePlaceText } from '../../place-input';
 
 type PageState = {
   loading: boolean;
@@ -284,40 +278,27 @@ const DashboardPage: React.FC = () => {
     setFormError(null);
     setFormSaving(true);
     try {
-      const state0 = values.projectState ?? '0';
-      const originText = formatGenealogyPlace(values.region).trim();
+      const payload = toCreateProjectPayload(values);
       if (formDialog.mode === 'create') {
-        const created = await createProjectRequest(activeWorkspaceId, {
-          name: values.name.trim(),
-          status: statusFromState(state0),
-          surname: values.primarySurname?.trim(),
-          ancestor: values.ancestor?.trim(),
-          hallName: values.primaryName?.trim(),
-          originText: originText || undefined,
-          description: values.description.trim() || undefined,
-          colorTheme: values.colorTheme,
-          projectLevel: values.projectLevel ?? 1,
-        });
+        const created = await createProjectRequest(activeWorkspaceId, payload);
         if (values.ancestor?.trim()) {
           useLineageStore.getState().initializeProjectLineage(created.project.id, {
             familyName: values.name,
             ancestor: values.ancestor,
-            surname: values.primarySurname,
-            region: values.region,
+            surname: values.surname,
+            region: parsePlaceText(values.originText),
           });
         }
         handleSaved(created.project);
       } else if (formDialog.project) {
         const original = formDialog.project;
         const updated = await updateProjectRequest(original.id, {
-          name: values.name.trim(),
-          status: statusFromState(state0, original.status),
-          surname: values.primarySurname?.trim() ?? null,
-          ancestor: values.ancestor?.trim() ?? null,
-          hallName: values.primaryName?.trim() ?? null,
-          originText: originText || null,
-          description: values.description.trim() || null,
-          colorTheme: values.colorTheme,
+          ...payload,
+          surname: payload.surname ?? null,
+          ancestor: payload.ancestor ?? null,
+          hallName: payload.hallName ?? null,
+          originText: payload.originText ?? null,
+          description: payload.description ?? null,
           projectLevel: values.projectLevel ?? original.projectLevel,
           expectedUpdatedAt: original.updatedAt,
         });
@@ -491,11 +472,11 @@ const DashboardPage: React.FC = () => {
                     description: p.description ?? '',
                     // 网络边界兜底：后端未返回新字段时避免预览组件读 undefined 崩溃。
                     colorTheme: p.colorTheme ?? 'sky',
-                    primarySurname: p.surname ?? '',
+                    surname: p.surname ?? '',
                     ancestor: p.ancestor ?? '',
-                    region: p.originText ?? '',
-                    primaryName: p.hallName ?? '',
-                    projectState: (p.status === 'completed' ? '1' : '0') as '0' | '1',
+                    originText: p.originText ?? '',
+                    hallName: p.hallName ?? '',
+                    status: p.status,
                     projectLevel: p.projectLevel ?? 1,
                   };
                 })()

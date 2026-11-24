@@ -26,9 +26,14 @@ import {
 import { useArticleStore } from '../../../store/useArticleStore';
 import { countArticlesInTree } from '../../articles/articleData';
 import { useBookStore } from '../../../store/useBookStore';
-import { fetchProject, updateProjectRequest } from '../../dashboard/api';
-import { ApiError, errorMessage } from '../../../lib/api';
-import { formatGenealogyPlace, formatPlacePath } from '../../place-input';
+import {
+  fetchProject,
+  updateProjectRequest,
+  type ProjectStatus,
+} from '../../dashboard/api';
+import { toCreateProjectPayload } from '../../dashboard/projectPayload';
+import { errorMessage } from '../../../lib/api';
+import { formatPlacePath } from '../../place-input';
 
 const ProjectHomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +42,6 @@ const ProjectHomePage: React.FC = () => {
   const isDarkMode = usePreferencesStore((s) => s.isDarkMode);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const projects = useWorkspaceStore((s) => s.projects);
-  const updateProject = useWorkspaceStore((s) => s.updateProject);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
 
@@ -46,6 +50,7 @@ const ProjectHomePage: React.FC = () => {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -59,11 +64,13 @@ const ProjectHomePage: React.FC = () => {
     if (!targetProjectId) return;
     let cancelled = false;
     setExpectedUpdatedAt(null);
+    setProjectStatus(null);
 
     void fetchProject(targetProjectId)
       .then(({ project }) => {
         if (cancelled) return;
         setExpectedUpdatedAt(project.updatedAt);
+        setProjectStatus(project.status);
         syncProject(project);
       })
       .catch(() => {
@@ -132,37 +139,22 @@ const ProjectHomePage: React.FC = () => {
         const latest = await fetchProject(targetProjectId);
         versionStamp = latest.project.updatedAt;
       }
+      const payload = toCreateProjectPayload(values);
       const { project } = await updateProjectRequest(targetProjectId, {
-        name: values.name.trim(),
-        surname: values.primarySurname?.trim() || null,
-        ancestor: values.ancestor?.trim() || null,
-        hallName: values.primaryName?.trim() || null,
-        originText: formatGenealogyPlace(values.region).trim() || null,
-        description: values.description.trim() || null,
+        ...payload,
+        surname: payload.surname ?? null,
+        ancestor: payload.ancestor ?? null,
+        hallName: payload.hallName ?? null,
+        originText: payload.originText ?? null,
+        description: payload.description ?? null,
         expectedUpdatedAt: versionStamp,
       });
       setExpectedUpdatedAt(project.updatedAt);
+      setProjectStatus(project.status);
       syncProject(project);
       setIsEditOpen(false);
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-      if (isOfflineOrLocalOnly) {
-        updateProject(targetProjectId, {
-          name: values.name,
-          description: values.description,
-          colorTheme: values.colorTheme,
-          primarySurname: values.primarySurname,
-          ancestor: values.ancestor,
-          region: values.region,
-          primaryName: values.primaryName,
-        });
-        setIsEditOpen(false);
-      } else {
-        setEditError(errorMessage(err));
-      }
+      setEditError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -345,11 +337,15 @@ const ProjectHomePage: React.FC = () => {
                     name: activeProject.name,
                     description: activeProject.description,
                     colorTheme: activeProject.colorTheme,
-                    primarySurname: activeProject.primarySurname,
+                    surname: activeProject.primarySurname,
                     ancestor: activeProject.ancestor,
-                    region: activeProject.region,
-                    primaryName: activeProject.primaryName,
-                    projectState: activeProject.projectState,
+                    originText: formatPlacePath(activeProject.region, '/'),
+                    hallName: activeProject.primaryName,
+                    status:
+                      projectStatus ??
+                      (activeProject.projectState === '1'
+                        ? 'completed'
+                        : 'planning'),
                     projectLevel: activeProject.projectLevel,
                   }
                 : undefined

@@ -18,7 +18,8 @@ import {
   AssetEditorModal,
   type AssetEditorSubmitValues,
 } from '../components/AssetEditorModal';
-import { formatGenealogyPlace } from '../../place-input';
+import { parsePlaceText } from '../../place-input';
+import { toCreateProjectPayload } from '../projectPayload';
 
 type HomeState = {
   loading: boolean;
@@ -78,23 +79,14 @@ const WorkspaceHomePage: React.FC = () => {
     setCreateError(null);
     setCreating(true);
     try {
-      const created = await createProjectRequest(activeWorkspaceId, {
-        name: values.name.trim(),
-        status: 'in_progress',
-        surname: values.primarySurname?.trim(),
-        ancestor: values.ancestor?.trim(),
-        hallName: values.primaryName?.trim(),
-        originText: formatGenealogyPlace(values.region).trim() || undefined,
-        description: values.description.trim() || undefined,
-        colorTheme: values.colorTheme,
-        projectLevel: values.projectLevel ?? 1,
-      });
+      const payload = toCreateProjectPayload(values);
+      const created = await createProjectRequest(activeWorkspaceId, payload);
       if (values.ancestor?.trim()) {
         useLineageStore.getState().initializeProjectLineage(created.project.id, {
           familyName: values.name,
           ancestor: values.ancestor,
-          surname: values.primarySurname,
-          region: values.region,
+          surname: values.surname,
+          region: parsePlaceText(values.originText),
         });
       }
       syncProject(created.project);

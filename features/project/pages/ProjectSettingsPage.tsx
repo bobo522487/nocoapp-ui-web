@@ -26,7 +26,6 @@ const ProjectSettingsPage: React.FC = () => {
   const activeProjectId = useProjectId();
 
   const projects = useWorkspaceStore((s) => s.projects);
-  const updateProject = useWorkspaceStore((s) => s.updateProject);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const dropProject = useWorkspaceStore((s) => s.dropProject);
 
@@ -150,25 +149,7 @@ const ProjectSettingsPage: React.FC = () => {
       setSavedToast(true);
       setTimeout(() => setSavedToast(false), 2000);
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-
-      if (isOfflineOrLocalOnly) {
-        updateProject(targetProjectId, {
-          name: trimmedName,
-          primarySurname: trimmedSurname,
-          ancestor: trimmedAncestor,
-          primaryName: trimmedHall || undefined,
-          region: values.regionPlace,
-          description: trimmedDesc,
-        });
-        setSavedToast(true);
-        setTimeout(() => setSavedToast(false), 2000);
-      } else {
-        setSaveError(errorMessage(err));
-      }
+      setSaveError(errorMessage(err));
     } finally {
       setSaving(false);
     }

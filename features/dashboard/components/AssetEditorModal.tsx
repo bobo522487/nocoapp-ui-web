@@ -18,9 +18,11 @@ import {
   ModalShell,
 } from '../../../components/ui/modal';
 import {
+  formatGenealogyPlace,
   parsePlaceText,
   type GenealogyPlace,
 } from '../../place-input';
+import type { ProjectStatus } from '../api';
 import {
   FamilyProfileFields,
   validateFamilyProfile,
@@ -32,11 +34,11 @@ export interface AssetEditorSubmitValues {
   name: string;
   description: string;
   colorTheme: AssetColorTheme;
-  primarySurname?: string;
+  status: ProjectStatus;
+  surname?: string;
   ancestor?: string;
-  region?: GenealogyPlace | null;
-  primaryName?: string;
-  projectState?: '0' | '1';
+  hallName?: string;
+  originText?: string;
   projectLevel?: number;
 }
 
@@ -48,11 +50,11 @@ export interface AssetEditorModalProps {
     name: string;
     description?: string;
     colorTheme: AssetColorTheme;
-    primarySurname?: string;
+    surname?: string;
     ancestor?: string;
-    region?: GenealogyPlace | string | null;
-    primaryName?: string;
-    projectState?: '0' | '1';
+    originText?: string;
+    hallName?: string;
+    status?: ProjectStatus;
     projectLevel?: number;
   };
   /** 提交进行中：禁用提交按钮（由接入方驱动 API 请求）。 */
@@ -105,10 +107,10 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
 
     if (initialValue) {
       setFamilyName(initialValue.name || '');
-      setFamilySurname(initialValue.primarySurname || '');
+      setFamilySurname(initialValue.surname || '');
       setAncestor(initialValue.ancestor || '');
-      setHallName(initialValue.primaryName || '');
-      setRegionPlace(parsePlaceText(initialValue.region));
+      setHallName(initialValue.hallName || '');
+      setRegionPlace(parsePlaceText(initialValue.originText));
       setDescription(initialValue.description || '');
     } else {
       setFamilyName('');
@@ -133,6 +135,7 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
         name: appName.trim(),
         description: appDescription.trim(),
         colorTheme: appColorTheme,
+        status: 'planning',
       });
     };
 
@@ -242,11 +245,11 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       name: familyName.trim(),
       description: description.trim(),
       colorTheme: projectColorTheme,
-      primarySurname: familySurname.trim(),
-      ancestor: ancestor.trim(),
-      region: regionPlace,
-      primaryName: hallName.trim(),
-      projectState: initialValue?.projectState ?? '0',
+      surname: familySurname.trim() || undefined,
+      ancestor: ancestor.trim() || undefined,
+      hallName: hallName.trim() || undefined,
+      originText: formatGenealogyPlace(regionPlace).trim() || undefined,
+      status: initialValue?.status ?? 'planning',
       projectLevel: initialValue?.projectLevel ?? 1,
     });
   };

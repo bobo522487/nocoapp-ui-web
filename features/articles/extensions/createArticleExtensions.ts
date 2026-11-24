@@ -20,6 +20,7 @@ import { FigureImageView } from '../components/FigureImageView';
 import { PersonMention } from './PersonMention';
 import { InlineAnnotation } from './InlineAnnotation';
 import { SlashCommand, PersonMentionSuggestion } from './SlashCommand';
+import { PersonMentionLiveRefresh } from './PersonMentionLiveRefresh';
 import type { MentionCandidate } from '../domain/personMention';
 
 export function createArticleExtensions(options?: {
@@ -45,7 +46,7 @@ export function createArticleExtensions(options?: {
 
   const getPeople = options?.getPeople ?? (() => [] as MentionCandidate[]);
 
-  return [
+  const extensions: AnyExtension[] = [
     StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
     Underline,
     TextStyle,
@@ -68,4 +69,10 @@ export function createArticleExtensions(options?: {
     SlashCommand,
     PersonMentionSuggestion.configure({ getPeople }),
   ];
+
+  if (options?.mentionView) {
+    extensions.push(PersonMentionLiveRefresh);
+  }
+
+  return extensions;
 }

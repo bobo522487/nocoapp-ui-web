@@ -17,7 +17,10 @@ import {
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
-import { enqueueArticleRemoteSave } from '../features/articles/domain/articleRemoteSave';
+import {
+  bumpArticleRemoteSaveAttemptKey,
+  enqueueArticleRemoteSave,
+} from '../features/articles/domain/articleRemoteSave';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
 import { resolveArticleConflict } from '../features/articles/domain/articleConflict';
 import { resolveApiMode } from '../lib/apiMode';
@@ -103,6 +106,12 @@ function articleWriteUrl(articleId: string): string {
 }
 
 const remoteSaveAttemptByKey = new Map<string, number>();
+
+function invalidateArticleRemoteSaves(key: string): void {
+  const next = (remoteSaveAttemptByKey.get(key) ?? 0) + 1;
+  remoteSaveAttemptByKey.set(key, next);
+  bumpArticleRemoteSaveAttemptKey(key);
+}
 
 function applyArticleRowToState(
   state: ArticleState,
@@ -264,11 +273,13 @@ export const useArticleStore = create<ArticleState>()(
               ? updates.title
               : existing?.title || treeNode?.data?.name || '未命名谱文',
         };
+        const isNetwork = resolveApiMode(import.meta.env) === 'network';
         const nextDoc = commitArticleContent(
           existing,
           articleId,
           mergedUpdates,
           formatNowTimestamp(),
+          { bumpVersion: !isNetwork },
         );
 
         const shouldUpdateTreeTitle =
@@ -276,7 +287,7 @@ export const useArticleStore = create<ArticleState>()(
           treeNode &&
           treeNode.data?.name !== updates.title!.trim();
 
-        if (resolveApiMode(import.meta.env) !== 'network') {
+        if (!isNetwork) {
           set((s) => ({
             ...applyArticleRowToState(
               s,
@@ -303,18 +314,30 @@ export const useArticleStore = create<ArticleState>()(
           ),
         }));
 
+        const buildWriteRequest = (): {
+          articleId: string;
+          expectedVersion: number;
+          article: ArticleDocument;
+        } => {
+          const current = get().articlesByKey[key];
+          const acceptedVersion = current?.version ?? expectedVersion;
+          const doc = current ?? nextDoc;
+          return {
+            articleId,
+            expectedVersion: acceptedVersion,
+            article: { ...doc, version: acceptedVersion },
+          };
+        };
+
         void enqueueArticleRemoteSave(
           key,
           attemptId,
           fetch,
           articleWriteUrl(articleId),
-          {
-            articleId,
-            expectedVersion,
-            article: nextDoc,
-          },
+          buildWriteRequest(),
           {
             onSuccess: (article) => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
@@ -327,28 +350,22 @@ export const useArticleStore = create<ArticleState>()(
               }));
             },
             onConflict: (server) => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
+              const local = get().articlesByKey[key] ?? nextDoc;
               set({
                 articleConflict: {
                   projectId,
                   articleId,
-                  local: nextDoc,
+                  local,
                   server,
                 },
               });
             },
-            onError: (revertedVersion) => {
-              set((s) => {
-                const current = s.articlesByKey[key];
-                if (!current) return s;
-                return {
-                  articlesByKey: {
-                    ...s.articlesByKey,
-                    [key]: { ...current, version: revertedVersion },
-                  },
-                };
-              });
+            onError: () => {
+              if (remoteSaveAttemptByKey.get(key) !== attemptId) return;
             },
           },
+          buildWriteRequest,
         );
       },
 
@@ -357,6 +374,11 @@ export const useArticleStore = create<ArticleState>()(
         if (!conflict) return;
 
         if (choice === 'take-server') {
+          const takeKey = makeArticleStorageKey(
+            conflict.projectId,
+            conflict.articleId,
+          );
+          invalidateArticleRemoteSaves(takeKey);
           set((state) => ({
             ...applyArticleRowToState(
               state,
@@ -383,6 +405,28 @@ export const useArticleStore = create<ArticleState>()(
         const attemptId = (remoteSaveAttemptByKey.get(conflictKey) ?? 0) + 1;
         remoteSaveAttemptByKey.set(conflictKey, attemptId);
 
+        const conflictExpectedVersion = conflict.server.version;
+        const buildConflictRequest = () => {
+          const current = get().articlesByKey[conflictKey] ?? resolved;
+          const acceptedVersion = current.version;
+          return {
+            articleId: conflict.articleId,
+            expectedVersion: acceptedVersion,
+            article: { ...current, version: acceptedVersion },
+          };
+        };
+
+        set((state) => ({
+          ...applyArticleRowToState(
+            state,
+            conflict.projectId,
+            conflict.articleId,
+            resolved,
+            resolved.title,
+          ),
+          articleConflict: null,
+        }));
+
         void enqueueArticleRemoteSave(
           conflictKey,
           attemptId,
@@ -390,11 +434,12 @@ export const useArticleStore = create<ArticleState>()(
           articleWriteUrl(conflict.articleId),
           {
             articleId: conflict.articleId,
-            expectedVersion: conflict.server.version,
-            article: resolved,
+            expectedVersion: conflictExpectedVersion,
+            article: { ...resolved, version: conflictExpectedVersion },
           },
           {
             onSuccess: (article) => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
               set((s) => ({
                 ...applyArticleRowToState(
                   s,
@@ -407,28 +452,22 @@ export const useArticleStore = create<ArticleState>()(
               }));
             },
             onConflict: (server) => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
+              const local = get().articlesByKey[conflictKey] ?? resolved;
               set({
                 articleConflict: {
                   projectId: conflict.projectId,
                   articleId: conflict.articleId,
-                  local: resolved,
+                  local,
                   server,
                 },
               });
             },
-            onError: (revertedVersion) => {
-              set((s) => {
-                const current = s.articlesByKey[conflictKey];
-                if (!current) return s;
-                return {
-                  articlesByKey: {
-                    ...s.articlesByKey,
-                    [conflictKey]: { ...current, version: revertedVersion },
-                  },
-                };
-              });
+            onError: () => {
+              if (remoteSaveAttemptByKey.get(conflictKey) !== attemptId) return;
             },
           },
+          buildConflictRequest,
         );
       },
 
@@ -581,9 +620,10 @@ export const useArticleStore = create<ArticleState>()(
           };
         }),
 
-      restoreRevision: (projectId, articleId, revisionId, authorName) =>
+      restoreRevision: (projectId, articleId, revisionId, authorName) => {
+        const key = makeArticleStorageKey(projectId, articleId);
+        invalidateArticleRemoteSaves(key);
         set((state) => {
-          const key = makeArticleStorageKey(projectId, articleId);
           const current = state.articlesByKey[key];
           if (!current) return state;
           const revisions = state.revisionsByArticleId[articleId] ?? [];
@@ -613,7 +653,8 @@ export const useArticleStore = create<ArticleState>()(
               })),
             },
           };
-        }),
+        });
+      },
     }),
     {
       name: 'yunpu:articles',

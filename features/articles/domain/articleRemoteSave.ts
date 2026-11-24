@@ -11,9 +11,19 @@ export interface ArticleRemoteSavePayload {
   request: ArticleWriteRequest;
 }
 
+type RemoteSaveHandlers = {
+  onSuccess: (article: ArticleDocument) => void;
+  onConflict: (server: ArticleDocument) => void;
+  onError: (expectedVersion: number) => void;
+};
+
 export function createArticleRemoteSaveSequencer() {
   const attemptIdByKey = new Map<string, number>();
   const chainByKey = new Map<string, Promise<void>>();
+  const latestByKey = new Map<
+    string,
+    { attemptId: number; resolveRequest: () => ArticleWriteRequest; handlers: RemoteSaveHandlers }
+  >();
 
   return {
   enqueue(
@@ -22,43 +32,54 @@ export function createArticleRemoteSaveSequencer() {
     fetchImpl: typeof fetch,
     url: string,
     request: ArticleWriteRequest,
-    handlers: {
-      onSuccess: (article: ArticleDocument) => void;
-      onConflict: (server: ArticleDocument) => void;
-      onError: (expectedVersion: number) => void;
-    },
+    handlers: RemoteSaveHandlers,
+    resolveRequest?: () => ArticleWriteRequest,
   ) {
     attemptIdByKey.set(key, attemptId);
-    const expectedVersion = request.expectedVersion;
+    latestByKey.set(key, {
+      attemptId,
+      resolveRequest: resolveRequest ?? (() => request),
+      handlers,
+    });
     const previous = chainByKey.get(key) ?? Promise.resolve();
     const next = previous
       .then(async (): Promise<void> => {
         if (attemptIdByKey.get(key) !== attemptId) return;
+        const latest = latestByKey.get(key);
+        if (!latest || latest.attemptId !== attemptId) return;
+        const outbound = latest.resolveRequest();
+        const expectedVersion = outbound.expectedVersion;
         let result: SaveResult;
         try {
-          result = await saveArticleRemote(fetchImpl, url, request);
+          result = await saveArticleRemote(fetchImpl, url, outbound);
         } catch {
           if (attemptIdByKey.get(key) === attemptId) {
-            handlers.onError(expectedVersion);
+            latest.handlers.onError(expectedVersion);
           }
           return;
         }
         if (attemptIdByKey.get(key) !== attemptId) return;
         if (result.ok) {
-          handlers.onSuccess(result.article);
+          latest.handlers.onSuccess(result.article);
           return;
         }
         if (result.status === 409) {
-          handlers.onConflict(result.server);
+          latest.handlers.onConflict(result.server);
         }
       })
       .catch(() => undefined);
     chainByKey.set(key, next);
     return next;
   },
+  bumpAttemptKey(key: string): number {
+    const next = (attemptIdByKey.get(key) ?? 0) + 1;
+    attemptIdByKey.set(key, next);
+    return next;
+  },
   resetKey(key: string) {
     attemptIdByKey.delete(key);
     chainByKey.delete(key);
+    latestByKey.delete(key);
   },
   };
 }
@@ -71,13 +92,22 @@ export function enqueueArticleRemoteSave(
   fetchImpl: typeof fetch,
   url: string,
   request: ArticleWriteRequest,
-  handlers: {
-    onSuccess: (article: ArticleDocument) => void;
-    onConflict: (server: ArticleDocument) => void;
-    onError: (expectedVersion: number) => void;
-  },
+  handlers: RemoteSaveHandlers,
+  resolveRequest?: () => ArticleWriteRequest,
 ) {
-  return defaultSequencer.enqueue(key, attemptId, fetchImpl, url, request, handlers);
+  return defaultSequencer.enqueue(
+    key,
+    attemptId,
+    fetchImpl,
+    url,
+    request,
+    handlers,
+    resolveRequest,
+  );
+}
+
+export function bumpArticleRemoteSaveAttemptKey(key: string): number {
+  return defaultSequencer.bumpAttemptKey(key);
 }
 
 export function resetArticleRemoteSaveSequencerKey(key: string) {

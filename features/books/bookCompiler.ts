@@ -267,9 +267,10 @@ export function compileBookEdition(params: CompileBookParams): BookEdition {
   ) => {
     const key = makeArticleStorageKey(projectId, leaf.sourceArticleId);
     const doc = articlesByKey[key];
-    const html =
-      doc?.contentHtml ||
-      `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}》，当前暂无正文或原谱文已被移除。</p>`;
+    const html = doc?.contentJson
+      ? contentJsonToOutputHtml(doc.contentJson, { projectId, personsByChart })
+      : doc?.contentHtml ||
+        `<p>「${leaf.displayTitle}」引用自谱文《${leaf.sourceTitle}》，当前暂无正文或原谱文已被移除。</p>`;
     const wc = doc ? doc.wordCount : computeWordCount(html);
     totalWords += wc;
 

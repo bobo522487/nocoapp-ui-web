@@ -233,6 +233,13 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
   }, [editor, theme]);
 
   useEffect(() => {
+    if (!editor) return;
+    const tr = editor.state.tr.setMeta('personMentionRefresh', Date.now());
+    tr.setMeta('addToHistory', false);
+    editor.view.dispatch(tr);
+  }, [editor, personsByChart]);
+
+  useEffect(() => {
     const onBeforeUnload = () => {
       if (saveStateRef.current === 'saving') {
         saveQueueRef.current?.flush();

@@ -1,7 +1,13 @@
 import type { NodeViewProps, ReactNodeViewProps } from '@tiptap/react';
 import { NodeViewWrapper } from '@tiptap/react';
-import type { ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { resolvePersonMentionLabel } from '../domain/personMention';
+
+const mentionViewListeners = new Set<() => void>();
+
+export function notifyPersonMentionViews(): void {
+  mentionViewListeners.forEach((listener) => listener());
+}
 
 export interface PersonMentionViewProps extends NodeViewProps {
   people?: Array<{ id: string; name: string }>;
@@ -11,6 +17,15 @@ export function PersonMentionView({
   node,
   people = [],
 }: PersonMentionViewProps) {
+  const [, setRefreshTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setRefreshTick((t) => t + 1);
+    mentionViewListeners.add(bump);
+    return () => {
+      mentionViewListeners.delete(bump);
+    };
+  }, []);
+
   const { personId, chartId, fallbackName, generation } = node.attrs;
   const { text, missing } = resolvePersonMentionLabel(
     { personId, fallbackName },

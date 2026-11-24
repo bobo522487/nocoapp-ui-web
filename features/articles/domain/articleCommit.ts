@@ -13,7 +13,9 @@ export function commitArticleContent(
     contentHtml?: string;
   },
   updatedAt: string,
+  options?: { bumpVersion?: boolean },
 ): ArticleDocument {
+  const bumpVersion = options?.bumpVersion ?? true;
   const contentJson = updates.contentJson
     ? persistableContentJson(updates.contentJson)
     : existing?.contentJson;
@@ -34,7 +36,11 @@ export function commitArticleContent(
     linkedPersonIds: metrics?.linkedPersonIds ?? existing?.linkedPersonIds ?? [],
     linkedChartIds: metrics?.linkedChartIds ?? existing?.linkedChartIds ?? [],
     citations: updates.citations ?? existing?.citations ?? [],
-    version: (existing?.version ?? 0) + 1,
+    version: existing
+      ? bumpVersion
+        ? existing.version + 1
+        : existing.version
+      : 1,
     wordCount: metrics?.wordCount ?? computeWordCount(contentHtml),
     updatedAt,
   };

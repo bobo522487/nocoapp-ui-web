@@ -10,6 +10,7 @@ import {
   Columns3,
   Download,
   Eye,
+  Upload,
   Italic,
   List,
   ListOrdered,
@@ -33,8 +34,55 @@ interface WordToolbarProps {
   isPreview: boolean;
   onTogglePreview: () => void;
   onExportWord: () => void;
+  onImportWord: (file: File) => void;
   onPrint: () => void;
 }
+
+const DOCX_ACCEPT =
+  '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+const WordDocxActions: React.FC<{
+  onExportWord: () => void;
+  onImportWord: (file: File) => void;
+  exportLabel?: string;
+  className?: string;
+}> = ({ onExportWord, onImportWord, exportLabel = '导出 Word', className }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  return (
+  <div className={`flex items-center gap-2 ${className ?? ''}`}>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept={DOCX_ACCEPT}
+      className="hidden"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) onImportWord(file);
+        e.target.value = '';
+      }}
+    />
+    <button
+      type="button"
+      title="导入 Word 文档 (.docx)"
+      onClick={() => fileInputRef.current?.click()}
+      className="h-7 px-2.5 rounded-md border border-border bg-background hover:bg-muted text-[12px] font-medium text-foreground flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+    >
+      <Upload size={13} />
+      <span>导入 Word</span>
+    </button>
+    <button
+      type="button"
+      onClick={onExportWord}
+      title="导出 Word 文档 (.docx)"
+      className="h-7 px-2.5 rounded-md border border-border bg-background hover:bg-muted text-[12px] font-medium text-foreground flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+    >
+      <Download size={13} />
+      <span>{exportLabel}</span>
+    </button>
+  </div>
+);
+};
 
 const FONT_FAMILIES = [
   { label: '宋体（默认）', value: "'Noto Serif SC', 'Songti SC', 'SimSun', serif" },
@@ -111,6 +159,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
   isPreview,
   onTogglePreview,
   onExportWord,
+  onImportWord,
   onPrint,
 }) => {
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -153,14 +202,10 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
           <span>成文预览模式</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onExportWord}
-            className="h-7 px-2.5 rounded-md border border-border bg-background hover:bg-muted text-[12px] font-medium text-foreground flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Download size={13} />
-            <span>导出 Word</span>
-          </button>
+          <WordDocxActions
+            onExportWord={onExportWord}
+            onImportWord={onImportWord}
+          />
           <button
             type="button"
             onClick={onPrint}
@@ -588,15 +633,12 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
           <Eye size={13} />
           <span>预览</span>
         </button>
-        <button
-          type="button"
-          onClick={onExportWord}
-          title="导出 Word 文档 (.doc)"
-          className="h-7 px-2.5 rounded-md border border-border bg-background hover:bg-muted text-[12px] font-medium text-foreground flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
-        >
-          <Download size={13} />
-          <span>导出 Word</span>
-        </button>
+        <WordDocxActions
+          onExportWord={onExportWord}
+          onImportWord={onImportWord}
+          exportLabel="导出"
+          className="gap-1.5"
+        />
         <button
           type="button"
           onClick={onPrint}

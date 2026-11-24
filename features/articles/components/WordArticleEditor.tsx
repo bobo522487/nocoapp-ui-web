@@ -15,6 +15,13 @@ import {
   extractArticleMetrics,
   readingTimeLabel,
 } from '../domain/articleMetrics';
+import { Packer } from 'docx';
+import {
+  importDocxArrayBuffer,
+  sanitizeArticleFileName,
+  tiptapJsonToDocx,
+} from '../domain/docxCodec';
+import { createIndexedDbArticleAssetStore } from '../assets/articleAssetStore';
 
 interface WordArticleEditorProps {
   article: ArticleDocument;
@@ -152,46 +159,43 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
     return matches ? matches.length : 1;
   }, [article.contentJson, article.contentHtml]);
 
-  const handleExportWord = () => {
-    const safeTitle = (article.title || '谱文').replace(/[\\/:*?"<>|]/g, '_');
-    const htmlContent = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="utf-8" />
-<title>${article.title}</title>
-<style>
-  body { font-family: "SimSun", "Songti SC", serif; font-size: 12pt; line-height: 1.8; color: #111; }
-  h1.doc-title { text-align: center; font-size: 20pt; margin-bottom: 6pt; }
-  p.doc-meta { text-align: center; font-size: 10.5pt; color: #555; margin-bottom: 18pt; border-bottom: 1pt solid #ccc; padding-bottom: 8pt; }
-  h1 { font-size: 16pt; margin: 14pt 0 6pt; }
-  h2 { font-size: 14pt; margin: 12pt 0 5pt; }
-  h3 { font-size: 12.5pt; margin: 10pt 0 4pt; }
-  blockquote { margin: 10pt 0; padding: 6pt 12pt; background: #f8f8f8; border: 1pt solid #ddd; color: #444; }
-  table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
-  th, td { border: 1pt solid #999; padding: 5pt 8pt; text-align: left; }
-  th { background: #f3f4f6; }
-</style>
-</head>
-<body>
-  <h1 class="doc-title">${article.title || '未命名谱文'}</h1>
-  <p class="doc-meta">${[article.subtitle, article.author].filter(Boolean).join(' · ')}</p>
-  ${article.contentHtml}
-</body>
-</html>`;
-
-    const blob = new Blob(['\ufeff', htmlContent], {
-      type: 'application/msword;charset=utf-8',
-    });
+  const handleExportWord = async () => {
+    saveQueueRef.current?.flush();
+    const contentJson =
+      editor?.getJSON() ??
+      article.contentJson ??
+      htmlToContentJson(article.contentHtml || '<p></p>');
+    const doc = tiptapJsonToDocx(
+      {
+        title: article.title,
+        subtitle: article.subtitle,
+        author: article.author,
+        contentJson,
+      },
+      { hallName },
+    );
+    const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${safeTitle}.doc`;
+    link.download = sanitizeArticleFileName(article.title);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleImportWord = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const { contentJson, images } = await importDocxArrayBuffer(arrayBuffer);
+    const assetStore = createIndexedDbArticleAssetStore();
+    await Promise.all(images.map((img) => assetStore.put(img)));
+    saveQueueRef.current?.flush();
+    isSyncingContentRef.current = true;
+    onUpdateArticle({ contentJson });
+    editor?.commands.setContent(contentJson, false);
+    isSyncingContentRef.current = false;
+    setSaveState('saved');
   };
 
   const handlePrint = () => {
@@ -232,6 +236,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
         isPreview={isPreview}
         onTogglePreview={handleTogglePreview}
         onExportWord={handleExportWord}
+        onImportWord={handleImportWord}
         onPrint={handlePrint}
       />
 

@@ -127,7 +127,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                       </span>
                       {active && <Check size={14} className="text-primary" />}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-[12px] text-muted-foreground mt-1">
                       {style === 'thread'
                         ? '右侧四眼订线与白色题签，还原传统古籍风貌'
                         : '硬壳精装书脊封面，适合现代家谱馆藏翻阅'}
@@ -164,7 +164,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                       </span>
                       {active && <Check size={14} className="text-primary" />}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-[12px] text-muted-foreground mt-1">
                       {style === 'euler'
                         ? '横格五世分栏，世次清晰'
                         : style === 'su'
@@ -285,7 +285,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                         key={key}
                         type="button"
                         onClick={() => patch({ fishtailStyle: key })}
-                        className={`h-8 rounded-md border text-[11px] font-medium transition-colors cursor-pointer ${
+                        className={`h-8 rounded-md border text-[12px] font-medium transition-colors cursor-pointer ${
                           active
                             ? 'border-primary bg-primary/[0.08] text-primary'
                             : 'border-border bg-background text-foreground hover:bg-muted'
@@ -316,7 +316,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
                       key={opt.value}
                       type="button"
                       onClick={() => patch({ pageNumberStyle: opt.value })}
-                      className={`h-8 px-2 rounded-md border text-[11px] font-medium transition-colors cursor-pointer truncate ${
+                      className={`h-8 px-2 rounded-md border text-[12px] font-medium transition-colors cursor-pointer truncate ${
                         active
                           ? 'border-primary bg-primary/[0.08] text-primary'
                           : 'border-border bg-background text-foreground hover:bg-muted'
@@ -372,7 +372,7 @@ export const BookLayoutStep: React.FC<BookLayoutStepProps> = ({
             <BookOpen size={15} className="text-primary" />
             <span>实时版式对页预览</span>
           </div>
-          <span className="text-[11px] text-muted-foreground tabular-nums">
+          <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
             {BINDING_LABELS[cfg.bindingStyle]} ·{' '}
             {LINEAGE_STYLE_LABELS[cfg.lineageStyle]} ·{' '}
             {PAPER_SIZE_LABELS[cfg.paperSize].split(' ')[0]}

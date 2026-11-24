@@ -382,10 +382,10 @@ const DashboardPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+            <h1 className="yp-h1 text-foreground">
               家族
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 tabular-nums">
+            <p className="text-[14px] text-muted-foreground mt-1 tabular-nums">
               {state.detail?.name ?? '当前组织'} · 共 {state.projects.length} 个家族
             </p>
           </div>

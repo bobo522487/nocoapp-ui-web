@@ -59,7 +59,7 @@ export const GregorianDateFields: React.FC<GregorianDateFieldsProps> = ({
       <div>
         <label
           htmlFor={`${idPrefix}-year`}
-          className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+          className="block text-[12px] font-medium text-muted-foreground mb-1.5"
         >
           公历年份
         </label>
@@ -71,14 +71,14 @@ export const GregorianDateFields: React.FC<GregorianDateFieldsProps> = ({
           value={value.year === 0 ? '' : value.year}
           onChange={(e) => handleYearChange(e.target.value)}
           placeholder="例如：1912"
-          className="h-8 text-xs px-2.5 tabular-nums"
+          className="tabular-nums"
         />
       </div>
 
       <div>
         <label
           htmlFor={`${idPrefix}-month`}
-          className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+          className="block text-[12px] font-medium text-muted-foreground mb-1.5"
         >
           月份（可留空）
         </label>
@@ -103,7 +103,7 @@ export const GregorianDateFields: React.FC<GregorianDateFieldsProps> = ({
       <div>
         <label
           htmlFor={`${idPrefix}-day`}
-          className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+          className="block text-[12px] font-medium text-muted-foreground mb-1.5"
         >
           日期（可留空）
         </label>

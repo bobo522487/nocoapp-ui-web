@@ -332,14 +332,14 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
 
         {/* Search Result Grid */}
         <div className="h-[190px] shrink-0 flex flex-col bg-card overflow-hidden">
-          <div className="px-3 py-1.5 border-b border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between text-[11px] font-medium text-muted-foreground shrink-0">
+          <div className="px-3 py-1.5 border-b border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between text-[12px] font-medium text-muted-foreground shrink-0">
             <span>族丁检索结果</span>
-            <span className="tabular-nums">{filteredRows.length} 人</span>
+            <span className="font-mono tabular-nums">{filteredRows.length} 人</span>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto">
             {filteredRows.length > 0 ? (
-              <table className="w-full text-[11px] border-collapse">
+              <table className="w-full text-[12px] border-collapse">
                 <thead className="sticky top-0 bg-card border-b border-border text-muted-foreground">
                   <tr>
                     <th className="text-left font-medium py-1.5 px-2.5">世数</th>

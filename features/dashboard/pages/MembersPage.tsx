@@ -3,6 +3,13 @@ import { Crown, Trash2, UserPlus, X } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import { Select } from '../../../components/ui/select';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 import { errorMessage } from '../../../lib/api';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
@@ -85,79 +92,52 @@ function InviteFormDialog(props: {
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4"
-      onClick={onClose}
-      role="presentation"
+    <ModalShell
+      open
+      onClose={onClose}
+      size="sm"
+      zIndexClass="z-[90]"
+      ariaLabel="邀请成员"
     >
-      <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-popover)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="邀请成员"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-editorial text-[16px] font-semibold text-foreground">
-            邀请成员
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
+      <ModalHeader title="邀请成员" onClose={onClose} closeDisabled={saving} />
+      <ModalBody className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="invite-email">邮箱</Label>
+          <Input
+            id="invite-email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="teammate@example.com"
+            autoFocus
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="invite-role">角色</Label>
+          <Select
+            id="invite-role"
+            value={role}
+            onChange={(event) => setRole(event.target.value as MemberRecord['role'])}
           >
-            <X size={16} />
-          </button>
+            {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map((value) => (
+              <option key={value} value={value}>
+                {ROLE_LABELS[value]}
+              </option>
+            ))}
+          </Select>
         </div>
-        <div className="mt-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-email">邮箱</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="teammate@example.com"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-role">角色</Label>
-            <select
-              id="invite-role"
-              value={role}
-              onChange={(event) => setRole(event.target.value as MemberRecord['role'])}
-              className="flex h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)]"
-            >
-              {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map((value) => (
-                <option key={value} value={value}>
-                  {ROLE_LABELS[value]}
-                </option>
-              ))}
-            </select>
-          </div>
-          {error && <p className="text-[13px] text-destructive">{error}</p>}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            取消
-          </Button>
-          <Button size="sm" onClick={() => void submit()} disabled={saving || !email.trim()}>
-            {saving ? '创建中…' : '创建邀请'}
-          </Button>
-        </div>
-      </div>
-    </div>
+        {error && <p className="text-[13px] text-destructive">{error}</p>}
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
+          取消
+        </Button>
+        <Button size="sm" onClick={() => void submit()} disabled={saving || !email.trim()}>
+          {saving ? '创建中…' : '创建邀请'}
+        </Button>
+      </ModalFooter>
+    </ModalShell>
   );
 }
 
@@ -296,10 +276,10 @@ const MembersPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+            <h1 className="yp-h1 text-foreground">
               成员
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 tabular-nums">
+            <p className="text-[14px] text-muted-foreground mt-1 tabular-nums">
               {detail?.name ?? '当前组织'} · 共 {members.items.length} 名成员
             </p>
           </div>
@@ -330,7 +310,7 @@ const MembersPage: React.FC = () => {
 
         {/* 成员名单 */}
         <section className="space-y-3">
-          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+          <h2 className="yp-h3 text-foreground">
             成员名单
           </h2>
           {members.loading ? (
@@ -339,7 +319,7 @@ const MembersPage: React.FC = () => {
             <PageError message={members.error} onRetry={() => void loadMembers()} />
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden shadow-[var(--shadow-card)]">
-              <table className="w-full text-sm">
+              <table className="w-full text-[14px]">
                 <thead>
                   <tr className="border-b border-border bg-[hsl(var(--surface-subtle))] text-left text-[12px] text-muted-foreground">
                     <th className="px-4 py-2.5 font-medium">成员</th>
@@ -360,8 +340,8 @@ const MembersPage: React.FC = () => {
                             {member.name || member.email}
                           </span>
                           {member.isOwner && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary whitespace-nowrap shrink-0">
-                              <Crown size={11} />
+                            <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary whitespace-nowrap shrink-0">
+                              <Crown size={12} />
                               所有者
                             </span>
                           )}
@@ -372,7 +352,9 @@ const MembersPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {isAdmin && !member.isOwner ? (
-                          <select
+                          <Select
+                            selectSize="sm"
+                            containerClassName="w-28"
                             value={member.role}
                             onChange={(event) =>
                               handleChangeRole(
@@ -380,7 +362,6 @@ const MembersPage: React.FC = () => {
                                 event.target.value as MemberRecord['role'],
                               )
                             }
-                            className="h-8 rounded-md border border-input bg-card px-2 text-[13px] text-foreground cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)]"
                             aria-label={`${member.name} 的角色`}
                           >
                             {(Object.keys(ROLE_LABELS) as MemberRecord['role'][]).map(
@@ -390,7 +371,7 @@ const MembersPage: React.FC = () => {
                                 </option>
                               ),
                             )}
-                          </select>
+                          </Select>
                         ) : (
                           <span className="text-[13px] text-foreground">
                             {ROLE_LABELS[member.role]}
@@ -443,7 +424,7 @@ const MembersPage: React.FC = () => {
         {/* 邀请列表（仅管理员可见，与 C3 权限矩阵一致） */}
         {isAdmin && (
           <section className="space-y-3">
-            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            <h2 className="yp-h3 text-foreground">
               邀请
             </h2>
             {invites.loading ? (

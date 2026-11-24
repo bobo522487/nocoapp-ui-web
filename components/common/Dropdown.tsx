@@ -220,7 +220,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         {Object.entries(groupedItems).map(([group, groupItems]: [string, DropdownItem[]]) => (
           <div key={group}>
              {group !== 'General' && groupItems.length > 0 && (
-                <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground tracking-wide">
+                <div className="px-2 py-1.5 text-[12px] font-semibold text-muted-foreground tracking-wide">
                   {group}
                 </div>
               )}

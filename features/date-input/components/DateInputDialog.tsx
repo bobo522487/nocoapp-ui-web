@@ -1,15 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   AlertCircle,
+  Calendar,
   ChevronDown,
   ChevronRight,
   Clock,
   Info,
   Trash2,
-  X,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 import { Select } from '../../../components/ui/select';
 import { Textarea } from '../../../components/ui/textarea';
 import {
@@ -154,18 +159,6 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
     }
   }, [isOpen, value, defaultCalendar, calendars, enableOriginal, minYear, maxYear]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
-
   const validation = useMemo(() => validateGenealogyDate(draft), [draft]);
 
   const normalizedPreview = useMemo(() => {
@@ -196,8 +189,6 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
     }
     return parts.join(' · ');
   }, [draft]);
-
-  if (!isOpen) return null;
 
   const hasGregorian = calendars.includes('gregorian');
   const hasLunar = calendars.includes('chinese_lunisolar');
@@ -364,7 +355,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
       <div className="space-y-3">
         {showPointCalendarSelect && (
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
+            <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">
               历法
             </label>
             <Select
@@ -493,8 +484,8 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
     if (!enableTime) return null;
     return (
       <div className="space-y-2.5">
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-          <Clock size={12} aria-hidden="true" />
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+          <Clock size={13} aria-hidden="true" />
           <span>时辰 / 时间（选填）</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5">
@@ -511,7 +502,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 key={opt.id}
                 type="button"
                 onClick={() => setTimeMode(opt.id)}
-                className={`h-8 px-2 rounded-md border text-xs transition-colors cursor-pointer whitespace-nowrap ${
+                className={`h-8 px-2.5 rounded-md border text-[13px] transition-colors cursor-pointer whitespace-nowrap ${
                   active
                     ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
                     : 'bg-background border-input text-muted-foreground hover:text-foreground'
@@ -543,7 +534,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                         },
                       })
                     }
-                    className={`h-7 rounded-md border text-xs transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`h-8 rounded-md border text-[12px] transition-colors cursor-pointer whitespace-nowrap ${
                       active
                         ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
                         : 'bg-background border-input text-muted-foreground hover:text-foreground'
@@ -554,7 +545,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
                 );
               })}
             </div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-[12px] text-muted-foreground">
               {(() => {
                 const b = TRADITIONAL_BRANCHES.find(
                   (item) =>
@@ -574,7 +565,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
             <div>
               <label
                 htmlFor="date-clock-hour"
-                className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+                className="block text-[12px] font-medium text-muted-foreground mb-1.5"
               >
                 小时
               </label>
@@ -599,7 +590,7 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
             <div>
               <label
                 htmlFor="date-clock-minute"
-                className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+                className="block text-[12px] font-medium text-muted-foreground mb-1.5"
               >
                 分钟
               </label>
@@ -627,439 +618,408 @@ export const DateInputDialog: React.FC<DateInputDialogProps> = ({
     );
   };
 
-  const dialogContent = (
-    <div
-      className="fs-lineage-theme fixed inset-0 z-[110] bg-black/50 backdrop-blur-[2px] flex items-center justify-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="date-dialog-title"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.target === e.currentTarget) onClose();
-      }}
+  return (
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      zIndexClass="z-[110]"
+      ariaLabelledBy="date-dialog-title"
     >
-      <div className="bg-[#FEFEFE] dark:bg-[#1E2329] text-[#212225] dark:text-slate-100 border-0 sm:border sm:border-[#D8DADA] dark:sm:border-slate-700/80 rounded-none sm:rounded-[12px] shadow-[0_14px_38px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] w-full sm:max-w-[560px] h-full sm:h-auto sm:max-h-[88vh] flex flex-col overflow-hidden">
-        {/* Sticky Header */}
-        <div className="px-6 py-4 border-b border-[#E0E2E2] dark:border-slate-700/80 flex items-center justify-between bg-[#F5F6F6] dark:bg-[#252B33] shrink-0">
-          <h3
-            id="date-dialog-title"
-            className="font-bold text-[17px] text-[#212225] dark:text-slate-100"
-          >
-            {title}
-          </h3>
-          <button
-            type="button"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 hover:text-[#212225] dark:hover:text-slate-100 transition-colors cursor-pointer"
-            onClick={onClose}
-            aria-label="关闭日期编辑器"
-          >
-            <X size={17} />
-          </button>
+      <ModalHeader
+        titleId="date-dialog-title"
+        title={title}
+        icon={<Calendar size={18} className="text-primary" aria-hidden="true" />}
+        onClose={onClose}
+      />
+
+      <ModalBody className="space-y-4">
+        {/* 1. Main Calendar Tabs */}
+        <div
+          role="tablist"
+          aria-label="历法选择"
+          className="flex items-center gap-1 p-1 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border"
+        >
+          {hasGregorian && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeMainTab === 'gregorian'}
+              onClick={() => handleSelectMainTab('gregorian')}
+              className={`flex-1 py-1.5 px-2.5 text-[13px] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeMainTab === 'gregorian'
+                  ? 'bg-card text-primary font-semibold shadow-xs border border-border'
+                  : 'text-muted-foreground hover:text-foreground font-medium'
+              }`}
+            >
+              公历
+            </button>
+          )}
+          {hasLunar && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeMainTab === 'chinese_lunisolar'}
+              onClick={() => handleSelectMainTab('chinese_lunisolar')}
+              className={`flex-1 py-1.5 px-2.5 text-[13px] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeMainTab === 'chinese_lunisolar'
+                  ? 'bg-card text-primary font-semibold shadow-xs border border-border'
+                  : 'text-muted-foreground hover:text-foreground font-medium'
+              }`}
+            >
+              农历
+            </button>
+          )}
+          {hasHistorical && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeMainTab === 'historical'}
+              onClick={() => handleSelectMainTab('historical')}
+              className={`flex-1 py-1.5 px-2.5 text-[13px] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeMainTab === 'historical'
+                  ? 'bg-card text-primary font-semibold shadow-xs border border-border'
+                  : 'text-muted-foreground hover:text-foreground font-medium'
+              }`}
+            >
+              历史纪年
+            </button>
+          )}
+          {enableOriginal && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeMainTab === 'phrase'}
+              onClick={() => handleSelectMainTab('phrase')}
+              className={`flex-1 py-1.5 px-2.5 text-[13px] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeMainTab === 'phrase'
+                  ? 'bg-card text-primary font-semibold shadow-xs border border-border'
+                  : 'text-muted-foreground hover:text-foreground font-medium'
+              }`}
+            >
+              仅原文
+            </button>
+          )}
         </div>
 
-        <div className="h-[3px] w-full bg-[#057091] shrink-0" aria-hidden="true" />
+        {/* 2. Historical sub-mode switch */}
+        {activeMainTab === 'historical' &&
+          draft.kind === 'date' &&
+          hasRegnal &&
+          hasSexagenary && (
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { id: 'regnal', label: '年号纪年（如洪武/光绪）' },
+                  { id: 'sexagenary', label: '干支纪年（六十甲子）' },
+                ] as const
+              ).map((sub) => {
+                const active = draft.calendar === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleSelectHistoricalSub(sub.id)}
+                    className={`h-8 px-2.5 rounded-md border text-[13px] transition-colors cursor-pointer whitespace-nowrap truncate ${
+                      active
+                        ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
+                        : 'bg-background border-input text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
-          {/* 1. Main Calendar Tabs */}
-          <div
-            role="tablist"
-            aria-label="历法选择"
-            className="flex items-center gap-1 p-1 rounded-[8px] bg-[#F5F6F6] dark:bg-[#252B33] border border-[#E0E2E2] dark:border-slate-700/80"
-          >
-            {hasGregorian && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeMainTab === 'gregorian'}
-                onClick={() => handleSelectMainTab('gregorian')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeMainTab === 'gregorian'
-                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
-                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
-                }`}
-              >
-                公历
-              </button>
-            )}
-            {hasLunar && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeMainTab === 'chinese_lunisolar'}
-                onClick={() => handleSelectMainTab('chinese_lunisolar')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeMainTab === 'chinese_lunisolar'
-                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
-                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
-                }`}
-              >
-                农历
-              </button>
-            )}
-            {hasHistorical && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeMainTab === 'historical'}
-                onClick={() => handleSelectMainTab('historical')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeMainTab === 'historical'
-                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
-                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
-                }`}
-              >
-                历史纪年
-              </button>
-            )}
-            {enableOriginal && (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeMainTab === 'phrase'}
-                onClick={() => handleSelectMainTab('phrase')}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-medium rounded-[6px] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeMainTab === 'phrase'
-                    ? 'bg-[#FEFEFE] dark:bg-[#1E242B] text-[#057091] dark:text-[#58B1CD] font-semibold shadow-xs border border-[#D8DADA]/80 dark:border-slate-700'
-                    : 'text-[#56585A] dark:text-slate-400 hover:text-[#212225] dark:hover:text-slate-200'
-                }`}
-              >
-                仅原文
-              </button>
+        {/* 3. Core Date Fields (Single Date vs Range vs Phrase) */}
+        {draft.kind === 'date' && (
+          <div>
+            {renderPointEditor(
+              toCalendarDatePoint(draft),
+              (nextPt) => {
+                anchorPointRef.current = nextPt;
+                setDraft({
+                  ...draft,
+                  calendar: nextPt.calendar,
+                  precision: nextPt.precision,
+                  parts: nextPt.parts,
+                });
+              },
+              'single-date',
+              false
             )}
           </div>
+        )}
 
-          {/* 2. Historical sub-mode switch (compact 2-option row when in Historical tab) */}
-          {activeMainTab === 'historical' &&
-            draft.kind === 'date' &&
-            hasRegnal &&
-            hasSexagenary && (
-              <div className="grid grid-cols-2 gap-1.5">
-                {(
-                  [
-                    { id: 'regnal', label: '年号纪年（如洪武/光绪）' },
-                    { id: 'sexagenary', label: '干支纪年（六十甲子）' },
-                  ] as const
-                ).map((sub) => {
-                  const active = draft.calendar === sub.id;
-                  return (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={() => handleSelectHistoricalSub(sub.id)}
-                      className={`h-8 px-2.5 rounded-md border text-xs transition-colors cursor-pointer whitespace-nowrap truncate ${
-                        active
-                          ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
-                          : 'bg-background border-input text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {sub.label}
-                    </button>
-                  );
-                })}
+        {draft.kind === 'range' && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-[13px] font-semibold text-foreground">
+                开始日期
+              </div>
+              {renderPointEditor(
+                draft.start,
+                (nextStart) => {
+                  anchorPointRef.current = nextStart;
+                  setDraft({ ...draft, start: nextStart });
+                },
+                'range-start',
+                true
+              )}
+            </div>
+            <div className="space-y-2 pt-3 border-t border-border/60">
+              <div className="text-[13px] font-semibold text-foreground">
+                结束日期
+              </div>
+              {renderPointEditor(
+                draft.end,
+                (nextEnd) => setDraft({ ...draft, end: nextEnd }),
+                'range-end',
+                true
+              )}
+            </div>
+          </div>
+        )}
+
+        {draft.kind === 'phrase' && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="date-original-text"
+                  className="text-[13px] font-medium text-foreground"
+                >
+                  原始日期记载（必填）
+                </label>
+                <span className="text-[12px] text-muted-foreground tabular-nums">
+                  {(draft.originalText || '').length}/{MAX_ORIGINAL_TEXT_LENGTH}
+                </span>
+              </div>
+              <Textarea
+                id="date-original-text"
+                rows={2}
+                maxLength={MAX_ORIGINAL_TEXT_LENGTH}
+                value={draft.originalText || ''}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    originalText: e.target.value,
+                  })
+                }
+                placeholder="例如：清末某年春季 / 民国初年二月 / 明洪武十八年乙丑三月初六日亥时"
+                className="min-h-[68px] p-3 resize-none leading-relaxed"
+              />
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
+                适用于难以拆分为具体年月的古籍表述，原样保存且不会被覆盖。
+              </p>
+            </div>
+            {renderTimeSelector()}
+          </div>
+        )}
+
+        {/* 4. Single Collapsible "更多选项" Section */}
+        {draft.kind !== 'phrase' && (
+          <div className="pt-2 border-t border-border/60">
+            <button
+              type="button"
+              aria-expanded={showMoreOptions}
+              onClick={() => setShowMoreOptions((prev) => !prev)}
+              className="w-full flex items-center justify-between gap-2 py-1 text-left text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5 font-medium">
+                {showMoreOptions ? (
+                  <ChevronDown size={15} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={15} aria-hidden="true" />
+                )}
+                <span>
+                  更多选项（不确定性
+                  {enableTime ? ' · 时辰' : ''}
+                  {' · 范围'}
+                  {enableOriginal ? ' · 原文' : ''}）
+                </span>
+              </span>
+              {!showMoreOptions && advancedSummary && (
+                <span className="text-[12px] text-primary font-medium truncate max-w-[200px]">
+                  已设：{advancedSummary}
+                </span>
+              )}
+            </button>
+
+            {showMoreOptions && (
+              <div className="mt-3 space-y-4 pt-3 border-t border-border/50">
+                <div>
+                  <span className="block text-[12px] font-medium text-muted-foreground mb-1.5">
+                    日期性质与范围
+                  </span>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {QUALIFIER_OPTIONS.map((opt) => {
+                      const currentVal =
+                        draft.kind === 'range' ? 'range' : draft.qualifier;
+                      const active = currentVal === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => handleQualifierChange(opt.value)}
+                          className={`h-8 px-1.5 rounded-md border text-[13px] transition-colors cursor-pointer whitespace-nowrap ${
+                            active
+                              ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
+                              : 'bg-background border-input text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {renderTimeSelector()}
+
+                {enableOriginal && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="date-original-text"
+                        className="text-[12px] font-medium text-muted-foreground"
+                      >
+                        原始日期记载（选填，独立保存不被覆盖）
+                      </label>
+                      <span className="text-[12px] text-muted-foreground tabular-nums">
+                        {(draft.originalText || '').length}/{MAX_ORIGINAL_TEXT_LENGTH}
+                      </span>
+                    </div>
+                    <Textarea
+                      id="date-original-text"
+                      rows={2}
+                      maxLength={MAX_ORIGINAL_TEXT_LENGTH}
+                      value={draft.originalText || ''}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          originalText: e.target.value,
+                        })
+                      }
+                      placeholder="例如：明洪武十八年乙丑三月初六日亥时"
+                      className="min-h-[60px] p-2.5 resize-none leading-relaxed"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 5. Compact Live Preview & Conversion Status */}
+        <div className="rounded-lg border border-border bg-[hsl(var(--surface-subtle))] p-3.5 space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[12px] font-medium text-muted-foreground">
+              日期预览
+            </span>
+            <span className="text-[12px] text-muted-foreground">
+              {draft.kind === 'phrase'
+                ? '原始记载'
+                : draft.kind === 'range'
+                  ? '日期范围'
+                  : `${CALENDAR_LABELS[draft.calendar]} · ${PRECISION_LABELS[draft.precision]}`}
+            </span>
+          </div>
+
+          <div className="text-[14px] font-semibold text-foreground tabular-nums">
+            {formattedPreview || '尚未填写有效日期'}
+          </div>
+
+          {draft.kind === 'date' &&
+            normalizedPreview &&
+            'status' in normalizedPreview && (
+              <div className="text-[12px] text-muted-foreground space-y-0.5 leading-relaxed">
+                {normalizedPreview.status === 'exact' && normalizedPreview.start ? (
+                  <div className="tabular-nums">
+                    辅助公历：{normalizedPreview.start}（{getCalendarBasisLabel(normalizedPreview.calendarBasis)}）
+                  </div>
+                ) : normalizedPreview.status === 'period' &&
+                  normalizedPreview.start &&
+                  normalizedPreview.end ? (
+                  <div className="tabular-nums">
+                    辅助公历区间：{normalizedPreview.start} 至 {normalizedPreview.end}（{getCalendarBasisLabel(normalizedPreview.calendarBasis)}）
+                  </div>
+                ) : (
+                  <div>
+                    对应公历：暂无法唯一换算（仅作历史结构化保留）
+                  </div>
+                )}
+                {normalizedPreview.note && (
+                  <div className="flex items-start gap-1">
+                    <Info size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{normalizedPreview.note}</span>
+                  </div>
+                )}
               </div>
             )}
 
-          {/* 3. Core Date Fields (Single Date vs Range vs Phrase) */}
-          {draft.kind === 'date' && (
-            <div>
-              {renderPointEditor(
-                toCalendarDatePoint(draft),
-                (nextPt) => {
-                  anchorPointRef.current = nextPt;
-                  setDraft({
-                    ...draft,
-                    calendar: nextPt.calendar,
-                    precision: nextPt.precision,
-                    parts: nextPt.parts,
-                  });
-                },
-                'single-date',
-                false
-              )}
-            </div>
-          )}
-
-          {draft.kind === 'range' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="text-[11px] font-semibold text-foreground">
-                  开始日期
-                </div>
-                {renderPointEditor(
-                  draft.start,
-                  (nextStart) => {
-                    anchorPointRef.current = nextStart;
-                    setDraft({ ...draft, start: nextStart });
-                  },
-                  'range-start',
-                  true
-                )}
-              </div>
-              <div className="space-y-2 pt-3 border-t border-border/60">
-                <div className="text-[11px] font-semibold text-foreground">
-                  结束日期
-                </div>
-                {renderPointEditor(
-                  draft.end,
-                  (nextEnd) => setDraft({ ...draft, end: nextEnd }),
-                  'range-end',
-                  true
-                )}
-              </div>
-            </div>
-          )}
-
-          {draft.kind === 'phrase' && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="date-original-text"
-                    className="text-[11px] font-medium text-muted-foreground"
-                  >
-                    原始日期记载（必填）
-                  </label>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {(draft.originalText || '').length}/{MAX_ORIGINAL_TEXT_LENGTH}
-                  </span>
-                </div>
-                <Textarea
-                  id="date-original-text"
-                  rows={2}
-                  maxLength={MAX_ORIGINAL_TEXT_LENGTH}
-                  value={draft.originalText || ''}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      originalText: e.target.value,
-                    })
-                  }
-                  placeholder="例如：清末某年春季 / 民国初年二月 / 明洪武十八年乙丑三月初六日亥时"
-                  className="min-h-[64px] text-xs p-2.5 resize-none leading-relaxed"
-                />
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  适用于难以拆分为具体年月的古籍表述，原样保存且不会被覆盖。
-                </p>
-              </div>
-              {renderTimeSelector()}
-            </div>
-          )}
-
-          {/* 4. Single Collapsible "更多选项" Section (for structured date/range modes) */}
-          {draft.kind !== 'phrase' && (
-            <div className="pt-2 border-t border-border/60">
-              <button
-                type="button"
-                aria-expanded={showMoreOptions}
-                onClick={() => setShowMoreOptions((prev) => !prev)}
-                className="w-full flex items-center justify-between gap-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5 font-medium">
-                  {showMoreOptions ? (
-                    <ChevronDown size={14} aria-hidden="true" />
-                  ) : (
-                    <ChevronRight size={14} aria-hidden="true" />
-                  )}
-                  <span>
-                    更多选项（不确定性
-                    {enableTime ? ' · 时辰' : ''}
-                    {' · 范围'}
-                    {enableOriginal ? ' · 原文' : ''}）
-                  </span>
-                </span>
-                {!showMoreOptions && advancedSummary && (
-                  <span className="text-[11px] text-primary font-medium truncate max-w-[200px]">
-                    已设：{advancedSummary}
-                  </span>
-                )}
-              </button>
-
-              {showMoreOptions && (
-                <div className="mt-3 space-y-4 pt-3 border-t border-border/50">
-                  {/* Qualifier & Range */}
-                  <div>
-                    <span className="block text-[11px] font-medium text-muted-foreground mb-1.5">
-                      日期性质与范围
-                    </span>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {QUALIFIER_OPTIONS.map((opt) => {
-                        const currentVal =
-                          draft.kind === 'range' ? 'range' : draft.qualifier;
-                        const active = currentVal === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => handleQualifierChange(opt.value)}
-                            className={`h-8 px-1.5 rounded-md border text-xs transition-colors cursor-pointer whitespace-nowrap ${
-                              active
-                                ? 'bg-[hsl(var(--surface-active))] border-primary/60 text-foreground font-semibold'
-                                : 'bg-background border-input text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Time / Traditional Hour */}
-                  {renderTimeSelector()}
-
-                  {/* Optional Original Text */}
-                  {enableOriginal && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label
-                          htmlFor="date-original-text"
-                          className="text-[11px] font-medium text-muted-foreground"
-                        >
-                          原始日期记载（选填，独立保存不被覆盖）
-                        </label>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
-                          {(draft.originalText || '').length}/{MAX_ORIGINAL_TEXT_LENGTH}
-                        </span>
-                      </div>
-                      <Textarea
-                        id="date-original-text"
-                        rows={2}
-                        maxLength={MAX_ORIGINAL_TEXT_LENGTH}
-                        value={draft.originalText || ''}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            originalText: e.target.value,
-                          })
-                        }
-                        placeholder="例如：明洪武十八年乙丑三月初六日亥时"
-                        className="min-h-[56px] text-xs p-2.5 resize-none leading-relaxed"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 5. Compact Live Preview & Conversion Status */}
-          <div className="rounded-lg border border-border bg-[hsl(var(--surface-subtle))] p-3 space-y-1.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                日期预览
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {draft.kind === 'phrase'
-                  ? '原始记载'
-                  : draft.kind === 'range'
-                    ? '日期范围'
-                    : `${CALENDAR_LABELS[draft.calendar]} · ${PRECISION_LABELS[draft.precision]}`}
-              </span>
-            </div>
-
-            <div className="text-sm font-semibold text-foreground tabular-nums">
-              {formattedPreview || '尚未填写有效日期'}
-            </div>
-
-            {draft.kind === 'date' &&
-              normalizedPreview &&
-              'status' in normalizedPreview && (
-                <div className="text-[11px] text-muted-foreground space-y-0.5 leading-relaxed">
-                  {normalizedPreview.status === 'exact' && normalizedPreview.start ? (
-                    <div className="tabular-nums">
-                      辅助公历：{normalizedPreview.start}（{getCalendarBasisLabel(normalizedPreview.calendarBasis)}）
-                    </div>
-                  ) : normalizedPreview.status === 'period' &&
-                    normalizedPreview.start &&
-                    normalizedPreview.end ? (
-                    <div className="tabular-nums">
-                      辅助公历区间：{normalizedPreview.start} 至 {normalizedPreview.end}（{getCalendarBasisLabel(normalizedPreview.calendarBasis)}）
-                    </div>
-                  ) : (
-                    <div>
-                      对应公历：暂无法唯一换算（仅作历史结构化保留）
-                    </div>
-                  )}
-                  {normalizedPreview.note && (
-                    <div className="flex items-start gap-1">
-                      <Info size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
-                      <span>{normalizedPreview.note}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {(submitAttempted || validation.errors.length > 0) &&
-              validation.errors.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-border/60">
-                  {validation.errors.map((err, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-1.5 text-[11px] text-destructive font-medium"
-                    >
-                      <AlertCircle size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
-                      <span>{err}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-            {validation.warnings.length > 0 && (
+          {(submitAttempted || validation.errors.length > 0) &&
+            validation.errors.length > 0 && (
               <div className="space-y-1 pt-1 border-t border-border/60">
-                {validation.warnings.map((warn, i) => (
+                {validation.errors.map((err, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400"
+                    className="flex items-start gap-1.5 text-[12px] text-destructive font-medium"
                   >
-                    <Info size={12} className="shrink-0 mt-0.5" aria-hidden="true" />
-                    <span>{warn}</span>
+                    <AlertCircle size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{err}</span>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+
+          {validation.warnings.length > 0 && (
+            <div className="space-y-1 pt-1 border-t border-border/60">
+              {validation.warnings.map((warn, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-1.5 text-[12px] text-amber-700 dark:text-amber-400"
+                >
+                  <Info size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>{warn}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ModalBody>
+
+      <ModalFooter className="justify-between bg-card">
+        <div>
+          {(value || draft.originalText) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClearClick}
+              className="text-muted-foreground hover:text-destructive gap-1.5"
+            >
+              <Trash2 size={13} />
+              <span>清空日期</span>
+            </Button>
+          )}
         </div>
 
-        {/* Sticky Footer */}
-        <div className="px-6 py-3.5 border-t border-[#E0E2E2] dark:border-slate-700/80 bg-[#FEFEFE] dark:bg-[#1E2329] flex items-center justify-between gap-2 shrink-0">
-          <div>
-            {(value || draft.originalText) && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleClearClick}
-                className="h-9 px-2.5 text-xs text-[#56585A] dark:text-slate-400 hover:text-destructive gap-1"
-              >
-                <Trash2 size={12} />
-                <span>清空日期</span>
-              </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-9 px-4 rounded-[6px] text-[13px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              disabled={!validation.valid}
-              onClick={handleConfirmClick}
-              className="h-9 px-5 rounded-[6px] text-[13px] font-semibold bg-[#057091] hover:bg-[#045B76] text-white disabled:opacity-45 disabled:pointer-events-none shadow-xs transition-colors cursor-pointer"
-            >
-              确定
-            </button>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            取消
+          </Button>
+          <Button
+            type="button"
+            disabled={!validation.valid}
+            onClick={handleConfirmClick}
+          >
+            确定
+          </Button>
         </div>
-      </div>
-    </div>
+      </ModalFooter>
+    </ModalShell>
   );
-
-  if (typeof document === 'undefined') return dialogContent;
-  return createPortal(dialogContent, document.body);
 };

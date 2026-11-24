@@ -6,11 +6,20 @@ export interface SelectProps
   extends React.SelectHTMLAttributes<HTMLSelectElement> {
   isPlaceholder?: boolean;
   containerClassName?: string;
+  selectSize?: 'sm' | 'md';
 }
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
-    { className, containerClassName, isPlaceholder, children, value, ...props },
+    {
+      className,
+      containerClassName,
+      isPlaceholder,
+      selectSize = 'md',
+      children,
+      value,
+      ...props
+    },
     ref
   ) => {
     const showPlaceholderTone =
@@ -24,7 +33,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           value={value}
           className={cn(
-            'flex h-8 w-full appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 py-1 text-xs shadow-[var(--shadow-control)] ring-offset-background transition-all duration-150 outline-none hover:border-[hsl(var(--border-strong))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer',
+            'flex w-full appearance-none rounded-md border border-input bg-card shadow-[var(--shadow-control)] ring-offset-background transition-all duration-150 outline-none hover:border-[hsl(var(--border-strong))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer',
+            selectSize === 'sm'
+              ? 'h-8 pl-2.5 pr-7 py-1 text-[13px]'
+              : 'h-9 pl-3 pr-8 py-1.5 text-[14px]',
             showPlaceholderTone
               ? 'text-placeholder font-normal'
               : 'text-foreground font-normal',
@@ -35,9 +47,9 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           {children}
         </select>
         <ChevronDown
-          size={13}
+          size={14}
           aria-hidden="true"
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/75"
+          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/75"
         />
       </div>
     );

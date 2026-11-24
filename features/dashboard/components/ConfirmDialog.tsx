@@ -1,11 +1,15 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { Button } from '../../../components/ui/button';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 
 type Props = {
   open: boolean;
   title: string;
-  /** 后果说明：破坏性操作必须让用户知道会发生什么（spec FR-011）。 */
   description: string;
   confirmLabel?: string;
   danger?: boolean;
@@ -22,51 +26,33 @@ const ConfirmDialog: React.FC<Props> = ({
   danger = true,
   onConfirm,
   onCancel,
-}) => {
-  React.useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onCancel]);
-
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4"
-      onClick={onCancel}
-      role="presentation"
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-popover)]"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
+}) => (
+  <ModalShell
+    open={open}
+    onClose={onCancel}
+    size="sm"
+    zIndexClass="z-[95]"
+    ariaLabel={title}
+  >
+    <ModalHeader title={title} onClose={onCancel} />
+    <ModalBody>
+      <p className="text-[14px] leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </ModalBody>
+    <ModalFooter>
+      <Button variant="outline" size="sm" onClick={onCancel}>
+        取消
+      </Button>
+      <Button
+        variant={danger ? 'destructive' : 'default'}
+        size="sm"
+        onClick={onConfirm}
       >
-        <h2 className="font-editorial text-[17px] font-semibold text-foreground">{title}</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
-            取消
-          </Button>
-          <Button
-            variant={danger ? 'destructive' : 'default'}
-            size="sm"
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-};
+        {confirmLabel}
+      </Button>
+    </ModalFooter>
+  </ModalShell>
+);
 
 export default ConfirmDialog;

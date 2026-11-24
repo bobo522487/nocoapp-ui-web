@@ -303,7 +303,7 @@ export const FamilyProfileFields: React.FC<FamilyProfileFieldsProps> = ({
             value={values.regionPlace}
             onChange={(regionPlace) => onChange({ regionPlace })}
             placeholder="输入省市区县或原始地名"
-            className="h-9 text-[13px] bg-background"
+            className="bg-card"
           />
         </div>
       </div>

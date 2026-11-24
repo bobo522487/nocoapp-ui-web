@@ -54,19 +54,19 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
       {/* Scrollable Preview Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground tracking-wide">
+          <span className="text-[13px] font-semibold text-foreground tracking-wide">
             行传预览
           </span>
           <button
             type="button"
             onClick={() => setShowPrefs((v) => !v)}
-            className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-md border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               showPrefs
-                ? 'border-primary text-primary bg-primary/5'
+                ? 'border-primary text-primary bg-[hsl(var(--surface-active))]'
                 : 'border-border bg-card text-muted-foreground hover:text-foreground'
             }`}
           >
-            <SlidersHorizontal size={11} />
+            <SlidersHorizontal size={12} />
             <span>偏好设置</span>
           </button>
         </div>
@@ -74,14 +74,14 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
         {/* Interactive Preference Toggles */}
         {showPrefs && (
           <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-            <div className="text-[11px] font-medium text-muted-foreground">
+            <div className="text-[12px] font-medium text-muted-foreground">
               行传成文显示项
             </div>
             <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
               {PREF_TOGGLES.map((item) => (
                 <label
                   key={item.key}
-                  className="flex items-center gap-1.5 text-[11px] text-foreground cursor-pointer select-none"
+                  className="flex items-center gap-1.5 text-[12px] text-foreground cursor-pointer select-none"
                 >
                   <input
                     type="checkbox"
@@ -102,17 +102,17 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
         <div className="rounded-lg border border-border bg-card p-4 space-y-3 font-serif">
           <div className="flex items-baseline justify-between gap-2 border-b border-border/60 pb-2.5">
             <div className="min-w-0">
-              <span className="text-lg font-bold tracking-wider text-foreground">
+              <span className="text-[18px] font-bold tracking-wider text-foreground">
                 {summary.displayName}
               </span>
               {summary.legalNameText && (
-                <span className="text-xs text-muted-foreground ml-1 font-sans">
+                <span className="text-[12px] text-muted-foreground ml-1 font-sans">
                   {summary.legalNameText}
                 </span>
               )}
             </div>
             <span
-              className={`text-[11px] font-sans font-medium shrink-0 ${
+              className={`text-[12px] font-sans font-medium shrink-0 ${
                 draft.status === 'living'
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-muted-foreground'
@@ -124,24 +124,24 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
 
           {/* Kinship & Lineage Context */}
           {summary.kinshipLine && (
-            <p className="text-xs text-foreground/90 leading-relaxed font-semibold">
+            <p className="text-[13px] text-foreground/90 leading-relaxed font-semibold">
               {summary.kinshipLine}
             </p>
           )}
 
           {/* Spouses */}
           {summary.spouseLine && (
-            <p className="text-xs text-foreground/85 leading-relaxed">
+            <p className="text-[13px] text-foreground/85 leading-relaxed">
               {summary.spouseLine}。
             </p>
           )}
 
           {/* Structured Life Sections */}
           {(summary.birthLine || summary.lifeLine || summary.deathLine) && (
-            <div className="space-y-2 pt-1 text-xs leading-relaxed text-foreground/85">
+            <div className="space-y-2 pt-1 text-[13px] leading-relaxed text-foreground/85">
               {summary.birthLine && (
                 <div className="flex gap-2">
-                  <span className="text-muted-foreground font-sans shrink-0 w-8">
+                  <span className="text-muted-foreground font-sans shrink-0 w-8 text-[12px] pt-0.5">
                     出生
                   </span>
                   <span>{summary.birthLine}</span>
@@ -149,7 +149,7 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
               )}
               {summary.lifeLine && (
                 <div className="flex gap-2">
-                  <span className="text-muted-foreground font-sans shrink-0 w-8">
+                  <span className="text-muted-foreground font-sans shrink-0 w-8 text-[12px] pt-0.5">
                     生平
                   </span>
                   <span>{summary.lifeLine}</span>
@@ -157,7 +157,7 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
               )}
               {summary.deathLine && (
                 <div className="flex gap-2">
-                  <span className="text-muted-foreground font-sans shrink-0 w-8">
+                  <span className="text-muted-foreground font-sans shrink-0 w-8 text-[12px] pt-0.5">
                     卒葬
                   </span>
                   <span>{summary.deathLine}</span>
@@ -168,27 +168,27 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
 
           {/* Biography Prose */}
           {summary.biographyLine && (
-            <div className="pt-2 border-t border-border/50 text-xs leading-relaxed text-foreground text-justify">
+            <div className="pt-2 border-t border-border/50 text-[13px] leading-relaxed text-foreground text-justify">
               {summary.biographyLine}
             </div>
           )}
 
           {/* Derived Children */}
           {summary.childrenLine && (
-            <div className="pt-2 border-t border-border/50 text-xs leading-relaxed text-foreground/90">
+            <div className="pt-2 border-t border-border/50 text-[13px] leading-relaxed text-foreground/90">
               {summary.childrenLine}。
             </div>
           )}
 
           {/* Tail Remarks */}
           {summary.remarksLine && (
-            <div className="pt-2 border-t border-border/50 text-[11px] leading-relaxed text-muted-foreground">
+            <div className="pt-2 border-t border-border/50 text-[12px] leading-relaxed text-muted-foreground">
               注：{summary.remarksLine}
             </div>
           )}
 
           {!hasAnyLine && !summary.kinshipLine && !summary.spouseLine && (
-            <p className="text-xs text-muted-foreground font-sans py-4 text-center">
+            <p className="text-[13px] text-muted-foreground font-sans py-4 text-center">
               在左侧录入姓名、生卒或事略后，此处将实时生成传统行传文本。
             </p>
           )}
@@ -197,10 +197,10 @@ export const BiographyLivePreview: React.FC<BiographyLivePreviewProps> = ({
         {/* Private Contact Summary Card (only when visible & populated) */}
         {summary.privateRows.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
-            <div className="text-[11px] font-semibold text-muted-foreground">
+            <div className="text-[12px] font-semibold text-muted-foreground">
               实名与联系方式
             </div>
-            <div className="space-y-1.5 text-xs">
+            <div className="space-y-1.5 text-[12px]">
               {summary.privateRows.map((row) => (
                 <div
                   key={row.label}

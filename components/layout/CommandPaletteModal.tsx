@@ -253,13 +253,13 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={handleInputKeyDown}
             placeholder="搜索家族、世系、谱文或谱书..."
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none"
             autoFocus
           />
           <button
             type="button"
             onClick={onClose}
-            className="text-[11px] text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--surface-subtle))] hover:text-foreground font-mono cursor-pointer"
+            className="text-[12px] text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--surface-subtle))] hover:text-foreground font-mono cursor-pointer"
           >
             ESC
           </button>
@@ -268,7 +268,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         <div className="max-h-80 overflow-y-auto p-2 space-y-3">
           {matchedProjects.length > 0 && (
             <div>
-              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
+              <div className="px-2.5 py-1 text-[12px] font-semibold tracking-wider text-muted-foreground">
                 家族
               </div>
               <div className="space-y-0.5">
@@ -311,7 +311,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
           {workbenchModules.length > 0 && (
             <div>
-              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
+              <div className="px-2.5 py-1 text-[12px] font-semibold tracking-wider text-muted-foreground">
                 家族工作台模块
               </div>
               <div className="space-y-0.5">
@@ -352,7 +352,7 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
           {flattenedArticles.length > 0 && (
             <div>
-              <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
+              <div className="px-2.5 py-1 text-[12px] font-semibold tracking-wider text-muted-foreground">
                 谱文篇章
               </div>
               <div className="space-y-0.5">
@@ -398,20 +398,20 @@ const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           )}
 
           {actionItems.length === 0 && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
+            <div className="py-8 text-center text-[13px] text-muted-foreground">
               未找到与 “{query}” 匹配的内容
             </div>
           )}
         </div>
 
-        <div className="px-4 py-2 border-t border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="px-4 py-2 border-t border-border bg-[hsl(var(--surface-subtle))] flex items-center justify-between text-[12px] text-muted-foreground">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1">
-              <kbd className="px-1 py-0.2 rounded border border-border bg-card font-mono">↑↓</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[12px] leading-none">↑↓</kbd>
               选择
             </span>
             <span className="inline-flex items-center gap-1">
-              <kbd className="px-1 py-0.2 rounded border border-border bg-card font-mono">Enter</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[12px] leading-none">Enter</kbd>
               进入
             </span>
           </div>

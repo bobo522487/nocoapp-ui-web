@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Camera,
@@ -13,6 +12,8 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import { Button } from '../../../components/ui/button';
+import { ModalBody, ModalFooter, ModalShell } from '../../../components/ui/modal';
 import { cn } from '../../../lib/utils';
 import { PersonRecord } from '../types';
 
@@ -101,7 +102,6 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
   const [cropError, setCropError] = useState<string | null>(null);
   const [overviewImgError, setOverviewImgError] = useState(false);
 
-  // Deduplicated photo gallery for this person
   const galleryPhotos = useMemo(() => {
     const items = [
       ...(person.avatarPhotos || []),
@@ -113,7 +113,6 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
     return Array.from(new Set(items)).slice(0, MAX_GALLERY_ITEMS);
   }, [person.avatarPhotos, person.avatarOriginalUrl, person.avatarUrl]);
 
-  // Reset modal state whenever opened or target person changes
   useEffect(() => {
     if (!isOpen) return;
     setView('overview');
@@ -132,22 +131,19 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
     setOverviewImgError(false);
   }, [person.avatarUrl]);
 
-  // ESC key handler
+  // Escape in crop view steps back to overview instead of closing the modal
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || view !== 'crop') return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (view === 'crop') {
-          setView('overview');
-          setCropError(null);
-        } else {
-          onClose();
-        }
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault();
+        setView('overview');
+        setCropError(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, view, onClose]);
+  }, [isOpen, view]);
 
   const computeCoverScale = useCallback(
     (size: { width: number; height: number } | null) => {
@@ -374,14 +370,12 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
     });
   };
 
-  if (!isOpen) return null;
-
   const avatarToneClass =
     person.gender === 'female'
-      ? 'bg-[#ED5481]/12 text-[#B6335A] dark:bg-[#D16686]/15 dark:text-[#E590AA] border-[#ED5481]/25 dark:border-[#D16686]/30'
+      ? 'bg-rose-500/12 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300 border-rose-500/25 dark:border-rose-400/30'
       : person.gender === 'male'
-        ? 'bg-[#2097B7]/12 text-[#057091] dark:bg-[#3E9EB8]/15 dark:text-[#6EC2DB] border-[#2097B7]/25 dark:border-[#3E9EB8]/30'
-        : 'bg-[#E8EAEA] text-[#56585A] dark:bg-slate-700 dark:text-slate-300 border-[#D8DADA] dark:border-slate-600';
+        ? 'bg-sky-500/12 text-primary dark:bg-sky-400/15 dark:text-primary border-sky-500/25 dark:border-sky-400/30'
+        : 'bg-[hsl(var(--surface-subtle))] text-muted-foreground border-border';
 
   const effectiveScale = computeCoverScale(naturalSize) * zoom;
   const dispW = naturalSize ? naturalSize.width * effectiveScale : 0;
@@ -390,13 +384,15 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
   const currentActiveSource = person.avatarOriginalUrl || person.avatarUrl;
   const hasActiveAvatar = Boolean(person.avatarUrl && !overviewImgError);
 
-  const modalNode = (
-    <div
-      className="fs-lineage-theme fixed inset-0 z-[97] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.target === e.currentTarget) onClose();
-      }}
+  return (
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      size="xl"
+      zIndexClass="z-[97]"
+      closeOnEsc={view !== 'crop'}
+      ariaLabelledBy={titleId}
+      className="fs-lineage-theme max-w-[640px]"
     >
       <input
         ref={fileInputRef}
@@ -406,394 +402,378 @@ export const PersonPortraitModal: React.FC<PersonPortraitModalProps> = ({
         className="hidden"
       />
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="w-full max-w-[640px] max-h-[90vh] flex flex-col overflow-hidden rounded-[12px] bg-white dark:bg-[#1E2329] text-[#212225] dark:text-slate-100 border border-[#D8DADA] dark:border-slate-700/80 shadow-[0_14px_38px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header matching FamilySearch modal chrome */}
-        <div className="shrink-0 bg-[#F5F6F6] dark:bg-[#252B33] border-b border-[#E0E2E2] dark:border-slate-700/80 px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {view === 'crop' && (
+      {/* Tokenized Header with optional crop back-navigation */}
+      <div className="shrink-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {view === 'crop' && (
+            <button
+              type="button"
+              aria-label="返回肖像概览"
+              onClick={() => {
+                setView('overview');
+                setCropError(null);
+              }}
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+            </button>
+          )}
+          <div className="min-w-0">
+            <h2
+              id={titleId}
+              className="text-[18px] leading-6 font-semibold tracking-[-0.01em] text-foreground truncate"
+            >
+              {displayName}的肖像
+            </h2>
+            <nav
+              aria-label="肖像操作路径"
+              className="text-[12px] leading-4 text-muted-foreground mt-0.5 flex items-center gap-1.5"
+            >
+              {view === 'crop' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView('overview');
+                      setCropError(null);
+                    }}
+                    className="hover:text-primary hover:underline cursor-pointer"
+                  >
+                    变更肖像
+                  </button>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page">裁剪与缩放</span>
+                </>
+              ) : (
+                <span aria-current="page">变更肖像</span>
+              )}
+            </nav>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          aria-label="关闭"
+          onClick={onClose}
+          className="w-8 h-8 -mr-1.5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      {view === 'overview' ? (
+        <ModalBody className="space-y-6">
+          {/* Centered 168px Portrait + Action Buttons */}
+          <div className="flex flex-col items-center">
+            <div
+              className={cn(
+                'w-[168px] h-[168px] rounded-full overflow-hidden border-2 flex items-center justify-center shrink-0 text-5xl font-semibold select-none shadow-[var(--shadow-card)]',
+                avatarToneClass
+              )}
+            >
+              {hasActiveAvatar ? (
+                <img
+                  src={person.avatarUrl}
+                  alt={`${displayName}当前肖像`}
+                  referrerPolicy="no-referrer"
+                  onError={() => setOverviewImgError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : displayName ? (
+                <span>{displayName.slice(0, 1)}</span>
+              ) : (
+                <User size={48} aria-hidden="true" />
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {person.avatarUrl ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    data-testid="portrait-remove-button"
+                    onClick={handleRemoveActiveAvatar}
+                    className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    <span>移除</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    data-testid="portrait-edit-button"
+                    onClick={() =>
+                      openCropperWithSource(
+                        currentActiveSource || person.avatarUrl!
+                      )
+                    }
+                    className="gap-1.5 text-primary hover:text-primary hover:bg-[hsl(var(--surface-active))]"
+                  >
+                    <Pencil size={14} aria-hidden="true" />
+                    <span>编辑</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    data-testid="portrait-replace-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-1.5 text-primary hover:text-primary hover:bg-[hsl(var(--surface-active))]"
+                  >
+                    <Upload size={14} aria-hidden="true" />
+                    <span>更换相片</span>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  data-testid="portrait-add-button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1.5"
+                >
+                  <Camera size={15} aria-hidden="true" />
+                  <span>加入相片</span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Gallery Section */}
+          <div className="pt-4 border-t border-border space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="yp-h3 text-foreground">{displayName}的肖像相片</h3>
+              <span className="text-[12px] text-muted-foreground">
+                点击相片可重新拖动与缩放裁剪
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Add Photo Card */}
               <button
                 type="button"
-                aria-label="返回肖像概览"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="加入相片"
+                className="group min-h-[124px] rounded-lg border border-dashed border-[hsl(var(--border-strong))] bg-[hsl(var(--surface-subtle))] hover:border-primary hover:bg-[hsl(var(--surface-active))] flex flex-col items-center justify-center gap-1.5 text-primary transition-colors cursor-pointer"
+              >
+                <Plus size={26} strokeWidth={2} aria-hidden="true" />
+                <span className="text-[13px] font-medium">加入相片</span>
+              </button>
+
+              {/* Existing Uploaded / Associated Photos */}
+              {galleryPhotos.map((photoUrl, idx) => {
+                const isCurrent =
+                  photoUrl === person.avatarOriginalUrl ||
+                  photoUrl === person.avatarUrl;
+                return (
+                  <div
+                    key={`${photoUrl.slice(0, 48)}-${idx}`}
+                    className={cn(
+                      'group relative min-h-[124px] rounded-lg overflow-hidden border bg-[hsl(var(--surface-subtle))]',
+                      isCurrent
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-border hover:border-primary/60'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openCropperWithSource(photoUrl)}
+                      aria-label={`选择并裁剪第 ${idx + 1} 张相片`}
+                      className="w-full h-[124px] block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <img
+                        src={photoUrl}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-150"
+                      />
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label={`从相片库移除第 ${idx + 1} 张相片`}
+                      title="从相片库移除"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteGalleryPhoto(photoUrl);
+                      }}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-destructive flex items-center justify-center transition-opacity cursor-pointer"
+                    >
+                      <X size={13} aria-hidden="true" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ModalBody>
+      ) : (
+        <>
+          <ModalBody className="flex flex-col items-center gap-4">
+            {/* Interactive Square Crop Stage */}
+            <div
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onWheel={handleWheelZoom}
+              style={{ width: STAGE_SIZE, height: STAGE_SIZE }}
+              className={cn(
+                'relative rounded-lg overflow-hidden bg-slate-950 border border-border select-none touch-none shrink-0',
+                naturalSize && !isLoadingImage
+                  ? isDragging
+                    ? 'cursor-grabbing'
+                    : 'cursor-grab'
+                  : 'cursor-default'
+              )}
+            >
+              {naturalSize && sourceUrl && (
+                <img
+                  src={sourceUrl}
+                  alt="待裁剪肖像"
+                  draggable={false}
+                  referrerPolicy="no-referrer"
+                  style={{
+                    width: `${dispW}px`,
+                    height: `${dispH}px`,
+                    left: '50%',
+                    top: '50%',
+                    transform: `translate(calc(-50% + ${clampedOffset.x}px), calc(-50% + ${clampedOffset.y}px))`,
+                  }}
+                  className="absolute max-w-none max-h-none pointer-events-none select-none"
+                />
+              )}
+
+              {/* Circular Crop Cutout Mask */}
+              <div
+                aria-hidden="true"
+                style={{ width: CROP_DIAMETER, height: CROP_DIAMETER }}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90 shadow-[0_0_0_9999px_rgba(15,23,42,0.58)] pointer-events-none"
+              >
+                {isDragging && (
+                  <>
+                    <div className="absolute inset-x-0 top-1/2 h-px bg-white/35" />
+                    <div className="absolute inset-y-0 left-1/2 w-px bg-white/35" />
+                  </>
+                )}
+              </div>
+
+              {isLoadingImage && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[13px] font-medium">
+                  正在载入图片...
+                </div>
+              )}
+            </div>
+
+            {/* Drag / Zoom Guidance + Slider Controls */}
+            <div className="w-full max-w-[360px] space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  aria-label="缩小"
+                  title="缩小"
+                  disabled={!naturalSize || zoom <= MIN_ZOOM}
+                  onClick={() => handleZoomChange(zoom - 0.15)}
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                >
+                  <ZoomOut size={16} aria-hidden="true" />
+                </button>
+
+                <input
+                  type="range"
+                  aria-label="肖像缩放比例"
+                  min={MIN_ZOOM}
+                  max={MAX_ZOOM}
+                  step={0.02}
+                  value={zoom}
+                  disabled={!naturalSize}
+                  onChange={(e) =>
+                    handleZoomChange(parseFloat(e.target.value))
+                  }
+                  className="flex-1 h-1.5 accent-primary cursor-pointer"
+                />
+
+                <button
+                  type="button"
+                  aria-label="放大"
+                  title="放大"
+                  disabled={!naturalSize || zoom >= MAX_ZOOM}
+                  onClick={() => handleZoomChange(zoom + 0.15)}
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                >
+                  <ZoomIn size={16} aria-hidden="true" />
+                </button>
+
+                <span className="w-12 text-right text-[12px] font-medium text-muted-foreground font-mono tabular-nums shrink-0">
+                  {Math.round(zoom * 100)}%
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[12px] text-muted-foreground">
+                <span>在圆框内拖动照片调整位置，滚动或滑块缩放</span>
+                <button
+                  type="button"
+                  disabled={!naturalSize}
+                  onClick={() => {
+                    setZoom(1);
+                    setOffset({ x: 0, y: 0 });
+                  }}
+                  className="inline-flex items-center gap-1 text-primary hover:underline disabled:opacity-40 cursor-pointer shrink-0 whitespace-nowrap"
+                >
+                  <RotateCcw size={12} aria-hidden="true" />
+                  <span>重置</span>
+                </button>
+              </div>
+
+              {cropError && (
+                <div
+                  role="alert"
+                  className="rounded-md bg-destructive/10 border border-destructive/25 px-3 py-2 text-[12px] text-destructive"
+                >
+                  {cropError}
+                </div>
+              )}
+            </div>
+          </ModalBody>
+
+          <ModalFooter className="justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <Upload size={14} aria-hidden="true" />
+              <span>更换照片</span>
+            </Button>
+
+            <div className="flex items-center gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   setView('overview');
                   setCropError(null);
                 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-300 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 transition-colors cursor-pointer shrink-0"
               >
-                <ArrowLeft size={18} aria-hidden="true" />
-              </button>
-            )}
-            <div className="min-w-0">
-              <h2
-                id={titleId}
-                className="text-[19px] font-bold leading-snug text-[#212225] dark:text-slate-100 truncate"
-              >
-                {displayName}的肖像
-              </h2>
-              <nav
-                aria-label="肖像操作路径"
-                className="text-[12.5px] text-[#56585A] dark:text-slate-400 mt-0.5 flex items-center gap-1.5"
-              >
-                {view === 'crop' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setView('overview');
-                        setCropError(null);
-                      }}
-                      className="hover:text-[#057091] dark:hover:text-[#58B1CD] hover:underline cursor-pointer"
-                    >
-                      变更肖像
-                    </button>
-                    <span aria-hidden="true">/</span>
-                    <span aria-current="page">裁剪与缩放</span>
-                  </>
-                ) : (
-                  <span aria-current="page">变更肖像</span>
-                )}
-              </nav>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            aria-label="关闭"
-            onClick={onClose}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 hover:text-[#212225] dark:hover:text-slate-100 transition-colors cursor-pointer shrink-0"
-          >
-            <X size={20} strokeWidth={2} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* 3px Blue-Teal Accent Strip */}
-        <div
-          className="h-[3px] w-full bg-[#057091] shrink-0"
-          aria-hidden="true"
-        />
-
-        {view === 'overview' ? (
-          /* View 1: 肖像概览与相片管理 */
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-6">
-            {/* Centered 168px Portrait + Action Buttons */}
-            <div className="flex flex-col items-center">
-              <div
-                className={cn(
-                  'w-[168px] h-[168px] rounded-full overflow-hidden border-2 flex items-center justify-center shrink-0 text-[52px] font-bold select-none shadow-xs',
-                  avatarToneClass
-                )}
-              >
-                {hasActiveAvatar ? (
-                  <img
-                    src={person.avatarUrl}
-                    alt={`${displayName}当前肖像`}
-                    referrerPolicy="no-referrer"
-                    onError={() => setOverviewImgError(true)}
-                    className="w-full h-full object-cover"
-                  />
-                ) : displayName ? (
-                  <span>{displayName.slice(0, 1)}</span>
-                ) : (
-                  <User size={52} aria-hidden="true" />
-                )}
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {person.avatarUrl ? (
-                  <>
-                    <button
-                      type="button"
-                      data-testid="portrait-remove-button"
-                      onClick={handleRemoveActiveAvatar}
-                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[6px] text-[13.5px] font-semibold text-[#C93B3B] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
-                      <span>移除</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      data-testid="portrait-edit-button"
-                      onClick={() =>
-                        openCropperWithSource(
-                          currentActiveSource || person.avatarUrl!
-                        )
-                      }
-                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[6px] text-[13.5px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Pencil size={15} aria-hidden="true" />
-                      <span>编辑</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      data-testid="portrait-replace-button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[6px] text-[13.5px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Upload size={15} aria-hidden="true" />
-                      <span>更换相片</span>
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    data-testid="portrait-add-button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 h-10 px-5 rounded-[6px] text-[14px] font-semibold bg-[#057091] hover:bg-[#045B76] text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap"
-                  >
-                    <Camera size={16} aria-hidden="true" />
-                    <span>加入相片</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Gallery Section */}
-            <div className="pt-4 border-t border-[#ECEEEE] dark:border-slate-700/70 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-[15px] font-bold text-[#212225] dark:text-slate-100">
-                  {displayName}的肖像相片
-                </h3>
-                <span className="text-[12px] text-[#56585A] dark:text-slate-400">
-                  点击相片可重新拖动与缩放裁剪
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* Add Photo Card */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="加入相片"
-                  className="group min-h-[124px] rounded-[8px] border border-dashed border-[#C5C8CA] dark:border-slate-600 bg-[#F5F6F6] dark:bg-[#252B33] hover:border-[#057091] hover:bg-[#EAF4F7]/60 dark:hover:border-[#58B1CD] dark:hover:bg-[#057091]/15 flex flex-col items-center justify-center gap-1.5 text-[#057091] dark:text-[#58B1CD] transition-colors cursor-pointer"
-                >
-                  <Plus size={28} strokeWidth={2} aria-hidden="true" />
-                  <span className="text-[12.5px] font-semibold">加入相片</span>
-                </button>
-
-                {/* Existing Uploaded / Associated Photos */}
-                {galleryPhotos.map((photoUrl, idx) => {
-                  const isCurrent =
-                    photoUrl === person.avatarOriginalUrl ||
-                    photoUrl === person.avatarUrl;
-                  return (
-                    <div
-                      key={`${photoUrl.slice(0, 48)}-${idx}`}
-                      className={cn(
-                        'group relative min-h-[124px] rounded-[8px] overflow-hidden border bg-[#F5F6F6] dark:bg-[#252B33]',
-                        isCurrent
-                          ? 'border-[#057091] ring-2 ring-[#057091]/30 dark:border-[#58B1CD]'
-                          : 'border-[#D8DADA] dark:border-slate-700 hover:border-[#057091]/70'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openCropperWithSource(photoUrl)}
-                        aria-label={`选择并裁剪第 ${idx + 1} 张相片`}
-                        className="w-full h-[124px] block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#057091]"
-                      >
-                        <img
-                          src={photoUrl}
-                          alt=""
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-150"
-                        />
-                      </button>
-
-                      <button
-                        type="button"
-                        aria-label={`从相片库移除第 ${idx + 1} 张相片`}
-                        title="从相片库移除"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteGalleryPhoto(photoUrl);
-                        }}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-[#C93B3B] flex items-center justify-center transition-opacity cursor-pointer"
-                      >
-                        <X size={13} aria-hidden="true" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* View 2: 交互式拖拽与缩放裁剪器 */
-          <>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col items-center gap-4">
-              {/* Interactive Square Crop Stage */}
-              <div
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                onWheel={handleWheelZoom}
-                style={{ width: STAGE_SIZE, height: STAGE_SIZE }}
-                className={cn(
-                  'relative rounded-[10px] overflow-hidden bg-[#181B20] border border-[#D8DADA] dark:border-slate-700 select-none touch-none shrink-0',
-                  naturalSize && !isLoadingImage
-                    ? isDragging
-                      ? 'cursor-grabbing'
-                      : 'cursor-grab'
-                    : 'cursor-default'
-                )}
-              >
-                {naturalSize && sourceUrl && (
-                  <img
-                    src={sourceUrl}
-                    alt="待裁剪肖像"
-                    draggable={false}
-                    referrerPolicy="no-referrer"
-                    style={{
-                      width: `${dispW}px`,
-                      height: `${dispH}px`,
-                      left: '50%',
-                      top: '50%',
-                      transform: `translate(calc(-50% + ${clampedOffset.x}px), calc(-50% + ${clampedOffset.y}px))`,
-                    }}
-                    className="absolute max-w-none max-h-none pointer-events-none select-none"
-                  />
-                )}
-
-                {/* Circular Crop Cutout Mask */}
-                <div
-                  aria-hidden="true"
-                  style={{ width: CROP_DIAMETER, height: CROP_DIAMETER }}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90 shadow-[0_0_0_9999px_rgba(15,23,42,0.58)] pointer-events-none"
-                >
-                  {/* Subtle centering crosshair while dragging */}
-                  {isDragging && (
-                    <>
-                      <div className="absolute inset-x-0 top-1/2 h-px bg-white/35" />
-                      <div className="absolute inset-y-0 left-1/2 w-px bg-white/35" />
-                    </>
-                  )}
-                </div>
-
-                {isLoadingImage && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[13px] font-medium">
-                    正在载入图片...
-                  </div>
-                )}
-              </div>
-
-              {/* Drag / Zoom Guidance + Slider Controls */}
-              <div className="w-full max-w-[360px] space-y-2.5">
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    aria-label="缩小"
-                    title="缩小"
-                    disabled={!naturalSize || zoom <= MIN_ZOOM}
-                    onClick={() => handleZoomChange(zoom - 0.15)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-300 hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/25 hover:text-[#057091] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
-                  >
-                    <ZoomOut size={16} aria-hidden="true" />
-                  </button>
-
-                  <input
-                    type="range"
-                    aria-label="肖像缩放比例"
-                    min={MIN_ZOOM}
-                    max={MAX_ZOOM}
-                    step={0.02}
-                    value={zoom}
-                    disabled={!naturalSize}
-                    onChange={(e) =>
-                      handleZoomChange(parseFloat(e.target.value))
-                    }
-                    className="flex-1 h-1.5 accent-[#057091] cursor-pointer"
-                  />
-
-                  <button
-                    type="button"
-                    aria-label="放大"
-                    title="放大"
-                    disabled={!naturalSize || zoom >= MAX_ZOOM}
-                    onClick={() => handleZoomChange(zoom + 0.15)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-300 hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/25 hover:text-[#057091] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
-                  >
-                    <ZoomIn size={16} aria-hidden="true" />
-                  </button>
-
-                  <span className="w-11 text-right text-[12px] font-medium text-[#56585A] dark:text-slate-400 tabular-nums shrink-0">
-                    {Math.round(zoom * 100)}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-[12px] text-[#56585A] dark:text-slate-400">
-                  <span>在圆框内拖动照片调整位置，滚动或滑块缩放</span>
-                  <button
-                    type="button"
-                    disabled={!naturalSize}
-                    onClick={() => {
-                      setZoom(1);
-                      setOffset({ x: 0, y: 0 });
-                    }}
-                    className="inline-flex items-center gap-1 text-[#057091] dark:text-[#58B1CD] hover:underline disabled:opacity-40 cursor-pointer shrink-0 whitespace-nowrap"
-                  >
-                    <RotateCcw size={12} aria-hidden="true" />
-                    <span>重置</span>
-                  </button>
-                </div>
-
-                {cropError && (
-                  <div
-                    role="alert"
-                    className="rounded-[6px] bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 px-3 py-2 text-[12.5px] text-[#C93B3B] dark:text-red-300"
-                  >
-                    {cropError}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Fixed 72px Footer */}
-            <div className="h-[72px] shrink-0 px-6 border-t border-[#E0E2E2] dark:border-slate-700/80 bg-white dark:bg-[#1E2329] flex items-center justify-between gap-3">
-              <button
+                取消
+              </Button>
+              <Button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-[6px] text-[13.5px] font-semibold text-[#56585A] dark:text-slate-300 hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors cursor-pointer whitespace-nowrap"
+                disabled={!naturalSize || isLoadingImage}
+                onClick={handleSaveCroppedPortrait}
               >
-                <Upload size={14} aria-hidden="true" />
-                <span>更换照片</span>
-              </button>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setView('overview');
-                    setCropError(null);
-                  }}
-                  className="h-10 px-5 rounded-[6px] text-[14px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  disabled={!naturalSize || isLoadingImage}
-                  onClick={handleSaveCroppedPortrait}
-                  className="h-10 px-6 rounded-[6px] text-[14px] font-semibold bg-[#057091] hover:bg-[#045B76] active:bg-[#034C63] disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  保存肖像
-                </button>
-              </div>
+                保存肖像
+              </Button>
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          </ModalFooter>
+        </>
+      )}
+    </ModalShell>
   );
-
-  if (typeof document === 'undefined') return modalNode;
-  return createPortal(modalNode, document.body);
 };

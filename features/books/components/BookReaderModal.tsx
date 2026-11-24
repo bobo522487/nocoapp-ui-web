@@ -533,7 +533,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
               }`}
             >
               <span>封面题签</span>
-              <span className="text-[11px] text-muted-foreground tabular-nums">
+              <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
                 1
               </span>
             </button>
@@ -551,7 +551,7 @@ export const BookReaderModal: React.FC<BookReaderModalProps> = ({
                 }`}
               >
                 <span className="truncate">{item.title}</span>
-                <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
+                <span className="text-[12px] text-muted-foreground font-mono tabular-nums shrink-0">
                   {item.pageNo}
                 </span>
               </button>

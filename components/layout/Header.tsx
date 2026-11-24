@@ -10,7 +10,7 @@ const Header: React.FC = () => {
   const { openPalette } = useCommandPalette();
 
   return (
-    <header className="h-14 w-full border-b border-border bg-background/95 backdrop-blur-xs flex items-center justify-between gap-4 px-5 shrink-0 z-20">
+    <header className="h-13 w-full border-b border-border bg-background/95 backdrop-blur-xs flex items-center justify-between gap-4 px-5 shrink-0 z-20">
       {/* Left Breadcrumb */}
       <div className="flex-1 flex items-center gap-2 min-w-0">
         <Breadcrumb />
@@ -43,7 +43,7 @@ const Header: React.FC = () => {
             type="button"
             onClick={() => openPalette(searchQuery || undefined)}
             title="打开全局命令面板 (Ctrl K)"
-            className="px-1.5 py-0.5 text-[11px] font-medium font-mono text-muted-foreground bg-[hsl(var(--surface-subtle))] rounded border border-border shrink-0 hover:text-foreground hover:border-[hsl(var(--border-strong))] transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="px-1.5 py-0.5 text-[12px] leading-none font-medium font-mono text-muted-foreground bg-[hsl(var(--surface-subtle))] rounded border border-border shrink-0 hover:text-foreground hover:border-[hsl(var(--border-strong))] transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Ctrl K
           </button>

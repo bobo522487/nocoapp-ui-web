@@ -91,13 +91,11 @@ export const PersonNode: React.FC<NodeProps<PersonFlowNode>> = memo(
           return given || effectiveSurname || '未命名';
         })();
 
-    const hasCjk = /[\u4e00-\u9fff]/.test(displayName);
-    const verticalFontSizeClass =
-      displayName.length > 6
-        ? 'text-[15px]'
-        : displayName.length > 4
-          ? 'text-[17px]'
-          : 'text-[21px]';
+    const avatarToneClass = isFemale
+      ? 'bg-[#ED5481]/12 text-[#B6335A] dark:bg-[#D16686]/15 dark:text-[#E590AA] border-[#ED5481]/25 dark:border-[#D16686]/30'
+      : isUnknownGender
+        ? 'bg-[#E8EAEA] text-[#56585A] dark:bg-slate-700 dark:text-slate-300 border-[#D8DADA] dark:border-slate-600'
+        : 'bg-[#2097B7]/12 text-[#057091] dark:bg-[#3E9EB8]/15 dark:text-[#6EC2DB] border-[#2097B7]/25 dark:border-[#3E9EB8]/30';
 
     const pinyinName =
       resolveRomanizedDisplayName(person) ||
@@ -294,39 +292,32 @@ export const PersonNode: React.FC<NodeProps<PersonFlowNode>> = memo(
           )}
         </div>
 
-        {/* 主体内容区：两种模式统一顶端对齐（头像顶部与竖排姓名顶部同起于 pt-[28px]） */}
+        {/* 主体内容区：统一为圆形头像 + 横排姓名 */}
         <div className="flex-1 w-full min-h-0 flex flex-col items-center justify-start overflow-hidden px-[10px] pt-[28px] pb-[4px] pointer-events-none">
-          {hasAvatar ? (
-            <>
-              <div
-                aria-hidden="true"
-                className="w-[72px] h-[72px] rounded-full overflow-hidden border border-black/[0.08] dark:border-slate-700 bg-[#F2F3F4] dark:bg-slate-800 shrink-0"
-              >
-                <img
-                  src={avatarSrc}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  onError={() => setImgError(true)}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+          <div
+            aria-hidden="true"
+            className={`w-[72px] h-[72px] rounded-full overflow-hidden border flex items-center justify-center shrink-0 select-none ${
+              hasAvatar
+                ? 'border-black/[0.08] dark:border-slate-700 bg-[#F2F3F4] dark:bg-slate-800'
+                : `${avatarToneClass} text-[24px] font-bold`
+            }`}
+          >
+            {hasAvatar ? (
+              <img
+                src={avatarSrc}
+                alt=""
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{displayName ? displayName.slice(0, 1) : '族'}</span>
+            )}
+          </div>
 
-              <div className="mt-[8px] w-full text-[15px] leading-[1.25] font-medium text-[#202121] dark:text-foreground text-center line-clamp-2 break-words">
-                {displayName}
-              </div>
-            </>
-          ) : hasCjk ? (
-            <div
-              lang="zh"
-              className={`[writing-mode:vertical-rl] ${verticalFontSizeClass} leading-[1.15] font-normal text-[#202121] dark:text-foreground tracking-[0.04em] max-h-full overflow-hidden text-center`}
-            >
-              {displayName}
-            </div>
-          ) : (
-            <div className="text-[15px] leading-snug font-normal text-[#202121] dark:text-foreground text-center break-words line-clamp-3 w-full">
-              {displayName}
-            </div>
-          )}
+          <div className="mt-[8px] w-full text-[15px] leading-[1.25] font-medium text-[#202121] dark:text-foreground text-center line-clamp-2 break-words">
+            {displayName}
+          </div>
         </div>
 
         {/* 底部统一对齐区：姓名拼音 + 公历生殁年份（增加底部留白） */}

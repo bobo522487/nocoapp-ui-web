@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 import { errorMessage } from '../../../lib/api';
 
 interface CreateWorkspaceDialogProps {
@@ -22,13 +26,8 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   suggestions,
 }) => {
   const [name, setName] = useState('');
-  const [isMounted, setIsMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,8 +36,6 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setSaving(false);
     }
   }, [isOpen]);
-
-  if (!isMounted || !isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,27 +52,31 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     }
   };
 
-  const content = (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs"
-        onClick={onClose}
+  return (
+    <ModalShell
+      open={isOpen}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      size="sm"
+      zIndexClass="z-[95]"
+      closeOnBackdrop={!saving}
+      closeOnEsc={!saving}
+      ariaLabel="新建组织"
+    >
+      <ModalHeader
+        title="新建组织"
+        onClose={() => {
+          if (!saving) onClose();
+        }}
+        closeDisabled={saving}
       />
 
-      <div className="relative z-10 w-full max-w-[460px] bg-background rounded-xl shadow-2xl flex flex-col overflow-hidden border border-border">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/20">
-          <h3 className="text-sm font-semibold text-foreground">新建组织</h3>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-7 w-7 rounded-full"
-          >
-            <X size={14} />
-          </Button>
-        </div>
-
-        <form onSubmit={(event) => void handleSubmit(event)} className="p-6 space-y-4">
+      <form
+        onSubmit={(event) => void handleSubmit(event)}
+        className="flex flex-col flex-1 min-h-0"
+      >
+        <ModalBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="workspace-name">组织名称</Label>
             <Input
@@ -84,7 +85,6 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               onChange={(e) => setName(e.target.value)}
               placeholder="例如：我的谱牒工作室"
               autoFocus
-              className="h-10"
               maxLength={120}
             />
             {suggestions.length > 0 && (
@@ -94,7 +94,7 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                     key={suggestion}
                     type="button"
                     onClick={() => setName(suggestion)}
-                    className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[12px] text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                    className="rounded-md border border-border bg-[hsl(var(--surface-subtle))] px-2.5 py-1 text-[12px] text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors cursor-pointer"
                   >
                     {suggestion}
                   </button>
@@ -104,21 +104,25 @@ const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           </div>
 
           {error && <p className="text-[13px] text-destructive">{error}</p>}
+        </ModalBody>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose} size="sm">
-              取消
-            </Button>
-            <Button type="submit" size="sm" disabled={!name.trim() || saving}>
-              {saving ? '创建中…' : '创建组织'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            size="sm"
+            disabled={saving}
+          >
+            取消
+          </Button>
+          <Button type="submit" size="sm" disabled={!name.trim() || saving}>
+            {saving ? '创建中…' : '创建组织'}
+          </Button>
+        </ModalFooter>
+      </form>
+    </ModalShell>
   );
-
-  return createPortal(content, document.body);
 };
 
 export default CreateWorkspaceDialog;

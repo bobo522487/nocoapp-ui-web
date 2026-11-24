@@ -6,6 +6,8 @@ import { PersonRecord } from '../types';
 import { formatGivenName } from '../utils/nameUtils';
 import {
   computeAutoRankLabel,
+  getDerivedChildren,
+  getDerivedSpouses,
   getExtraRelationBadge,
 } from '../utils/personHelpers';
 import {
@@ -87,8 +89,9 @@ function buildSecondaryMeta(
   livePersons: PersonRecord[]
 ): string {
   const lifespan = formatLifespan(p);
-  const rankLabel =
-    !p.spouseOfId && !p.fatherId && p.relationTitle?.trim()
+  const rankLabel = p.spouseOfId
+    ? ''
+    : !p.fatherId && p.relationTitle?.trim()
       ? p.relationTitle.trim()
       : computeAutoRankLabel(p, livePersons);
   const extraRel = getExtraRelationBadge(p);
@@ -175,14 +178,14 @@ const CoupleSlotPersonRow: React.FC<CoupleSlotPersonRowProps> = ({
             className={cn(
               'text-[14px] font-semibold truncate leading-snug',
               canNavigate
-                ? 'text-[#212225] dark:text-slate-100 group-hover:text-[#057091] dark:group-hover:text-[#58B1CD] group-hover:underline underline-offset-2'
-                : 'text-[#212225] dark:text-slate-100'
+                ? 'text-foreground group-hover:text-primary group-hover:underline underline-offset-2'
+                : 'text-foreground'
             )}
           >
             {item.displayName}
           </div>
           {item.secondaryText && (
-            <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate tabular-nums mt-0.5 leading-snug">
+            <div className="text-[12px] text-muted-foreground truncate tabular-nums mt-0.5 leading-snug">
               {item.secondaryText}
             </div>
           )}
@@ -198,7 +201,7 @@ const CoupleSlotPersonRow: React.FC<CoupleSlotPersonRowProps> = ({
         data-position={position}
         data-testid={`couple-person-${item.personId}`}
         onClick={() => onSelect?.(item.personId)}
-        className="group w-full flex text-left hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#057091]"
+        className="group w-full flex text-left hover:bg-[hsl(var(--surface-hover))] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         {innerContent}
       </button>
@@ -259,7 +262,7 @@ const HorizontalCoupleCard: React.FC<HorizontalCoupleCardProps> = ({
   return (
     <div
       data-testid="couple-card"
-      className="rounded-[8px] overflow-hidden bg-[#FEFEFE] dark:bg-card border border-black/[0.08] dark:border-slate-700/80 shadow-[0_1px_3px_rgba(15,23,42,0.14)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
+      className="rounded-lg overflow-hidden bg-card border border-border shadow-[var(--shadow-card)]"
     >
       {/* Top half: Primary / Father */}
       <CoupleSlotPersonRow
@@ -272,7 +275,7 @@ const HorizontalCoupleCard: React.FC<HorizontalCoupleCardProps> = ({
       {bottomItem && marriageInfo && (
         <div
           data-testid="wrapper-marriage-details"
-          className="group relative border-y border-[#ECEEEE] dark:border-slate-700/75 bg-[#F8F9F9] dark:bg-[#232931] flex items-center justify-between gap-2 pl-3 pr-1.5 py-1.5"
+          className="group relative border-y border-border/75 bg-[hsl(var(--surface-subtle))] flex items-center justify-between gap-2 pl-3 pr-1.5 py-1.5"
         >
           <button
             type="button"
@@ -284,15 +287,15 @@ const HorizontalCoupleCard: React.FC<HorizontalCoupleCardProps> = ({
               onEditMarriage ? 'cursor-pointer' : 'cursor-default'
             )}
           >
-            <span className="text-[12.5px] font-semibold text-[#212225] dark:text-slate-100 shrink-0">
+            <span className="text-[13px] font-semibold text-foreground shrink-0">
               结婚
             </span>
             {hasMarriageDetail ? (
-              <span className="text-[12px] text-[#56585A] dark:text-slate-400 tabular-nums break-words leading-snug">
+              <span className="text-[12px] text-muted-foreground tabular-nums break-words leading-snug">
                 {marriageSummaryParts.join(' · ')}
               </span>
             ) : (
-              <span className="text-[12px] text-[#8C9094] dark:text-slate-500">
+              <span className="text-[12px] text-placeholder">
                 添加结婚日期与地点
               </span>
             )}
@@ -305,7 +308,7 @@ const HorizontalCoupleCard: React.FC<HorizontalCoupleCardProps> = ({
               aria-label={`编辑夫妻：${topItem.displayName}和${bottomItem.displayName}`}
               title={`编辑夫妻：${topItem.displayName}和${bottomItem.displayName}`}
               onClick={onEditMarriage}
-              className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[#56585A] dark:text-slate-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/25 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-opacity duration-150 cursor-pointer"
+              className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-muted-foreground opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-[hsl(var(--surface-active))] hover:text-primary transition-opacity duration-150 cursor-pointer"
             >
               <Pencil size={13} aria-hidden="true" />
             </button>
@@ -327,20 +330,20 @@ const HorizontalCoupleCard: React.FC<HorizontalCoupleCardProps> = ({
           data-testid="add-spouse2-button"
           title={emptyBottomAction.title}
           onClick={emptyBottomAction.onClick}
-          className="group w-full flex items-stretch border-t border-[#ECEEEE] dark:border-slate-700/75 hover:bg-[#EAF4F7]/70 dark:hover:bg-[#057091]/15 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#057091]"
+          className="group w-full flex items-stretch border-t border-border/75 hover:bg-[hsl(var(--surface-active))] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <div
             aria-hidden="true"
-            className="w-[4px] shrink-0 bg-[#D8DADA] dark:bg-slate-600 group-hover:bg-[#057091]/60 dark:group-hover:bg-[#58B1CD]/60 transition-colors"
+            className="w-[4px] shrink-0 bg-border group-hover:bg-primary/60 transition-colors"
           />
           <div className="flex items-center gap-2.5 min-w-0 flex-1 px-3 py-2.5">
             <div
               aria-hidden="true"
-              className="w-10 h-10 rounded-full border border-dashed border-[#C5C8CA] dark:border-slate-600 bg-[#F2F3F4] dark:bg-slate-800/80 text-[#737679] dark:text-slate-400 group-hover:border-[#057091]/50 group-hover:text-[#057091] dark:group-hover:border-[#58B1CD]/50 dark:group-hover:text-[#58B1CD] flex items-center justify-center shrink-0 transition-colors"
+              className="w-10 h-10 rounded-full border border-dashed border-border bg-[hsl(var(--surface-subtle))] text-muted-foreground group-hover:border-primary/50 group-hover:text-primary flex items-center justify-center shrink-0 transition-colors"
             >
               <User size={18} />
             </div>
-            <span className="text-[14px] font-medium text-[#4D5053] dark:text-slate-300 group-hover:text-[#057091] dark:group-hover:text-[#58B1CD] transition-colors">
+            <span className="text-[14px] font-medium text-muted-foreground group-hover:text-primary transition-colors">
               {emptyBottomAction.label}
             </span>
           </div>
@@ -380,18 +383,18 @@ const ChildListRow: React.FC<ChildListRowProps> = ({
           <button
             type="button"
             onClick={() => onSelect?.(item.personId)}
-            className="block max-w-full text-left text-[14px] font-semibold text-[#212225] dark:text-slate-100 hover:text-[#057091] dark:hover:text-[#58B1CD] hover:underline underline-offset-2 truncate leading-snug cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#057091] rounded-[3px]"
+            className="block max-w-full text-left text-[14px] font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 truncate leading-snug cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-[3px]"
           >
             {item.displayName}
           </button>
         ) : (
-          <div className="text-[14px] font-semibold text-[#212225] dark:text-slate-100 truncate leading-snug">
+          <div className="text-[14px] font-semibold text-foreground truncate leading-snug">
             {item.displayName}
           </div>
         )}
 
         {item.secondaryText && (
-          <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate tabular-nums mt-0.5 leading-snug">
+          <div className="text-[12px] text-muted-foreground truncate tabular-nums mt-0.5 leading-snug">
             {item.secondaryText}
           </div>
         )}
@@ -409,7 +412,7 @@ const ChildListRow: React.FC<ChildListRowProps> = ({
         e.stopPropagation();
         onEditParentChild(item.personId);
       }}
-      className="w-8 h-8 rounded-full shrink-0 self-center flex items-center justify-center text-[#56585A] dark:text-slate-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/25 hover:text-[#057091] dark:hover:text-[#58B1CD] transition-opacity duration-150 cursor-pointer"
+      className="w-8 h-8 rounded-full shrink-0 self-center flex items-center justify-center text-muted-foreground opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-[hsl(var(--surface-active))] hover:text-primary transition-opacity duration-150 cursor-pointer"
     >
       <Pencil size={14} aria-hidden="true" />
     </button>
@@ -511,23 +514,11 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
   );
 
   const spouseRecords = useMemo(() => {
-    return livePersons
-      .filter((p) => p.spouseOfId === primaryPerson.id)
-      .sort(
-        (a, b) =>
-          (a.siblingOrder ?? a.biographyOrder ?? 99) -
-          (b.siblingOrder ?? b.biographyOrder ?? 99)
-      );
+    return getDerivedSpouses(livePersons, primaryPerson.id);
   }, [livePersons, primaryPerson.id]);
 
   const ownChildrenRecords = useMemo(() => {
-    return livePersons
-      .filter((p) => p.fatherId === primaryPerson.id && !p.spouseOfId)
-      .sort(
-        (a, b) =>
-          (a.siblingOrder ?? a.biographyOrder ?? 99) -
-          (b.siblingOrder ?? b.biographyOrder ?? 99)
-      );
+    return getDerivedChildren(livePersons, primaryPerson.id);
   }, [livePersons, primaryPerson.id]);
 
   const coupleUnits = useMemo<CoupleUnit[]>(() => {
@@ -606,13 +597,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
 
   const parentSpouses = useMemo(() => {
     if (!fatherRecord) return [];
-    return livePersons
-      .filter((p) => p.spouseOfId === fatherRecord.id)
-      .sort(
-        (a, b) =>
-          (a.siblingOrder ?? a.biographyOrder ?? 99) -
-          (b.siblingOrder ?? b.biographyOrder ?? 99)
-      );
+    return getDerivedSpouses(livePersons, fatherRecord.id);
   }, [fatherRecord, livePersons]);
 
   const matchedMotherRecord = useMemo(() => {
@@ -665,22 +650,15 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
 
   const siblingItems = useMemo<MemberDisplayItem[]>(() => {
     if (!fatherRecord) return [];
-    return livePersons
-      .filter((p) => p.fatherId === fatherRecord.id && !p.spouseOfId)
-      .sort(
-        (a, b) =>
-          (a.siblingOrder ?? a.biographyOrder ?? 99) -
-          (b.siblingOrder ?? b.biographyOrder ?? 99)
-      )
-      .map((sib) => ({
-        key: sib.id,
-        personId: sib.id,
-        displayName: formatFullDisplayName(sib, clanSurname),
-        avatarUrl: sib.avatarUrl,
-        gender: sib.gender,
-        secondaryText: buildSecondaryMeta(sib, livePersons),
-        isFocus: sib.id === person.id,
-      }));
+    return getDerivedChildren(livePersons, fatherRecord.id).map((sib) => ({
+      key: sib.id,
+      personId: sib.id,
+      displayName: formatFullDisplayName(sib, clanSurname),
+      avatarUrl: sib.avatarUrl,
+      gender: sib.gender,
+      secondaryText: buildSecondaryMeta(sib, livePersons),
+      isFocus: sib.id === person.id,
+    }));
   }, [fatherRecord, livePersons, clanSurname, person.id]);
 
   const parentMotherInfo = matchedMotherRecord
@@ -701,7 +679,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
     >
       {/* 分组一：配偶与子女 */}
       <div className="min-w-0 space-y-2.5">
-        <h3 className="text-[13px] font-semibold text-[#4D5053] dark:text-slate-300">
+        <h3 className="text-[13px] font-semibold text-muted-foreground">
           配偶与子女
         </h3>
 
@@ -739,7 +717,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                     data-testid="children-expander-button"
                     aria-expanded={expanded}
                     onClick={() => toggleUnitExpanded(unit.key)}
-                    className="w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-[6px] text-[13px] font-medium text-[#212225] dark:text-slate-200 hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md text-[13px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                   >
                     <span className="tabular-nums">
                       子女（{unit.children.length}）
@@ -748,7 +726,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                       size={15}
                       aria-hidden="true"
                       className={cn(
-                        'text-[#56585A] dark:text-slate-400 shrink-0 transition-transform duration-150',
+                        'text-muted-foreground shrink-0 transition-transform duration-150',
                         expanded ? 'rotate-180' : ''
                       )}
                     />
@@ -772,7 +750,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                           ))}
                         </ol>
                       ) : (
-                        <p className="px-2 py-1 text-[12px] text-[#737679] dark:text-slate-400">
+                        <p className="px-2 py-1 text-[12px] text-muted-foreground">
                           暂无子女记录
                         </p>
                       )}
@@ -783,7 +761,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                         onClick={() =>
                           onAddChild(primaryPerson.id, unit.motherInfo)
                         }
-                        className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-[6px] text-[13px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-semibold text-primary hover:bg-[hsl(var(--surface-active))] transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <Plus size={15} aria-hidden="true" />
                         <span>加入子女</span>
@@ -802,7 +780,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
             type="button"
             data-testid="add-spouse"
             onClick={() => onAddSpouse(primaryPerson.id)}
-            className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-[6px] text-[13px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-semibold text-primary hover:bg-[hsl(var(--surface-active))] transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus size={15} aria-hidden="true" />
             <span>加入配偶</span>
@@ -815,11 +793,11 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
         className={cn(
           'min-w-0 space-y-2.5',
           !isWide
-            ? 'pt-4 border-t border-[#ECEEEE] dark:border-slate-700/70'
+            ? 'pt-4 border-t border-border/70'
             : ''
         )}
       >
-        <h3 className="text-[13px] font-semibold text-[#4D5053] dark:text-slate-300">
+        <h3 className="text-[13px] font-semibold text-muted-foreground">
           父母与兄弟姐妹
         </h3>
 
@@ -851,7 +829,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                   type="button"
                   aria-expanded={parentChildrenExpanded}
                   onClick={() => setParentChildrenExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-[6px] text-[13px] font-medium text-[#212225] dark:text-slate-200 hover:bg-[#F5F6F6] dark:hover:bg-[#252B33] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md text-[13px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                 >
                   <span className="tabular-nums">
                     子女（{siblingItems.length}）
@@ -860,7 +838,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                     size={15}
                     aria-hidden="true"
                     className={cn(
-                      'text-[#56585A] dark:text-slate-400 shrink-0 transition-transform duration-150',
+                      'text-muted-foreground shrink-0 transition-transform duration-150',
                       parentChildrenExpanded ? 'rotate-180' : ''
                     )}
                   />
@@ -886,7 +864,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
                       onClick={() =>
                         onAddChild(fatherRecord.id, parentMotherInfo)
                       }
-                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-[6px] text-[13px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-semibold text-primary hover:bg-[hsl(var(--surface-active))] transition-colors cursor-pointer whitespace-nowrap shrink-0"
                     >
                       <Plus size={15} aria-hidden="true" />
                       <span>加入子女</span>
@@ -897,7 +875,7 @@ export const PersonFamilySection: React.FC<PersonFamilySectionProps> = ({
             )}
           </div>
         ) : (
-          <p className="py-1 text-[12.5px] text-[#737679] dark:text-slate-400 leading-relaxed">
+          <p className="py-1 text-[13px] text-muted-foreground leading-relaxed">
             {isSpouseNode
               ? '当前为配偶节点，未关联原生父母世系。'
               : '暂无父母与兄弟姐妹记录（开基始祖或尚未关联父母）。'}

@@ -90,7 +90,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
       <div className="relative z-10 w-full max-w-[620px] h-[510px] bg-card rounded-xl shadow-[var(--shadow-popover)] flex overflow-hidden border border-border">
         <div className="w-[176px] bg-[hsl(var(--surface-subtle))] border-r border-border p-4 flex flex-col gap-1 shrink-0">
-          <h2 className="font-editorial text-[15px] font-semibold mb-3 px-2 text-foreground">
+          <h2 className="yp-h3 mb-3 px-2 text-foreground">
             账号设置
           </h2>
 
@@ -122,7 +122,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
 
         <div className="flex-1 flex flex-col min-w-0 bg-background">
           <div className="h-14 px-6 border-b border-border flex items-center justify-between shrink-0 bg-card">
-            <h3 className="font-editorial text-base font-semibold text-foreground">
+            <h3 className="yp-h2 text-foreground">
               {activeTab === 'general' ? '个人资料' : '外观与阅读'}
             </h3>
             <Button
@@ -140,12 +140,12 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
             {activeTab === 'general' && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-primary text-primary-foreground text-xl font-editorial font-semibold shadow-sm">
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-primary text-primary-foreground text-[18px] font-semibold shadow-sm">
                     {avatarInitial}
                   </div>
                   <div>
-                    <h4 className="font-medium text-foreground">{name || '未命名成员'}</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <h4 className="text-[15px] font-semibold text-foreground">{name || '未命名成员'}</h4>
+                    <p className="text-[13px] text-muted-foreground mt-0.5">
                       {user.role || '工作区成员'}
                     </p>
                   </div>
@@ -193,7 +193,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
                 <div className="space-y-3">
                   <div>
                     <Label>青蓝明韵与深石板夜览双态主题</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-[13px] text-muted-foreground mt-1">
                       专为长时间宗谱编修调校的纯净冷白亮色与低刺眼深石板夜览配色。
                     </p>
                   </div>
@@ -227,7 +227,7 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-semibold text-foreground">
+                            <div className="text-[14px] font-semibold text-foreground">
                               {opt.label}
                             </div>
                             <div className="text-[12px] text-muted-foreground truncate">
@@ -249,14 +249,14 @@ const ProfileSettingsDialog: React.FC<ProfileSettingsDialogProps> = ({
                 <Separator />
 
                 <div className="rounded-xl border border-border bg-card p-4 space-y-1.5">
-                  <div className="text-[11px] font-semibold tracking-wider text-muted-foreground">
+                  <div className="text-[12px] font-semibold tracking-wider text-muted-foreground">
                     排版预览
                   </div>
-                  <div className="font-editorial text-[17px] font-semibold text-foreground">
+                  <div className="font-serif text-[18px] font-semibold text-foreground">
                     义门陈氏宗谱 · 世系流芳
                   </div>
                   <p className="text-[13px] text-muted-foreground leading-relaxed">
-                    标题采用衬线体营造书卷典藏感，菜单、表格与表单采用高清晰无衬线体与等宽对齐数字（2026 · 第 18 世）。
+                    界面导航、表单与数据指标采用无衬线体与等宽对齐数字（2026 · 第 18 世）；谱文与谱书正文采用典雅衬线体阅读。
                   </p>
                 </div>
               </div>

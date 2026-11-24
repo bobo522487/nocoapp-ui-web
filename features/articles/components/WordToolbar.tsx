@@ -367,7 +367,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
 
           {showColorMenu && (
             <div className="absolute top-9 left-0 z-50 w-44 rounded-lg border border-border bg-popover p-2 shadow-[var(--shadow-popover)]">
-              <div className="text-[11px] font-medium text-muted-foreground px-1 pb-1.5">
+              <div className="text-[12px] font-medium text-muted-foreground px-1 pb-1.5">
                 文字墨色
               </div>
               <div className="grid grid-cols-4 gap-1.5">
@@ -492,7 +492,7 @@ export const WordToolbar: React.FC<WordToolbarProps> = ({
 
           {showTablePicker && (
             <div className="absolute top-9 left-0 z-50 rounded-lg border border-border bg-popover p-2.5 shadow-[var(--shadow-popover)] w-44">
-              <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground pb-2">
+              <div className="flex items-center justify-between text-[12px] font-medium text-muted-foreground pb-2">
                 <span>插入表格</span>
                 <span className="tabular-nums text-foreground">
                   {hoverGrid.rows} × {hoverGrid.cols}

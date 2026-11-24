@@ -7,13 +7,18 @@ import {
   computeAutoRankLabel,
   computeSpouseOrderIndex,
   formatSpouseSequenceLabel,
+  getDerivedChildren,
   getDerivedSpouses,
+  getPersonAliasItems,
   getPersonPrimaryTitle,
+  normalizePersonForSave,
+  syncAliasesFromItems,
 } from './utils/personHelpers';
 import {
   applyUnifiedEventToPerson,
   buildPersonTimelineEvents,
   removeUnifiedEventFromPerson,
+  resolvePersonRelationshipHeader,
 } from './utils/personTimeline';
 import { formatGenealogyDate, parseQuickDateInput } from '../date-input';
 import { formatGenealogyPlace, parsePlaceText } from '../place-input';
@@ -403,6 +408,11 @@ function runLineageSsotTests() {
     formatSpouseSequenceLabel(computeSpouseOrderIndex(promotedSpouse, graphPersons)),
     '原配'
   );
+  assert.equal(computeAutoRankLabel(promotedSpouse, graphPersons), '');
+  assert.equal(
+    resolvePersonRelationshipHeader(promotedSpouse, graphPersons),
+    '第 1 世 · 妻子'
+  );
   assert.equal(computeAutoRankLabel(child, graphPersons), '之男');
   assert.equal(
     computeAutoRankLabel(
@@ -411,6 +421,38 @@ function runLineageSsotTests() {
     ),
     '之女'
   );
+
+  // 4b. Chronological child rank computation (长子 / 次子 derived from birth dates regardless of insertion order)
+  const birth1988 = parseQuickDateInput('1988-03-10');
+  const birth1992 = parseQuickDateInput('1992-05-01');
+  const sonLater = {
+    id: 'son-1992',
+    branchId: 'c-rank',
+    name: '次子测试',
+    gender: 'male' as const,
+    status: 'living' as const,
+    generation: 2,
+    siblingOrder: 1, // added first
+    fatherId: 'anc-1',
+    birth: { structuredDate: birth1992.ok ? birth1992.value : null },
+  };
+  const sonOlder = {
+    id: 'son-1988',
+    branchId: 'c-rank',
+    name: '长子测试',
+    gender: 'male' as const,
+    status: 'living' as const,
+    generation: 2,
+    siblingOrder: 2, // added second
+    fatherId: 'anc-1',
+    birth: { structuredDate: birth1988.ok ? birth1988.value : null },
+  };
+  const rankTestPersons: PersonRecord[] = [anc, sonLater, sonOlder];
+  const orderedKids = getDerivedChildren(rankTestPersons, anc.id);
+  assert.equal(orderedKids[0].id, 'son-1988');
+  assert.equal(orderedKids[1].id, 'son-1992');
+  assert.equal(computeAutoRankLabel(sonOlder, rankTestPersons), '长子');
+  assert.equal(computeAutoRankLabel(sonLater, rankTestPersons), '次子');
 
   const stats = computeLineageStats(graphPersons, 1);
   assert.equal(stats.totalPersons, 6);
@@ -432,6 +474,42 @@ function runLineageSsotTests() {
       assertNoShadowKeys(p);
     }
   }
+
+  // 6. Structured alias items & legacy string alias compatibility
+  const legacyAliasItems = getPersonAliasItems(anc);
+  assert.equal(legacyAliasItems.length, 2);
+  assert.equal(legacyAliasItems[0].type, '字');
+  assert.equal(legacyAliasItems[0].name, '子安');
+  assert.equal(legacyAliasItems[1].type, '号');
+  assert.equal(legacyAliasItems[1].name, '竹溪');
+
+  const withStructuredAliases = normalizePersonForSave(
+    {
+      ...anc,
+      aliasItems: [
+        {
+          id: 'al-1',
+          type: '字',
+          name: '伯宣',
+          romanizedName: { name: 'Boxuan' },
+        },
+        {
+          id: 'al-2',
+          type: '曾用名',
+          surname: '陈',
+          name: '明远',
+          romanizedName: { surname: 'Chen', name: 'Mingyuan' },
+        },
+      ],
+    },
+    migratedPersons
+  );
+  assert.deepEqual(withStructuredAliases.aliases, ['字伯宣', '陈明远']);
+  assert.equal(withStructuredAliases.aliasItems?.length, 2);
+  assert.deepEqual(
+    syncAliasesFromItems(withStructuredAliases.aliasItems || []),
+    ['字伯宣', '陈明远']
+  );
 
   console.log('All lineage SSOT, store migration & stats tests PASSED.');
 }

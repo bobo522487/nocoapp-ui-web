@@ -3,22 +3,26 @@ import { BarChart3, PanelLeftOpen } from 'lucide-react';
 import Breadcrumb from '../common/Breadcrumb';
 import { Button } from '../ui/button';
 import { LineageStatsModal } from '../../features/lineage/components/LineageStatsModal';
+import { ViewMode } from '../../types';
 import { useRouteContext } from '../../hooks/useRouteContext';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 
 const ProjectTopbar: React.FC = () => {
-  const { activeProjectId } = useRouteContext();
+  const { activeProjectId, activeView } = useRouteContext();
 
   const isCollapsed = usePreferencesStore((s) => s.isProjectSidebarCollapsed);
   const setCollapsed = usePreferencesStore((s) => s.setProjectSidebarCollapsed);
 
   const [isStatsOpen, setIsStatsOpen] = useState(false);
 
+  const showStatsButton =
+    activeView === ViewMode.PROJECT_HOME || activeView === ViewMode.LINEAGE;
+
   return (
     <>
       <header
         data-testid="nc-table-topbar"
-        className="h-12 w-full border-b border-border bg-background/95 backdrop-blur-xs flex items-center justify-between gap-3 px-4 shrink-0 z-20"
+        className="h-13 w-full border-b border-border bg-background/95 backdrop-blur-xs flex items-center justify-between gap-3 px-4 shrink-0 z-20"
       >
         {/* Left: Sidebar Expand Toggle (when collapsed) + Unified Project Breadcrumb */}
         <div className="flex items-center gap-1 min-w-0 flex-1">
@@ -38,19 +42,21 @@ const ProjectTopbar: React.FC = () => {
           <Breadcrumb />
         </div>
 
-        {/* Right: Statistics button */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsStatsOpen(true)}
-            data-testid="nc-topbar-stats-btn"
-            className="h-8 gap-1.5 px-2.5 text-[12px] font-medium whitespace-nowrap shrink-0"
-          >
-            <BarChart3 size={14} className="text-muted-foreground" />
-            <span>统计</span>
-          </Button>
-        </div>
+        {/* Right: Scoped Statistics button */}
+        {showStatsButton && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsStatsOpen(true)}
+              data-testid="nc-topbar-stats-btn"
+              className="h-8 gap-1.5 px-2.5 text-[13px] font-medium whitespace-nowrap shrink-0"
+            >
+              <BarChart3 size={14} className="text-muted-foreground" />
+              <span>统计</span>
+            </Button>
+          </div>
+        )}
       </header>
 
       <LineageStatsModal

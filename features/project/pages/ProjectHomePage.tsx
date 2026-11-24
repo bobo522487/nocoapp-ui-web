@@ -187,7 +187,7 @@ const ProjectHomePage: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
-                  <h1 className="font-editorial text-[22px] font-semibold text-foreground truncate tracking-tight">
+                  <h1 className="yp-h1 text-foreground truncate">
                     {activeProject?.name || '家族工作台'}
                   </h1>
                   {activeProject?.primaryName && (
@@ -233,7 +233,7 @@ const ProjectHomePage: React.FC = () => {
 
           {/* 3-Column Cloud Genealogy Core Modules: 世系 / 谱文 / 谱书 */}
           <section className="space-y-3">
-            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            <h2 className="yp-h3 text-foreground">
               云谱编修工作区
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -286,7 +286,7 @@ const ProjectHomePage: React.FC = () => {
 
           {/* Project Profile Summary */}
           <section className="space-y-3">
-            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            <h2 className="yp-h3 text-foreground">
               云谱档案摘要
             </h2>
             <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden shadow-[var(--shadow-card)]">

@@ -74,48 +74,37 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
       data-is-current={String(isCurrent)}
       className={`family-card group relative rounded-xl p-6 bg-card transition-all duration-150 overflow-hidden flex flex-col justify-between ${
         isCurrent
-          ? 'border-2 border-primary shadow-[var(--shadow-card-hover)]'
+          ? 'border border-primary shadow-[var(--shadow-card-hover)]'
           : 'border border-border hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)]'
       }`}
     >
-      {/* Top-Right Current Family Ribbon */}
-      {isCurrent && (
-        <div className="family-card__current-badge absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 text-[11px] font-semibold tracking-wide rounded-bl-lg select-none">
-          当前家族
-        </div>
-      )}
-
       <div>
         {/* Top Row: Surname Seal + Action Icons */}
-        <div className="flex justify-between items-start gap-3 mb-5">
+        <div className="flex justify-between items-start gap-3 mb-4">
           <button
             type="button"
             onClick={() => onOpen(project, '')}
             title={`进入「${project.name}」工作台`}
-            className={`w-14 h-14 rounded-lg flex items-center justify-center border shrink-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            className={`w-12 h-12 rounded-lg flex items-center justify-center border shrink-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               isCurrent
-                ? 'bg-[hsl(var(--surface-active))] border-primary/25 text-primary'
+                ? 'bg-[hsl(var(--surface-active))] border-primary/30 text-primary'
                 : 'bg-[hsl(var(--surface-subtle))] border-border text-muted-foreground group-hover:text-primary group-hover:border-primary/40'
             }`}
           >
-            <span className="font-editorial text-2xl font-bold select-none">
+            <span className="font-serif text-[22px] font-bold select-none leading-none">
               {surnameChar}
             </span>
           </button>
 
-          <div
-            className={`family-card__actions flex items-center gap-1 ${
-              isCurrent ? 'mt-3' : ''
-            }`}
-          >
+          <div className="family-card__actions flex items-center gap-1">
             <button
               type="button"
               onClick={() => onExport(project)}
               title="导出备份家族"
               aria-label="导出备份家族"
-              className="p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Download size={16} />
+              <Download size={15} />
             </button>
 
             {canEdit && (
@@ -124,9 +113,9 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
                 onClick={() => onEdit(project)}
                 title="修改家族"
                 aria-label="修改家族"
-                className="p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Pencil size={16} />
+                <Pencil size={15} />
               </button>
             )}
 
@@ -136,26 +125,29 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
                 onClick={() => onDelete(project)}
                 title="删除家族"
                 aria-label="删除家族"
-                className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} />
               </button>
             )}
           </div>
         </div>
 
-        {/* Title & Status Line */}
-        <div className="mb-3">
+        {/* Title & Clean Unboxed Status Metadata Line */}
+        <div className="mb-3.5">
           <button
             type="button"
             onClick={() => onOpen(project, '')}
             className="w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
-            <h3 className="font-editorial text-xl font-bold text-foreground truncate group-hover:text-primary transition-colors">
+            <h3 className="yp-h2 text-foreground truncate group-hover:text-primary transition-colors">
               {project.name}
             </h3>
           </button>
-          <div className="text-[12px] text-muted-foreground mt-0.5 truncate tabular-nums">
+          <div className="text-[12px] leading-4 text-muted-foreground mt-1 truncate tabular-nums">
+            {isCurrent && (
+              <span className="font-semibold text-primary">当前家族 · </span>
+            )}
             {project.hallName && project.hallName !== project.name
               ? `${project.hallName} · `
               : ''}
@@ -181,7 +173,7 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
           <p className="flex items-center gap-2 tabular-nums">
             <GitFork size={15} className="shrink-0 text-muted-foreground/80" />
             <span className="truncate">
-              世系：{metrics.lineageCount} 个 · 谱文：{metrics.articleCount} 篇 · 谱书：{metrics.bookCount} 册
+              世系 {metrics.lineageCount} · 谱文 {metrics.articleCount} · 谱书 {metrics.bookCount}
             </span>
           </p>
 
@@ -200,8 +192,8 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
           <span
             className={`truncate ${
               zibeiWords.length > 0
-                ? 'text-foreground/80 font-serif'
-                : 'text-muted-foreground/75'
+                ? 'text-foreground/85 font-serif text-[13px]'
+                : 'text-muted-foreground/80'
             }`}
             title={zibeiWords.join(' ')}
           >
@@ -210,47 +202,47 @@ export const FamilyCard: React.FC<FamilyCardProps> = ({
           <button
             type="button"
             onClick={() => onManageZibei(project)}
-            className="text-[13px] font-semibold text-primary hover:underline cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            className="text-[12px] font-medium text-primary hover:underline cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
             设置字辈
           </button>
         </div>
       </div>
 
-      {/* 2x2 Action Footer */}
-      <div className="family-card__footer grid grid-cols-2 gap-2.5">
+      {/* Clear Single Primary CTA + 3 Quiet Secondary Links */}
+      <div className="family-card__footer flex items-center gap-2">
         <button
           type="button"
           onClick={() => onOpen(project, '/lineage')}
-          className="h-9 px-3 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[13px] font-semibold hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-9 flex-1 px-3.5 rounded-lg bg-primary text-primary-foreground text-[13px] font-medium shadow-[var(--shadow-control)] hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          管理世系
+          进入世系
         </button>
 
-        <button
-          type="button"
-          onClick={() => onOpen(project, '')}
-          className="h-9 px-3 rounded-lg border border-primary/30 text-primary text-[13px] font-semibold hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          家族概览
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOpen(project, '/articles')}
-          className="h-9 px-3 rounded-lg border border-primary/30 text-primary text-[13px] font-semibold hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          管理谱文
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOpen(project, '/books')}
-          className="h-9 px-3 rounded-lg border border-border bg-[hsl(var(--surface-subtle))/0.55] text-foreground/85 text-[13px] font-semibold hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <BookOpen size={14} className="shrink-0" />
-          <span>谱书排版</span>
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => onOpen(project, '')}
+            className="h-9 px-2.5 rounded-lg border border-border bg-card text-foreground/85 text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            概览
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpen(project, '/articles')}
+            className="h-9 px-2.5 rounded-lg border border-border bg-card text-foreground/85 text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            谱文
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpen(project, '/books')}
+            className="h-9 px-2.5 rounded-lg border border-border bg-card text-foreground/85 text-[13px] font-medium hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <BookOpen size={13} className="shrink-0 text-muted-foreground" />
+            <span>谱书</span>
+          </button>
+        </div>
       </div>
     </article>
   );

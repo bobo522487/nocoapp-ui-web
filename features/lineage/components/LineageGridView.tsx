@@ -33,44 +33,46 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
   );
 
   return (
-    <div className="w-full h-full overflow-auto bg-background p-6 select-none">
+    <div className="w-full h-full overflow-auto bg-background p-6">
       {/* Intro Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          <h2 className="yp-h2 text-foreground">
             欧式五世一表 · 世系大表
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-[13px] leading-5 text-muted-foreground mt-1">
             依宋代欧阳修世系表体例，五世一图，昭穆分明，每世详注名讳、字号、官衔、配偶生卒及葬茔坐向。
           </p>
         </div>
-        <div className="text-xs text-muted-foreground tabular-nums">
+        <div className="text-[12px] text-muted-foreground font-mono tabular-nums whitespace-nowrap shrink-0">
           五世图谱 (1世 ~ {generations.length}世)
         </div>
       </div>
 
       {/* Five-Generation Column Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 min-w-[1000px]">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 min-w-[1040px]">
         {generations.map((gen) => {
           const genPersons = persons.filter((p) => p.generation === gen);
           return (
             <div
               key={gen}
-              className="flex flex-col border border-border rounded-xl bg-card overflow-hidden shadow-sm"
+              className="flex flex-col border border-border rounded-xl bg-card overflow-hidden shadow-[var(--shadow-card)]"
             >
               <div className="px-4 py-3 bg-[hsl(var(--surface-subtle))] border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-bold text-sm text-foreground tabular-nums">
-                  {gen === 1 && <Crown size={15} className="text-primary" />}
+                <div className="flex items-center gap-1.5 font-semibold text-[14px] text-foreground font-mono tabular-nums">
+                  {gen === 1 && (
+                    <Crown size={15} className="text-primary" aria-hidden="true" />
+                  )}
                   <span>第 {gen} 世</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                <span className="text-[12px] text-muted-foreground font-medium font-mono tabular-nums">
                   {genPersons.length} 人
                 </span>
               </div>
 
               <div className="p-3 space-y-3 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
                 {genPersons.length === 0 ? (
-                  <div className="text-center py-10 text-xs text-muted-foreground">
+                  <div className="text-center py-10 text-[13px] text-muted-foreground">
                     暂无本世族人
                   </div>
                 ) : (
@@ -103,7 +105,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-sm text-foreground">
+                              <span className="font-semibold text-[14px] text-foreground truncate">
                                 {p.spouseOfId
                                   ? [
                                       p.surname && !p.name.startsWith(p.surname)
@@ -114,34 +116,37 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                                   : formatGivenName(p.name, clanSurname)}
                               </span>
                               {aliasesText && (
-                                <span className="text-[11px] text-muted-foreground truncate">
+                                <span className="text-[12px] text-muted-foreground truncate">
                                   {aliasesText}
                                 </span>
                               )}
                             </div>
                             {father && (
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                              <div className="text-[12px] text-muted-foreground mt-0.5 truncate">
                                 父：{formatGivenName(father.name, clanSurname)}公
                               </div>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {rankLabel}
-                          </span>
+                          {rankLabel && (
+                            <span className="text-[12px] text-muted-foreground shrink-0">
+                              {rankLabel}
+                            </span>
+                          )}
                         </div>
 
                         {primaryTitle && (
-                          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-primary font-medium truncate">
-                            <Award size={11} className="shrink-0" />
+                          <div className="mt-1.5 flex items-center gap-1 text-[12px] text-primary font-medium truncate">
+                            <Award size={12} className="shrink-0" aria-hidden="true" />
                             <span className="truncate">{primaryTitle}</span>
                           </div>
                         )}
 
                         {spouses.length > 0 && (
-                          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <div className="mt-1.5 flex items-center gap-1 text-[12px] text-muted-foreground">
                             <Heart
-                              size={11}
+                              size={12}
                               className="text-rose-500 shrink-0"
+                              aria-hidden="true"
                             />
                             <span className="truncate">
                               配：
@@ -162,14 +167,14 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                         )}
 
                         {burialPlaceText && (
-                          <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/80 truncate">
-                            <MapPin size={10} className="shrink-0" />
+                          <div className="mt-1 flex items-center gap-1 text-[12px] text-muted-foreground truncate">
+                            <MapPin size={12} className="shrink-0" aria-hidden="true" />
                             <span className="truncate">{burialPlaceText}</span>
                           </div>
                         )}
 
                         {!p.spouseOfId && (
-                          <div className="mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                          <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-[12px] text-muted-foreground font-mono tabular-nums">
                             <span>出 {children.length} 子</span>
                             <button
                               type="button"
@@ -177,7 +182,7 @@ export const LineageGridView: React.FC<LineageGridViewProps> = ({
                                 e.stopPropagation();
                                 onAddChild(p.id);
                               }}
-                              className="text-primary hover:underline font-medium cursor-pointer"
+                              className="font-sans text-primary hover:underline font-medium cursor-pointer"
                             >
                               + 添子嗣
                             </button>

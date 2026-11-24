@@ -52,10 +52,10 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) =>
           <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-1 bg-card border border-border shadow-[var(--shadow-card)]">
             <WorkspaceLogoIcon className="w-8 h-8" />
           </div>
-          <h1 className="font-editorial text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="yp-h1 text-foreground">
             {title}
           </h1>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          {subtitle && <p className="text-[14px] text-muted-foreground">{subtitle}</p>}
         </div>
 
         <div className="bg-card text-card-foreground border border-border rounded-xl shadow-[var(--shadow-popover)] p-7">

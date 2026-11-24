@@ -101,15 +101,15 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div className="relative">
             <Search
-              size={13}
+              size={14}
               aria-hidden="true"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/75"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/75"
             />
             <Input
               value={eraQuery}
               onChange={(e) => setEraQuery(e.target.value)}
               placeholder="检索年号或帝号（如 洪武、光绪）"
-              className="h-8 pl-8 text-xs"
+              className="pl-8.5"
             />
           </div>
 
@@ -138,7 +138,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
           <div className="flex items-center justify-between mb-1.5">
             <label
               htmlFor={`${idPrefix}-era`}
-              className="text-[11px] font-medium text-muted-foreground"
+              className="text-[12px] font-medium text-muted-foreground"
             >
               年号
             </label>
@@ -159,7 +159,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
                   onChange({ ...value, eraId: undefined });
                 }
               }}
-              className="text-[11px] text-primary hover:underline cursor-pointer"
+              className="text-[12px] font-medium text-primary hover:underline cursor-pointer"
             >
               {customMode ? '选内置年号' : '手动填写'}
             </button>
@@ -172,7 +172,6 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
                 onChange({ ...value, eraId: undefined, eraName: e.target.value })
               }
               placeholder="输入古籍年号"
-              className="h-8 text-xs px-2.5"
             />
           ) : (
             <Select
@@ -203,7 +202,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-year-in-era`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             年次（第几年）
           </label>
@@ -221,7 +220,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
               });
             }}
             placeholder="例如：23"
-            className="h-8 text-xs px-2.5 tabular-nums"
+            className="tabular-nums"
           />
         </div>
       </div>
@@ -231,7 +230,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-month`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             历史月份（可留空）
           </label>
@@ -263,7 +262,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-day`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             历史日期（可留空）
           </label>
@@ -295,14 +294,14 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
         </div>
 
         {value.month ? (
-          <label className="flex items-center gap-2 h-8 px-2.5 rounded-md border border-input bg-card text-xs text-foreground cursor-pointer select-none col-span-2 sm:col-span-1">
+          <label className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-card text-[13px] text-foreground cursor-pointer select-none col-span-2 sm:col-span-1">
             <input
               type="checkbox"
               checked={Boolean(value.isLeapMonth)}
               onChange={(e) =>
                 onChange({ ...value, isLeapMonth: e.target.checked })
               }
-              className="rounded border-input accent-primary h-3.5 w-3.5 cursor-pointer"
+              className="rounded border-input accent-primary h-4 w-4 cursor-pointer"
             />
             <span>史载为闰月</span>
           </label>
@@ -311,7 +310,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
 
       {/* Selected era historical context */}
       {selectedEra ? (
-        <div className="text-[11px] text-muted-foreground leading-relaxed">
+        <div className="text-[12px] text-muted-foreground leading-relaxed">
           <span>{selectedEra.ruler}</span>
           <span aria-hidden="true"> · </span>
           <span className="tabular-nums">
@@ -330,7 +329,7 @@ export const RegnalDateFields: React.FC<RegnalFieldsProps> = ({
           )}
         </div>
       ) : (
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-[12px] text-muted-foreground">
           未匹配内置年号字典：系统将完整保存自定义年号与史料记载，不做公历推断。
         </div>
       )}
@@ -355,7 +354,7 @@ export const SexagenaryDateFields: React.FC<SexagenaryFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-cycle`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             六十甲子干支年
           </label>
@@ -383,7 +382,7 @@ export const SexagenaryDateFields: React.FC<SexagenaryFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-basis`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             换年历法依据
           </label>
@@ -407,7 +406,7 @@ export const SexagenaryDateFields: React.FC<SexagenaryFieldsProps> = ({
         </div>
       </div>
 
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
+      <p className="text-[12px] text-muted-foreground leading-relaxed">
         干支纪年每 60 年周而复始，仅凭干支不会自动推断公元年份；若已知具体年份或年号，请优先使用公历、农历或年号纪年录入。
       </p>
     </div>

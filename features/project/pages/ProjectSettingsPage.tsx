@@ -204,7 +204,7 @@ const ProjectSettingsPage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-6">
         <div>
-          <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+          <h1 className="yp-h1 text-foreground">
             家族设置
           </h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">
@@ -214,7 +214,7 @@ const ProjectSettingsPage: React.FC = () => {
 
         {/* Basic Family Profile (aligned 1:1 with Create Family modal) */}
         <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5 shadow-[var(--shadow-card)]">
-          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+          <h2 className="yp-h3 text-foreground">
             基本信息
           </h2>
           <form onSubmit={(e) => void handleSave(e)} noValidate className="space-y-5 max-w-xl">
@@ -261,7 +261,7 @@ const ProjectSettingsPage: React.FC = () => {
 
         {/* Danger Zone: Delete Family Only */}
         <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-4 shadow-[var(--shadow-card)]">
-          <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+          <h2 className="yp-h3 text-foreground">
             家族操作
           </h2>
 

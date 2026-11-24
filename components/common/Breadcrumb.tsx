@@ -222,7 +222,7 @@ const Breadcrumb: React.FC = () => {
                         setCopiedId(true);
                         setTimeout(() => setCopiedId(false), 1500);
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded bg-[hsl(var(--surface-subtle))] border border-border/70 cursor-pointer shrink-0 whitespace-nowrap"
+                      className="inline-flex items-center gap-1 text-[12px] font-mono text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded bg-[hsl(var(--surface-subtle))] border border-border/70 cursor-pointer shrink-0 whitespace-nowrap"
                       title="复制家族 ID"
                     >
                       <span>{copiedId ? '已复制' : 'ID'}</span>

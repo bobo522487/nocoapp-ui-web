@@ -1,8 +1,15 @@
 import { formatGenealogyDate, getPersonDateDisplay } from '../../date-input';
+import {
+  computeRegnalGregorianYear,
+  normalizeDatePoint,
+  resolveEraForRegnalParts,
+} from '../../date-input/calendar-adapter';
+import { toCalendarDatePoint } from '../../date-input/date-core';
 import type { GenealogyDate } from '../../date-input/date.types';
 import { formatGenealogyPlace, getPersonPlaceDisplay } from '../../place-input';
 import {
   BiographyPreviewPreferences,
+  PersonAliasRecord,
   PersonEventType,
   PersonLifeEvent,
   PersonRecord,
@@ -59,6 +66,132 @@ function getRankScore(p: PersonRecord): number {
   return 50;
 }
 
+function toSortableDateNumber(iso?: string | null): number | null {
+  if (!iso) return null;
+  const match = /^(-?\d+)-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return null;
+  return Number(match[1]) * 10000 + Number(match[2]) * 100 + Number(match[3]);
+}
+
+function getBirthComparableRange(
+  person: PersonRecord
+): { start: number; end: number } | null {
+  const structuredDate = person.birth?.structuredDate;
+  if (!structuredDate) return null;
+
+  if (structuredDate.kind === 'date') {
+    if (structuredDate.normalized?.start) {
+      const s = toSortableDateNumber(structuredDate.normalized.start);
+      const e = toSortableDateNumber(
+        structuredDate.normalized.end || structuredDate.normalized.start
+      );
+      if (s !== null && e !== null) return { start: s, end: e };
+    }
+    const pt = toCalendarDatePoint(structuredDate);
+    const norm = normalizeDatePoint(pt);
+    if (norm.start) {
+      const s = toSortableDateNumber(norm.start);
+      const e = toSortableDateNumber(norm.end || norm.start);
+      if (s !== null && e !== null) return { start: s, end: e };
+    }
+    if (pt.calendar === 'regnal') {
+      const era = resolveEraForRegnalParts(pt.parts);
+      if (era) {
+        const y = computeRegnalGregorianYear(era, pt.parts.yearInEra);
+        return { start: y * 10000 + 101, end: y * 10000 + 1231 };
+      }
+    }
+    return null;
+  }
+
+  if (structuredDate.kind === 'range') {
+    const ns = normalizeDatePoint(structuredDate.start);
+    const ne = normalizeDatePoint(structuredDate.end);
+    const s = toSortableDateNumber(ns.start);
+    const e = toSortableDateNumber(ne.end || ne.start);
+    if (s !== null && e !== null) return { start: s, end: e };
+    return null;
+  }
+
+  if (structuredDate.kind === 'phrase') {
+    const m = structuredDate.originalText.match(/(?<!\d)(-?\d{4})(?!\d)/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      return { start: y * 10000 + 101, end: y * 10000 + 1231 };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Sort children chronologically by birth date when comparable (oldest first),
+ * preserving siblingOrder / biographyOrder for undated or overlapping dates.
+ */
+export function sortChildrenChronologically(
+  children: PersonRecord[]
+): PersonRecord[] {
+  const baseSorted = [...children].sort(
+    (a, b) => getRankScore(a) - getRankScore(b)
+  );
+  if (baseSorted.length <= 1) return baseSorted;
+
+  const datedSlots: number[] = [];
+  const datedItems: Array<{
+    person: PersonRecord;
+    range: { start: number; end: number };
+    baseIdx: number;
+  }> = [];
+
+  baseSorted.forEach((person, idx) => {
+    const range = getBirthComparableRange(person);
+    if (range) {
+      datedSlots.push(idx);
+      datedItems.push({ person, range, baseIdx: idx });
+    }
+  });
+
+  if (datedItems.length <= 1) return baseSorted;
+
+  // Topological sort on strict chronological order (a.end < b.start) with baseIdx tie-breaker
+  const n = datedItems.length;
+  const inDegree = new Array<number>(n).fill(0);
+  const adj: number[][] = Array.from({ length: n }, () => []);
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i !== j && datedItems[i].range.end < datedItems[j].range.start) {
+        adj[i].push(j);
+        inDegree[j] += 1;
+      }
+    }
+  }
+
+  const orderedDated: PersonRecord[] = [];
+  const available: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (inDegree[i] === 0) available.push(i);
+  }
+
+  while (available.length > 0) {
+    available.sort((i, j) => datedItems[i].baseIdx - datedItems[j].baseIdx);
+    const cur = available.shift()!;
+    orderedDated.push(datedItems[cur].person);
+    for (const nxt of adj[cur]) {
+      inDegree[nxt] -= 1;
+      if (inDegree[nxt] === 0) available.push(nxt);
+    }
+  }
+
+  if (orderedDated.length !== n) return baseSorted;
+
+  const result = [...baseSorted];
+  datedSlots.forEach((slotIdx, i) => {
+    result[slotIdx] = orderedDated[i];
+  });
+  return result;
+}
+
 export function getSpouseSortScore(person: PersonRecord): number {
   if (person.siblingOrder !== undefined) return person.siblingOrder;
   if (person.biographyOrder !== undefined) return person.biographyOrder;
@@ -98,8 +231,8 @@ export function buildLineageGraphIndex(
     }
   }
 
-  for (const list of childrenByFatherId.values()) {
-    list.sort((a, b) => getRankScore(a) - getRankScore(b));
+  for (const [fatherId, list] of childrenByFatherId.entries()) {
+    childrenByFatherId.set(fatherId, sortChildrenChronologically(list));
   }
 
   for (const list of spousesByPartnerId.values()) {
@@ -114,15 +247,16 @@ export function buildLineageGraphIndex(
 }
 
 /**
- * Derive children from the single-source-of-truth person graph using fatherId.
+ * Derive children from the single-source-of-truth person graph using fatherId,
+ * sorted chronologically by birth date when available (with siblingOrder fallback).
  */
 export function getDerivedChildren(
   allPersons: PersonRecord[],
   parentId: string
 ): PersonRecord[] {
-  return allPersons
-    .filter((p) => p.fatherId === parentId && !p.spouseOfId)
-    .sort((a, b) => getRankScore(a) - getRankScore(b));
+  return sortChildrenChronologically(
+    allPersons.filter((p) => p.fatherId === parentId && !p.spouseOfId)
+  );
 }
 
 /**
@@ -227,10 +361,10 @@ export function getExtraRelationBadge(
 }
 
 /**
- * Compute automatic rank label from topology:
- * - Spouses: 原配 / 继配 / 三配 / 四配...
+ * Compute automatic rank label from topology & birth dates:
+ * - Spouses: omitted (returns '')
  * - Root: 始祖 / 首节点
- * - Children (split into male and female groups):
+ * - Children (sorted by birth date with siblingOrder fallback, split by gender):
  *   - 1 male -> 之男; 2+ males -> 长子 / 次子 / 三子...
  *   - 1 female -> 之女; 2+ females -> 长女 / 次女 / 三女...
  */
@@ -239,17 +373,17 @@ export function computeAutoRankLabel(
   allPersons: PersonRecord[]
 ): string {
   if (person.spouseOfId) {
-    const orderNum = computeSpouseOrderIndex(person, allPersons);
-    return formatSpouseSequenceLabel(orderNum);
+    return '';
   }
   if (!person.fatherId) {
     return person.generation === 1 ? '始祖' : '首节点';
   }
+  if (person.gender === 'unknown') {
+    return '';
+  }
   const allChildren = getDerivedChildren(allPersons, person.fatherId);
   const isFemale = person.gender === 'female';
-  const sameGenderGroup = allChildren.filter((c) =>
-    isFemale ? c.gender === 'female' : c.gender !== 'female'
-  );
+  const sameGenderGroup = allChildren.filter((c) => c.gender === person.gender);
 
   if (sameGenderGroup.length <= 1) {
     return isFemale ? '之女' : '之男';
@@ -267,6 +401,20 @@ export function computeRankDisplay(
   return computeAutoRankLabel(person, allPersons);
 }
 
+export const ALIAS_TYPE_OPTIONS: ReadonlyArray<{
+  value: string;
+  label: string;
+}> = [
+  { value: '', label: '未指定' },
+  { value: '字', label: '字' },
+  { value: '号', label: '号' },
+  { value: '曾用名', label: '曾用名' },
+  { value: '乳名', label: '乳名' },
+  { value: '谱名', label: '谱名' },
+  { value: '谥号', label: '谥号' },
+  { value: '其他', label: '其他' },
+];
+
 export function getPersonAliases(
   person: Pick<PersonRecord, 'aliases'> | null | undefined
 ): string[] {
@@ -276,9 +424,119 @@ export function getPersonAliases(
   );
 }
 
-export function formatPersonAliases(
-  person: Pick<PersonRecord, 'aliases'> | null | undefined
+export function formatAliasItemDisplayName(
+  item: Pick<PersonAliasRecord, 'surname' | 'name'>
 ): string {
+  return [item.surname?.trim(), item.name?.trim()].filter(Boolean).join('');
+}
+
+export function formatAliasItemRomanized(
+  item: Pick<PersonAliasRecord, 'romanizedName'>
+): string {
+  return [
+    item.romanizedName?.surname?.trim(),
+    item.romanizedName?.name?.trim(),
+    item.romanizedName?.suffix?.trim(),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function formatAliasItemToSummaryString(
+  item: PersonAliasRecord
+): string {
+  const fullName = formatAliasItemDisplayName(item);
+  if (!fullName) return '';
+  const type = item.type?.trim();
+  if ((type === '字' || type === '号') && !fullName.startsWith(type)) {
+    return `${type}${fullName}`;
+  }
+  return fullName;
+}
+
+export function normalizeAliasItems(
+  items: PersonAliasRecord[] | undefined
+): PersonAliasRecord[] {
+  if (!items?.length) return [];
+  const result: PersonAliasRecord[] = [];
+  items.forEach((item, idx) => {
+    const surname = item.surname?.trim() || undefined;
+    const name = item.name?.trim() || '';
+    if (!surname && !name) return;
+    const type = item.type?.trim() || undefined;
+    const rSur = item.romanizedName?.surname?.trim() || undefined;
+    const rNam = item.romanizedName?.name?.trim() || undefined;
+    const rSuf = item.romanizedName?.suffix?.trim() || undefined;
+    const romanizedName =
+      rSur || rNam || rSuf
+        ? {
+            ...(rSur ? { surname: rSur } : {}),
+            ...(rNam ? { name: rNam } : {}),
+            ...(rSuf ? { suffix: rSuf } : {}),
+          }
+        : undefined;
+    result.push({
+      id: item.id?.trim() || `alias-${idx + 1}`,
+      ...(type ? { type } : {}),
+      ...(surname ? { surname } : {}),
+      name: name || surname || '',
+      ...(romanizedName ? { romanizedName } : {}),
+    });
+  });
+  return result;
+}
+
+export function syncAliasesFromItems(items: PersonAliasRecord[]): string[] {
+  return Array.from(
+    new Set(
+      items.map((item) => formatAliasItemToSummaryString(item)).filter(Boolean)
+    )
+  );
+}
+
+const KNOWN_ALIAS_PREFIXES = ['字', '号'] as const;
+
+export function parseLegacyAliasString(
+  raw: string,
+  index: number
+): PersonAliasRecord {
+  const trimmed = raw.trim();
+  for (const prefix of KNOWN_ALIAS_PREFIXES) {
+    if (trimmed.startsWith(prefix) && trimmed.length > prefix.length) {
+      const rest = trimmed.slice(prefix.length).replace(/^[:：\s]+/, '').trim();
+      if (rest) {
+        return {
+          id: `legacy-alias-${index}`,
+          type: prefix,
+          name: rest,
+        };
+      }
+    }
+  }
+  return {
+    id: `legacy-alias-${index}`,
+    name: trimmed,
+  };
+}
+
+export function getPersonAliasItems(
+  person: Pick<PersonRecord, 'aliasItems' | 'aliases'> | null | undefined
+): PersonAliasRecord[] {
+  if (!person) return [];
+  const normalized = normalizeAliasItems(person.aliasItems);
+  if (normalized.length > 0) return normalized;
+  if (person.aliasItems !== undefined) return [];
+  const legacyList = getPersonAliases(person);
+  return legacyList.map((raw, idx) => parseLegacyAliasString(raw, idx));
+}
+
+export function formatPersonAliases(
+  person: Pick<PersonRecord, 'aliases' | 'aliasItems'> | null | undefined
+): string {
+  const items = normalizeAliasItems(person?.aliasItems);
+  if (items.length > 0) {
+    return syncAliasesFromItems(items).join('、');
+  }
   return getPersonAliases(person).join('、');
 }
 
@@ -337,6 +595,7 @@ export function hydratePersonDraft(
   clanSurname: string = ''
 ): PersonRecord {
   const resolvedAliases = getPersonAliases(person);
+  const resolvedAliasItems = normalizeAliasItems(person.aliasItems);
   const hydratedEvents: PersonLifeEvent[] = (person.events || []).map((ev, idx) => ({
     id: ev.id || `ev-${idx + 1}`,
     type: normalizeEventType(ev.type),
@@ -351,6 +610,7 @@ export function hydratePersonDraft(
       ? (person.surname ?? '')
       : (person.surname ?? clanSurname),
     aliases: resolvedAliases,
+    ...(person.aliasItems !== undefined ? { aliasItems: resolvedAliasItems } : {}),
     nameSuffix: person.nameSuffix ?? '',
     romanizedName: {
       surname: person.romanizedName?.surname ?? '',
@@ -407,7 +667,13 @@ export function normalizePersonForSave(
     ? allPersons.find((p) => p.id === draft.fatherId)
     : null;
 
-  const cleanedAliases = getPersonAliases(draft);
+  const hasStructuredAliasItems = draft.aliasItems !== undefined;
+  const cleanedAliasItems = hasStructuredAliasItems
+    ? normalizeAliasItems(draft.aliasItems)
+    : undefined;
+  const cleanedAliases = hasStructuredAliasItems
+    ? syncAliasesFromItems(cleanedAliasItems || [])
+    : getPersonAliases(draft);
 
   const cleanedEvents: PersonLifeEvent[] = (draft.events || [])
     .map((ev, idx) => {
@@ -509,6 +775,9 @@ export function normalizePersonForSave(
     romanizedName,
     legalName: draft.legalName?.trim() || undefined,
     aliases: cleanedAliases.length > 0 ? cleanedAliases : undefined,
+    ...(cleanedAliasItems && cleanedAliasItems.length > 0
+      ? { aliasItems: cleanedAliasItems }
+      : {}),
     childhoodName: draft.childhoodName?.trim() || undefined,
     gender: draft.gender,
     status: draft.status,

@@ -156,10 +156,10 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           style={{ width }}
           className="flex flex-col bg-[hsl(var(--surface-subtle))] h-full shrink-0 border-r border-border select-none relative z-30"
         >
-          {/* Top Workspace Switcher (h-14) */}
+          {/* Top Workspace Switcher (h-13) */}
           <div
             ref={wsDropdownRef}
-            className="relative h-14 px-2.5 flex items-center flex-none border-b border-border"
+            className="relative h-13 px-2.5 flex items-center flex-none border-b border-border"
           >
             <button
               type="button"
@@ -181,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             </button>
 
             {isWsDropdownOpen && (
-              <div className="absolute top-13 left-2.5 right-2.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[70] p-1.5">
+              <div className="absolute top-12 left-2.5 right-2.5 rounded-xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-popover)] z-[70] p-1.5">
                 <div className="relative mb-1.5">
                   <Search
                     size={13}
@@ -192,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                     value={wsSearch}
                     onChange={(e) => setWsSearch(e.target.value)}
                     placeholder="搜索工作区..."
-                    className="w-full h-8 pl-8 pr-2 text-xs rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="w-full h-8 pl-8 pr-2 text-[13px] rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     autoFocus
                   />
                 </div>
@@ -213,14 +213,14 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                         }`}
                       >
                         <div
-                          className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[11px] font-semibold shrink-0"
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-white text-[12px] font-semibold shrink-0"
                           style={{ backgroundColor: ws.color }}
                         >
                           {ws.name.slice(0, 1)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="truncate">{ws.name}</div>
-                          <div className="text-[11px] text-muted-foreground truncate">
+                          <div className="text-[12px] text-muted-foreground truncate">
                             {ws.plan}
                           </div>
                         </div>
@@ -254,7 +254,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
 
           {/* Middle Workspace Navigation */}
           <div className="flex-1 flex flex-col overflow-hidden pt-3">
-            <div className="px-4 py-1.5 text-[11px] leading-4 font-semibold tracking-wider text-muted-foreground">
+            <div className="px-4 py-1.5 text-[12px] leading-4 font-semibold tracking-wider text-muted-foreground">
               工作区
             </div>
             <nav aria-label="工作区主导航" className="flex-1 overflow-y-auto px-2.5 space-y-1">
@@ -306,13 +306,12 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   }
 
   // 兜底：Sidebar 只在 workspace shell 渲染（项目壳用 ProjectSidebar）。
-  // 模板 context panel（应用/数据表/数据源/文件树）已随模板 UI 整体下线。
   return (
     <aside
       style={{ width }}
       className="flex flex-col bg-background h-full shrink-0 border-r border-border relative z-30"
     >
-      <div className="h-14 px-2 flex items-center border-b border-border">
+      <div className="h-13 px-2 flex items-center border-b border-border">
         <button
           type="button"
           onClick={() => void navigate({ to: '/' })}

@@ -174,7 +174,7 @@ export const BookWorkspace: React.FC = () => {
             <BookOpen size={22} />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-[16px] font-semibold text-foreground">
+            <h2 className="yp-h2 text-foreground">
               暂无谱书项目
             </h2>
             <p className="text-[13px] text-muted-foreground leading-relaxed">

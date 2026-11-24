@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { PersonRecord } from '../types';
+import React, { useEffect, useId, useState } from 'react';
+import { Heart, UserPlus } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 import { Select } from '../../../components/ui/select';
 import { Textarea } from '../../../components/ui/textarea';
-import { X, UserPlus, Heart } from 'lucide-react';
+import { DateInput, type GenealogyDate } from '../../date-input';
+import { PlaceInput, type GenealogyPlace } from '../../place-input';
+import { PersonRecord } from '../types';
 import { formatGivenName } from '../utils/nameUtils';
 import {
   computeAutoRankLabel,
   formatPersonAliases,
   parseAliasInput,
 } from '../utils/personHelpers';
-import { DateInput, type GenealogyDate } from '../../date-input';
-import { PlaceInput, type GenealogyPlace } from '../../place-input';
 
 interface AddPersonDialogProps {
   isOpen: boolean;
@@ -36,6 +41,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
   branchId,
   clanSurname = '',
 }) => {
+  const titleId = useId();
   const [name, setName] = useState('');
   const [aliasInput, setAliasInput] = useState('');
   const [generation, setGeneration] = useState(1);
@@ -44,7 +50,9 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
   const [status, setStatus] = useState<'living' | 'deceased'>('deceased');
   const [fatherId, setFatherId] = useState<string | null>(null);
   const [spouseName, setSpouseName] = useState('');
-  const [birthDateValue, setBirthDateValue] = useState<GenealogyDate | null>(null);
+  const [birthDateValue, setBirthDateValue] = useState<GenealogyDate | null>(
+    null
+  );
   const [officialTitle, setOfficialTitle] = useState('');
   const [burialPlaceValue, setBurialPlaceValue] =
     useState<GenealogyPlace | null>(null);
@@ -79,6 +87,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
       status,
       fatherId,
       siblingOrder: siblingCount + 1,
+      birth: birthDateValue ? { structuredDate: birthDateValue } : undefined,
     };
     return computeAutoRankLabel(previewPerson, [
       ...existingPersons,
@@ -141,44 +150,34 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
     onClose();
   };
 
-  const dialogContent = (
-    <div
-      className="fixed inset-0 z-[95] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/20">
-          <div className="flex items-center gap-2">
-            <UserPlus size={18} className="text-primary" />
-            <h3 className="font-bold text-sm text-foreground">
-              {parentPerson
-                ? `为【${formatGivenName(parentPerson.name, clanSurname)}】添加子嗣`
-                : '新增族人世系节点'}
-            </h3>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </Button>
-        </div>
+  const labelClass = 'block text-[13px] font-medium text-foreground mb-1.5';
 
-        {/* Modal Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="p-5 overflow-y-auto space-y-4 text-xs flex-1"
-        >
+  return (
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      zIndexClass="z-[95]"
+      ariaLabelledBy={titleId}
+    >
+      <ModalHeader
+        titleId={titleId}
+        icon={<UserPlus size={18} className="text-primary" />}
+        title={
+          parentPerson
+            ? `为【${formatGivenName(parentPerson.name, clanSurname)}】添加子嗣`
+            : '新增族人世系节点'
+        }
+        onClose={onClose}
+      />
+
+      <form
+        onSubmit={handleSubmit}
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
+      >
+        <ModalBody className="space-y-4">
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
-              承祧父祖
-            </label>
+            <label className={labelClass}>承祧父祖</label>
             <Select
               value={fatherId || ''}
               isPlaceholder={false}
@@ -199,7 +198,11 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               {fatherCandidates.map((p) => {
                 const aliases = formatPersonAliases(p);
                 return (
-                  <option key={p.id} value={p.id} className="bg-card text-foreground">
+                  <option
+                    key={p.id}
+                    value={p.id}
+                    className="bg-card text-foreground"
+                  >
                     第{p.generation}世：{formatGivenName(p.name, clanSurname)}{' '}
                     {aliases ? `(${aliases})` : ''}
                   </option>
@@ -208,61 +211,52 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-[11px] font-medium text-foreground mb-1.5">
-                族人姓名 <span className="text-primary">*</span>
+              <label className={labelClass}>
+                族人姓名 <span className="text-destructive ml-0.5">*</span>
               </label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如：伯康"
                 required
-                className="h-8 text-xs font-semibold"
+                className="font-medium"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
-                字 / 号 / 别名
-              </label>
+              <label className={labelClass}>字 / 号 / 别名</label>
               <Input
                 value={aliasInput}
                 onChange={(e) => setAliasInput(e.target.value)}
                 placeholder="如: 子安、竹溪（逗号分隔）"
-                className="h-8 text-xs"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
-                世次 (代)
-              </label>
+              <label className={labelClass}>世次 (代)</label>
               <Input
                 type="number"
                 value={generation}
                 onChange={(e) =>
                   setGeneration(parseInt(e.target.value, 10) || 1)
                 }
-                className="h-8 text-xs tabular-nums"
+                className="font-mono tabular-nums"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
-                排行（自动派生）
-              </label>
+              <label className={labelClass}>排行（自动）</label>
               <Input
                 value={computedRankPreview}
                 readOnly
                 disabled
-                className="h-8 text-xs bg-muted/40 text-muted-foreground"
+                className="bg-muted/40 text-muted-foreground"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
-                性别
-              </label>
+              <label className={labelClass}>性别</label>
               <Select
                 value={gender}
                 onChange={(e) =>
@@ -278,9 +272,7 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               </Select>
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
-                生存状态
-              </label>
+              <label className={labelClass}>生存状态</label>
               <Select
                 value={status}
                 onChange={(e) =>
@@ -297,37 +289,31 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
-                <Heart size={10} className="text-rose-500" /> 配偶姓氏
+              <label className="block text-[13px] font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                <Heart size={12} className="text-rose-500" aria-hidden="true" />
+                <span>配偶姓氏</span>
               </label>
               <Input
                 value={spouseName}
                 onChange={(e) => setSpouseName(e.target.value)}
                 placeholder="如: 王氏"
-                className="h-8 text-xs"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
-                字辈派语
-              </label>
+              <label className={labelClass}>字辈派语</label>
               <Input
                 value={generationWord}
                 onChange={(e) => setGenerationWord(e.target.value)}
                 placeholder="如: 伯"
-                className="h-8 text-xs"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label
-                htmlFor="add-person-birth-date"
-                className="block text-[11px] text-muted-foreground mb-1"
-              >
+              <label htmlFor="add-person-birth-date" className={labelClass}>
                 生辰年月
               </label>
               <DateInput
@@ -341,23 +327,17 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[11px] text-muted-foreground mb-1">
-                功名 / 官阶
-              </label>
+              <label className={labelClass}>功名 / 官阶</label>
               <Input
                 value={officialTitle}
                 onChange={(e) => setOfficialTitle(e.target.value)}
                 placeholder="如: 岁贡生"
-                className="h-8 text-xs"
               />
             </div>
           </div>
 
           <div>
-            <label
-              htmlFor="add-person-burial-place"
-              className="block text-[11px] text-muted-foreground mb-1"
-            >
+            <label htmlFor="add-person-burial-place" className={labelClass}>
               墓茔葬地与坐向
             </label>
             <PlaceInput
@@ -371,31 +351,24 @@ export const AddPersonDialog: React.FC<AddPersonDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">
-              行状事略记述
-            </label>
+            <label className={labelClass}>行状事略记述</label>
             <Textarea
               value={biography}
               onChange={(e) => setBiography(e.target.value)}
               rows={3}
               placeholder="例如：平生耕读传家，乐善好施..."
-              className="min-h-[72px] p-2.5 text-xs resize-none leading-relaxed"
+              className="min-h-[84px] resize-none leading-relaxed"
             />
           </div>
+        </ModalBody>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-            <Button type="button" variant="outline" size="sm" onClick={onClose}>
-              取消
-            </Button>
-            <Button type="submit" size="sm" className="px-5">
-              确定录入
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button type="submit">确定录入</Button>
+        </ModalFooter>
+      </form>
+    </ModalShell>
   );
-
-  if (typeof document === 'undefined') return dialogContent;
-  return createPortal(dialogContent, document.body);
 };

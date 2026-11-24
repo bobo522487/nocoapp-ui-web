@@ -107,7 +107,7 @@ export const LunarDateFields: React.FC<LunarDateFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-year`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             农历年份
           </label>
@@ -119,14 +119,14 @@ export const LunarDateFields: React.FC<LunarDateFieldsProps> = ({
             value={value.year === 0 ? '' : value.year}
             onChange={(e) => handleYearChange(e.target.value)}
             placeholder="例如：2014"
-            className="h-8 text-xs px-2.5 tabular-nums"
+            className="tabular-nums"
           />
         </div>
 
         <div>
           <label
             htmlFor={`${idPrefix}-month`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             月份（可留空）
           </label>
@@ -154,7 +154,7 @@ export const LunarDateFields: React.FC<LunarDateFieldsProps> = ({
         <div>
           <label
             htmlFor={`${idPrefix}-day`}
-            className="block text-[11px] font-medium text-muted-foreground mb-1.5"
+            className="block text-[12px] font-medium text-muted-foreground mb-1.5"
           >
             日期（可留空）
           </label>
@@ -183,7 +183,7 @@ export const LunarDateFields: React.FC<LunarDateFieldsProps> = ({
       </div>
 
       {/* Auxiliary lunar year Ganzhi & leap month info as quiet unboxed text */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
         {yearInfo.supported ? (
           <>
             <span>农历干支：{yearInfo.ganzhiLunarYear}年</span>

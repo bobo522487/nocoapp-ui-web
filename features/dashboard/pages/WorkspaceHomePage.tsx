@@ -138,10 +138,10 @@ const WorkspaceHomePage: React.FC = () => {
     <div className="flex-1 h-full overflow-y-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 space-y-8">
         <div>
-          <h1 className="font-editorial text-2xl font-semibold text-foreground tracking-tight">
+          <h1 className="yp-h1 text-foreground">
             你好，{user.name}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-[14px] text-muted-foreground mt-1">
             欢迎来到「{detail?.name ?? '当前组织'}」，管理你的家族与协作成员。
           </p>
         </div>
@@ -150,13 +150,13 @@ const WorkspaceHomePage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="text-[12px] font-medium text-muted-foreground">家族</div>
-            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="text-[24px] leading-8 font-semibold font-mono text-foreground tabular-nums mt-1">
               {detail?.projectCount ?? 0}
             </div>
           </div>
           <div className="p-4 rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="text-[12px] font-medium text-muted-foreground">成员</div>
-            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="text-[24px] leading-8 font-semibold font-mono text-foreground tabular-nums mt-1">
               {detail?.memberCount ?? 0}
             </div>
           </div>
@@ -164,7 +164,7 @@ const WorkspaceHomePage: React.FC = () => {
             <div className="text-[12px] font-medium text-muted-foreground">
               待处理邀请
             </div>
-            <div className="font-editorial text-2xl font-semibold text-foreground tabular-nums mt-1">
+            <div className="text-[24px] leading-8 font-semibold font-mono text-foreground tabular-nums mt-1">
               {detail?.pendingInviteCount ?? 0}
             </div>
           </div>
@@ -226,7 +226,7 @@ const WorkspaceHomePage: React.FC = () => {
         {/* Recent Projects */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-editorial text-[15px] font-semibold text-foreground">
+            <h2 className="yp-h3 text-foreground">
               最近家族
             </h2>
             <button
@@ -240,7 +240,7 @@ const WorkspaceHomePage: React.FC = () => {
 
           {recentProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
-              <p className="text-sm text-muted-foreground">尚无家族</p>
+              <p className="text-[14px] text-muted-foreground">尚无家族</p>
               <button
                 type="button"
                 onClick={() => {
@@ -276,12 +276,12 @@ const WorkspaceHomePage: React.FC = () => {
                     className="group flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-card hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-card-hover)] transition-all duration-150 cursor-pointer text-left"
                   >
                     <div className="w-11 h-11 rounded-lg bg-[hsl(var(--surface-subtle))] border border-border flex items-center justify-center shrink-0 text-muted-foreground group-hover:text-primary group-hover:border-primary/40 transition-colors">
-                      <span className="font-editorial text-lg font-bold">
+                      <span className="font-serif text-[18px] font-bold">
                         {surnameChar}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-editorial text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                      <div className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                         {project.name}
                       </div>
                       <div className="text-[12px] text-muted-foreground tabular-nums truncate mt-0.5">

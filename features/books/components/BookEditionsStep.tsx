@@ -78,7 +78,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <h2 className="text-[16px] font-semibold text-foreground truncate">
+            <h2 className="yp-h2 text-foreground truncate">
               {book.bookName} · 谱例明细
             </h2>
             <span className="text-[13px] font-medium text-muted-foreground tabular-nums shrink-0">
@@ -158,7 +158,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                    <div className="text-[12px] text-muted-foreground font-mono tabular-nums">
                       生成时间：{edition.createdAt}
                     </div>
                   </div>

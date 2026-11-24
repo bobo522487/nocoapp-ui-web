@@ -1,8 +1,8 @@
 import React from 'react';
 import {
+  ArrowRight,
   BookOpen,
   ChevronsLeft,
-  Compass,
   GitFork,
   ScrollText,
   Search,
@@ -54,52 +54,44 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       : activeView === ViewMode.ARTICLES
         ? '谱文导航'
         : activeView === ViewMode.BOOKS
-          ? '谱书管理列表'
-          : '家族工作台';
+          ? '谱书目录'
+          : '家族档案';
 
-  const moduleItems: {
-    id: ViewMode;
+  const quickEntryItems: {
     label: string;
+    desc: string;
     to:
-      | '/projects/$projectId'
       | '/projects/$projectId/lineage'
       | '/projects/$projectId/articles'
-      | '/projects/$projectId/books';
+      | '/projects/$projectId/books'
+      | '/projects/$projectId/settings';
     icon: React.ElementType;
   }[] = [
     {
-      id: ViewMode.PROJECT_HOME,
-      label: '概览',
-      to: '/projects/$projectId',
-      icon: Compass,
-    },
-    {
-      id: ViewMode.LINEAGE,
-      label: '世系',
+      label: '世系图谱',
+      desc: '支派树图与成员生平',
       to: '/projects/$projectId/lineage',
       icon: GitFork,
     },
     {
-      id: ViewMode.ARTICLES,
-      label: '谱文',
+      label: '谱文编撰',
+      desc: '谱序、凡例与人物传记',
       to: '/projects/$projectId/articles',
       icon: ScrollText,
     },
     {
-      id: ViewMode.BOOKS,
-      label: '谱书',
+      label: '谱书成册',
+      desc: '分卷排版与阅览导出',
       to: '/projects/$projectId/books',
       icon: BookOpen,
     },
+    {
+      label: '家族设置',
+      desc: '堂号、字辈与基本信息',
+      to: '/projects/$projectId/settings',
+      icon: Sliders,
+    },
   ];
-
-  const sectionSubOutline: Record<string, string[]> = {
-    [ViewMode.LINEAGE]: ['世系总图', '房支管理', '成员名录'],
-    [ViewMode.ARTICLES]: ['谱序与凡例', '源流与家训', '传记与艺文'],
-    [ViewMode.BOOKS]: ['封面与题签', '分卷目录', '版式与印制'],
-  };
-
-  const currentOutline = sectionSubOutline[activeView] || [];
 
   return (
     <aside
@@ -107,12 +99,12 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       data-testid="nc-sidebar"
       className="flex flex-col bg-background h-full shrink-0 border-r border-border select-none relative z-30"
     >
-      {/* Sidebar Header (h-12 matching ProjectTopbar) */}
+      {/* Sidebar Header (h-13 matching ProjectTopbar) */}
       <div
         data-testid="nc-sidebar-header"
-        className="relative h-12 px-3.5 flex items-center justify-between gap-2 border-b border-border bg-[hsl(var(--surface-subtle))] shrink-0"
+        className="relative h-13 px-3.5 flex items-center justify-between gap-2 border-b border-border bg-[hsl(var(--surface-subtle))] shrink-0"
       >
-        <span className="font-editorial text-[14px] font-semibold text-foreground truncate">
+        <span className="text-[14px] font-semibold text-foreground truncate">
           {sidebarTitle}
         </span>
 
@@ -143,8 +135,8 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
       {isSettingsMode ? (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="px-2.5 py-3 space-y-1 border-b border-border shrink-0">
-            <div className="px-2 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
-              家族配置
+            <div className="px-2 pb-1 text-[12px] font-semibold tracking-wider text-muted-foreground">
+              配置项
             </div>
             <button
               type="button"
@@ -154,11 +146,8 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
                   params: { projectId: activeProjectId },
                 })
               }
-              className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                activeView === ViewMode.PROJECT_SETTINGS
-                  ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
-                  : 'text-foreground/80 font-medium border border-transparent hover:bg-[hsl(var(--surface-hover))]'
-              }`}
+              aria-current="page"
+              className="w-full h-9 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Sliders size={14} className="shrink-0 text-primary" />
               <span>基本设置</span>
@@ -176,17 +165,43 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
         <BookListPanel />
       ) : (
         <div className="flex-1 min-h-0 flex flex-col overflow-y-auto py-3 px-2.5 space-y-5">
-          {/* Core Modules Navigation */}
-          <div className="space-y-1">
-            <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
-              工作台模块
+          {/* Family Archive Metadata Summary */}
+          <div className="px-2.5 space-y-2.5">
+            <div className="text-[12px] font-semibold tracking-wider text-muted-foreground">
+              云谱档案概要
             </div>
-            {moduleItems.map((item) => {
+            <div className="rounded-lg border border-border bg-[hsl(var(--surface-subtle))] p-3 text-[13px] text-foreground/90 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-[12px]">家族姓氏</span>
+                <span className="truncate font-medium">
+                  {activeProject?.primarySurname || '未设置'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-[12px]">始迁祖</span>
+                <span className="truncate font-medium">
+                  {activeProject?.ancestor || '未设置'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground text-[12px]">堂号</span>
+                <span className="truncate font-medium">
+                  {activeProject?.primaryName || '未设置'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Contextual Quick Actions */}
+          <div className="space-y-1 pt-3 border-t border-border/70">
+            <div className="px-2.5 pb-1 text-[12px] font-semibold tracking-wider text-muted-foreground">
+              快捷入口
+            </div>
+            {quickEntryItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeView === item.id;
               return (
                 <button
-                  key={item.id}
+                  key={item.to}
                   type="button"
                   onClick={() =>
                     void navigate({
@@ -194,72 +209,27 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
                       params: { projectId: activeProjectId },
                     })
                   }
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`w-full h-8.5 px-2.5 rounded-lg flex items-center gap-2.5 text-[13px] transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    isActive
-                      ? 'bg-[hsl(var(--surface-active))] text-foreground font-semibold border border-primary/20 shadow-[var(--shadow-control)]'
-                      : 'text-foreground/80 font-medium border border-transparent hover:bg-[hsl(var(--surface-hover))] hover:text-foreground'
-                  }`}
+                  className="w-full px-2.5 py-2 rounded-lg flex items-center gap-2.5 text-left transition-colors duration-150 cursor-pointer border border-transparent hover:bg-[hsl(var(--surface-hover))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group"
                 >
                   <Icon
                     size={15}
-                    className={`shrink-0 ${
-                      isActive ? 'text-primary' : 'text-muted-foreground'
-                    }`}
+                    className="shrink-0 text-muted-foreground group-hover:text-primary transition-colors"
                   />
-                  <span className="flex-1 text-left truncate">
-                    {item.label}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium text-foreground truncate">
+                      {item.label}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground truncate">
+                      {item.desc}
+                    </div>
+                  </div>
+                  <ArrowRight
+                    size={13}
+                    className="shrink-0 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                  />
                 </button>
               );
             })}
-          </div>
-
-          {/* Contextual Module Outline */}
-          {currentOutline.length > 0 && (
-            <div className="space-y-1 pt-3 border-t border-border/70">
-              <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
-                模块目录
-              </div>
-              {currentOutline.map((title, idx) => (
-                <div
-                  key={title}
-                  className="px-2.5 py-1.5 rounded-md text-[12px] text-muted-foreground flex items-center gap-2"
-                >
-                  <span className="font-mono tabular-nums text-[11px] text-muted-foreground/75">
-                    0{idx + 1}.
-                  </span>
-                  <span className="truncate">{title}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Quick Project Metadata Summary */}
-          <div className="mt-auto pt-3 border-t border-border/70 px-2.5 space-y-2">
-            <div className="text-[11px] font-semibold tracking-wider text-muted-foreground">
-              云谱档案概要
-            </div>
-            <div className="text-[12px] text-foreground/85 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">家族姓氏</span>
-                <span className="truncate font-medium">
-                  {activeProject?.primarySurname || '未设置'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">始迁祖</span>
-                <span className="truncate font-medium">
-                  {activeProject?.ancestor || '未设置'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">堂号</span>
-                <span className="truncate font-medium">
-                  {activeProject?.primaryName || '未设置'}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       )}

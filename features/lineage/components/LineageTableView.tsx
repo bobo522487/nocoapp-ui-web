@@ -75,29 +75,28 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
   });
 
   return (
-    <div className="w-full h-full flex flex-col bg-background p-6 overflow-hidden select-none">
+    <div className="w-full h-full flex flex-col bg-background p-6 overflow-hidden">
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
-            宗谱族人名录总表
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <h2 className="yp-h2 text-foreground">宗谱族人名录总表</h2>
+          <p className="text-[13px] leading-5 text-muted-foreground mt-0.5">
             全量世系人员结构化档案明细，支持跨世代、字号、功名及墓葬方位检索。
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search
               size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
             />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="例如：搜姓名、字号或葬地..."
-              className="h-8 pl-8 text-xs"
+              placeholder="搜姓名、字号或葬地..."
+              className="pl-8.5"
             />
           </div>
 
@@ -111,33 +110,40 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
               全部世次
             </option>
             {Array.from({ length: maxGen }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={String(g)} className="bg-card text-foreground">
+              <option
+                key={g}
+                value={String(g)}
+                className="bg-card text-foreground"
+              >
                 第{g}世{g === 1 ? ' (始祖)' : ''}
               </option>
             ))}
           </Select>
 
-          <Button size="sm" className="h-8 text-xs" onClick={onAddPerson}>
-            <Plus size={14} className="mr-1" /> 新增族人
+          <Button onClick={onAddPerson} className="gap-1.5">
+            <Plus size={15} aria-hidden="true" />
+            <span>新增族人</span>
           </Button>
         </div>
       </div>
 
       {/* Table Container */}
-      <div className="flex-1 border border-border rounded-xl bg-card overflow-auto shadow-sm">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-muted/50 border-b border-border sticky top-0 z-10 text-muted-foreground font-semibold">
+      <div className="flex-1 border border-border rounded-xl bg-card overflow-auto shadow-[var(--shadow-card)]">
+        <table className="w-full text-left text-[13px] border-collapse">
+          <thead className="bg-[hsl(var(--surface-subtle))] border-b border-border sticky top-0 z-10 text-muted-foreground font-medium">
             <tr>
-              <th className="py-3 px-4 w-20">世次</th>
-              <th className="py-3 px-4 w-32">姓名 / 字号</th>
-              <th className="py-3 px-4 w-20">排行</th>
-              <th className="py-3 px-4 w-28">承祧父祖</th>
-              <th className="py-3 px-4 w-36">配偶</th>
-              <th className="py-3 px-4 w-44">功名官阶</th>
-              <th className="py-3 px-4 min-w-[200px]">生平与行状纪略</th>
-              <th className="py-3 px-4 w-44">墓茔坐向</th>
-              <th className="py-3 px-4 w-20 text-center">状态</th>
-              <th className="py-3 px-4 w-24 text-right">操作</th>
+              <th className="py-3 px-4 w-20 text-[12px]">世次</th>
+              <th className="py-3 px-4 w-36 text-[12px]">姓名 / 字号</th>
+              <th className="py-3 px-4 w-20 text-[12px]">排行</th>
+              <th className="py-3 px-4 w-28 text-[12px]">承祧父祖</th>
+              <th className="py-3 px-4 w-36 text-[12px]">配偶</th>
+              <th className="py-3 px-4 w-44 text-[12px]">功名官阶</th>
+              <th className="py-3 px-4 min-w-[200px] text-[12px]">
+                生平与行状纪略
+              </th>
+              <th className="py-3 px-4 w-44 text-[12px]">墓茔坐向</th>
+              <th className="py-3 px-4 w-20 text-center text-[12px]">状态</th>
+              <th className="py-3 px-4 w-24 text-right text-[12px]">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
@@ -145,7 +151,7 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
               <tr>
                 <td
                   colSpan={10}
-                  className="py-12 text-center text-muted-foreground"
+                  className="py-12 text-center text-[13px] text-muted-foreground"
                 >
                   未匹配到族人记录
                 </td>
@@ -171,15 +177,15 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                     onClick={() => onSelectPerson(p.id)}
                     className={`cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-primary/10 text-foreground font-medium'
-                        : 'hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                        ? 'bg-[hsl(var(--surface-active))] text-foreground font-medium'
+                        : 'hover:bg-[hsl(var(--surface-hover))/0.45] text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    <td className="py-3 px-4 font-bold text-foreground tabular-nums">
+                    <td className="py-3 px-4 font-semibold text-foreground font-mono tabular-nums whitespace-nowrap">
                       第{p.generation}世
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-foreground text-sm">
+                      <div className="font-semibold text-foreground text-[14px]">
                         {p.spouseOfId
                           ? [
                               p.surname && !p.name.startsWith(p.surname)
@@ -190,26 +196,27 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                           : formatGivenName(p.name, clanSurname)}
                       </div>
                       {aliasesText && (
-                        <div className="text-[11px] text-muted-foreground">
+                        <div className="text-[12px] text-muted-foreground mt-0.5">
                           {aliasesText}
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-4">{rankLabel}</td>
+                    <td className="py-3 px-4">{rankLabel || '—'}</td>
                     <td className="py-3 px-4">
                       {father
                         ? `${formatGivenName(father.name, clanSurname)} 公`
                         : p.spouseOfId
-                        ? '配偶节点'
-                        : p.generation === 1
-                        ? '始迁祖'
-                        : '待考'}
+                          ? '配偶节点'
+                          : p.generation === 1
+                            ? '始迁祖'
+                            : '待考'}
                     </td>
                     <td className="py-3 px-4">
                       {spouses.length > 0 ? (
-                        <div className="flex items-center gap-1 text-foreground">
+                        <div className="flex items-center gap-1.5 text-foreground">
                           <Heart
-                            size={11}
+                            size={12}
+                            aria-hidden="true"
                             className="text-rose-500 shrink-0"
                           />
                           <span>
@@ -228,21 +235,21 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                           </span>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground/60">待注</span>
+                        <span className="text-muted-foreground">待注</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
                       {primaryTitle ? (
                         <span className="inline-flex items-center gap-1 text-primary font-medium">
-                          <Award size={12} className="shrink-0" />
-                          {primaryTitle}
+                          <Award size={12} className="shrink-0" aria-hidden="true" />
+                          <span>{primaryTitle}</span>
                         </span>
                       ) : (
-                        '-'
+                        '—'
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="line-clamp-2 max-w-md text-[11px] leading-relaxed">
+                      <div className="line-clamp-2 max-w-md text-[12px] leading-relaxed">
                         {p.biography ||
                           (getPersonDateDisplay(p, 'birth')
                             ? `生于：${getPersonDateDisplay(p, 'birth')}`
@@ -251,20 +258,21 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                     </td>
                     <td className="py-3 px-4">
                       {burialPlaceText ? (
-                        <div className="flex items-center gap-1 text-[11px] truncate max-w-[180px]">
+                        <div className="flex items-center gap-1 text-[12px] truncate max-w-[180px]">
                           <MapPin
-                            size={11}
+                            size={12}
+                            aria-hidden="true"
                             className="shrink-0 text-muted-foreground"
                           />
                           <span className="truncate">{burialPlaceText}</span>
                         </div>
                       ) : (
-                        '-'
+                        '—'
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span
-                        className={`text-[11px] font-medium ${
+                        className={`text-[12px] font-medium ${
                           p.status === 'living'
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-muted-foreground'
@@ -281,11 +289,12 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          className="text-muted-foreground hover:text-primary"
                           onClick={() => onSelectPerson(p.id)}
                           title="编辑档案"
+                          aria-label="编辑档案"
                         >
-                          <Edit3 size={13} />
+                          <Edit3 size={14} />
                         </Button>
                         {(p.generation > 1 || Boolean(p.spouseOfId)) && (
                           <Button
@@ -293,8 +302,8 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                             size={isConfirming ? 'sm' : 'icon'}
                             className={
                               isConfirming
-                                ? 'h-7 px-2 text-[11px]'
-                                : 'h-7 w-7 text-muted-foreground hover:text-destructive'
+                                ? 'px-2 text-[12px]'
+                                : 'text-muted-foreground hover:text-destructive'
                             }
                             onClick={() => {
                               if (isConfirming) {
@@ -305,13 +314,14 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
                               }
                             }}
                             title={isConfirming ? '确认删除' : '删除'}
+                            aria-label={isConfirming ? '确认删除' : '删除'}
                           >
                             {isConfirming ? (
                               <>
                                 <Check size={12} className="mr-0.5" /> 删
                               </>
                             ) : (
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             )}
                           </Button>
                         )}
@@ -326,17 +336,18 @@ export const LineageTableView: React.FC<LineageTableViewProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 shrink-0 tabular-nums">
+      <div className="flex items-center justify-between text-[12px] text-muted-foreground mt-3 shrink-0 font-mono tabular-nums">
         <span>
           当前显示 {filteredPersons.length} 条记录 / 总计 {persons.length} 位族人
         </span>
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs"
           onClick={() => window.print()}
+          className="font-sans gap-1.5"
         >
-          <Printer size={12} className="mr-1" /> 打印名录
+          <Printer size={13} aria-hidden="true" />
+          <span>打印名录</span>
         </Button>
       </div>
     </div>

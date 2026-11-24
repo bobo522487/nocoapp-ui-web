@@ -47,6 +47,23 @@ export interface PersonRomanizedName {
   suffix?: string;
 }
 
+export type PersonAliasType =
+  | '字'
+  | '号'
+  | '曾用名'
+  | '乳名'
+  | '谱名'
+  | '谥号'
+  | '其他';
+
+export interface PersonAliasRecord {
+  id: string;
+  type?: PersonAliasType | string;
+  surname?: string;
+  name: string;
+  romanizedName?: PersonRomanizedName;
+}
+
 export interface PersonSequenceMeta {
   mainLabel?: string;
   mainNumber?: number;
@@ -98,6 +115,7 @@ export interface PersonRecord {
   romanizedName?: PersonRomanizedName;
   legalName?: string;
   aliases?: string[];
+  aliasItems?: PersonAliasRecord[];
   childhoodName?: string;
   gender: 'male' | 'female' | 'unknown';
   status: 'living' | 'deceased';

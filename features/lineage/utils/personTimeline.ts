@@ -476,17 +476,13 @@ export function resolvePersonRelationshipHeader(
   allPersons: PersonRecord[]
 ): string {
   if (person.spouseOfId) {
-    const partner = allPersons.find((p) => p.id === person.spouseOfId);
-    const rankLabel = computeAutoRankLabel(person, allPersons);
     const role =
       person.gender === 'male'
         ? '丈夫'
         : person.gender === 'female'
           ? '妻子'
           : '配偶';
-    return partner
-      ? `第 ${person.generation} 世 · ${role}（${rankLabel}）`
-      : `第 ${person.generation} 世 · ${rankLabel}`;
+    return `第 ${person.generation} 世 · ${role}`;
   }
 
   const autoRank = computeAutoRankLabel(person, allPersons);
@@ -613,7 +609,6 @@ export function buildImmediateFamilyGroups(
     const spouseNodes = getDerivedSpouses(allPersons, person.id);
     spouseNodes.forEach((sp) => {
       const disp = resolvePersonDisplayName(sp, clanSurname);
-      const seqLabel = computeAutoRankLabel(sp, allPersons);
       const baseRole =
         sp.gender === 'male'
           ? '丈夫'
@@ -626,10 +621,7 @@ export function buildImmediateFamilyGroups(
         displayName: disp,
         avatarUrl: sp.avatarUrl,
         gender: sp.gender,
-        relationshipLabel:
-          seqLabel && seqLabel !== '原配'
-            ? `${baseRole}（${seqLabel}）`
-            : baseRole,
+        relationshipLabel: baseRole,
         yearsLabel: formatPersonYearsSummary(sp),
       });
     });

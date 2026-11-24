@@ -229,7 +229,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             className="w-[794px] max-w-full min-h-[1060px] mx-auto bg-card border border-border rounded-sm shadow-[0_4px_24px_-6px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45)] flex flex-col"
           >
             {/* Paper Running Header */}
-            <div className="px-10 sm:px-16 pt-8 pb-3 flex items-center justify-between gap-4 border-b border-border/60 text-[11px] text-muted-foreground select-none">
+            <div className="px-10 sm:px-16 pt-8 pb-3 flex items-center justify-between gap-4 border-b border-border/60 text-[12px] text-muted-foreground select-none">
               <span className="truncate">{headerRunningTitle}</span>
               <span className="truncate">{article.subtitle || '谱文正稿'}</span>
             </div>
@@ -316,7 +316,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             </div>
 
             {/* Paper Running Footer */}
-            <div className="px-10 sm:px-16 py-4 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground tabular-nums select-none">
+            <div className="px-10 sm:px-16 py-4 border-t border-border/50 flex items-center justify-between text-[12px] text-muted-foreground font-mono tabular-nums select-none">
               <span>{article.title || '谱文'}</span>
               <span>第 1 页 · 共约 {estimatedPages} 页</span>
             </div>
@@ -370,7 +370,7 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
             type="button"
             onClick={() => setZoom(1)}
             title="重置为 100%"
-            className="px-1.5 h-6 rounded hover:bg-muted text-[11px] font-medium text-foreground cursor-pointer"
+            className="px-1.5 h-6 rounded hover:bg-muted text-[12px] font-medium font-mono text-foreground cursor-pointer"
           >
             {Math.round(zoom * 100)}%
           </button>

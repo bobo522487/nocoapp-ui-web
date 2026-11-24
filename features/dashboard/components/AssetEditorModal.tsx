@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { AssetColorTheme } from '../../../types';
 import {
   ASSET_COLOR_PALETTES,
@@ -13,6 +11,12 @@ import {
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalShell,
+} from '../../../components/ui/modal';
 import {
   parsePlaceText,
   type GenealogyPlace,
@@ -116,24 +120,6 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
     }
   }, [open, initialValue, kind]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (document.querySelector('[data-help-popover]')) {
-          return;
-        }
-        if (!submitting) {
-          onClose();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [open, onClose, submitting]);
-
-  if (!open) return null;
-
   // Compact modal for App creation/editing
   if (kind === 'app') {
     const title = mode === 'create' ? '新建应用' : '编辑应用信息';
@@ -150,31 +136,21 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
       });
     };
 
-    return createPortal(
-      <div className="fixed inset-0 z-[95] flex items-center justify-center p-4">
-        <div
-          className="fixed inset-0 bg-black/45 backdrop-blur-xs"
-          onClick={onClose}
+    return (
+      <ModalShell
+        open={open}
+        onClose={onClose}
+        size="sm"
+        zIndexClass="z-[95]"
+        ariaLabel={title}
+      >
+        <ModalHeader
+          title={title}
+          icon={<AppColoredIcon colorTheme={appColorTheme} className="w-5 h-5" />}
+          onClose={onClose}
         />
-        <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-            <div className="flex items-center gap-2">
-              <AppColoredIcon colorTheme={appColorTheme} className="w-4 h-4" />
-              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              onClick={onClose}
-              aria-label="关闭弹窗"
-            >
-              <X size={14} />
-            </Button>
-          </div>
-
-          <form onSubmit={handleAppSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleAppSubmit} className="flex flex-col flex-1 min-h-0">
+          <ModalBody className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="asset-editor-name">应用名称</Label>
               <Input
@@ -189,7 +165,7 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
                 required
               />
               {appError && (
-                <p className="text-xs text-destructive">{appError}</p>
+                <p className="text-[12px] text-destructive">{appError}</p>
               )}
             </div>
 
@@ -232,19 +208,17 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
                 )}
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-                取消
-              </Button>
-              <Button type="submit" size="sm" disabled={!appName.trim()}>
-                {mode === 'create' ? '立即创建' : '保存更改'}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>,
-      document.body
+          </ModalBody>
+          <ModalFooter>
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>
+              取消
+            </Button>
+            <Button type="submit" size="sm" disabled={!appName.trim()}>
+              {mode === 'create' ? '立即创建' : '保存更改'}
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalShell>
     );
   }
 
@@ -286,114 +260,92 @@ export const AssetEditorModal: React.FC<AssetEditorModalProps> = ({
     if (patch.description !== undefined) setDescription(patch.description);
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[95] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="family-project-modal-title"
+  return (
+    <ModalShell
+      open={open}
+      onClose={() => {
+        if (!submitting) onClose();
+      }}
+      size="lg"
+      zIndexClass="z-[95]"
+      closeOnBackdrop={!submitting}
+      closeOnEsc={!submitting}
+      ariaLabelledBy="family-project-modal-title"
     >
-      <div
-        className="fixed inset-0 bg-black/45 backdrop-blur-xs"
-        onClick={() => {
+      <ModalHeader
+        title={modalTitle}
+        titleId="family-project-modal-title"
+        icon={
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{
+              backgroundColor: isDarkMode
+                ? ASSET_COLOR_PALETTES[projectColorTheme].darkTileBg
+                : ASSET_COLOR_PALETTES[projectColorTheme].tileBg,
+            }}
+          >
+            <ProjectColoredIcon
+              colorTheme={projectColorTheme}
+              className="w-4 h-4"
+            />
+          </div>
+        }
+        onClose={() => {
           if (!submitting) onClose();
         }}
+        closeDisabled={submitting}
       />
 
-      <div className="relative z-10 w-full max-w-xl rounded-xl border border-border bg-card text-card-foreground shadow-2xl overflow-visible animate-in fade-in zoom-in-95 duration-150">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card rounded-t-xl">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: isDarkMode
-                  ? ASSET_COLOR_PALETTES[projectColorTheme].darkTileBg
-                  : ASSET_COLOR_PALETTES[projectColorTheme].tileBg,
-              }}
+      <form
+        id="createFamilyForm"
+        onSubmit={handleFamilySubmit}
+        noValidate
+        className="flex flex-col flex-1 min-h-0"
+      >
+        <ModalBody className="space-y-4">
+          <FamilyProfileFields
+            values={{
+              familyName,
+              familySurname,
+              ancestor,
+              hallName,
+              regionPlace,
+              description,
+            }}
+            errors={errors}
+            onChange={handleFieldsChange}
+            onClearError={(field) =>
+              setErrors((prev) => ({ ...prev, [field]: undefined }))
+            }
+            disabled={submitting}
+            autoFocusName
+          />
+
+          {error && (
+            <p
+              role="alert"
+              className="text-[13px] text-destructive bg-destructive/5 border border-destructive/30 rounded-md px-3 py-2"
             >
-              <ProjectColoredIcon
-                colorTheme={projectColorTheme}
-                className="w-4 h-4"
-              />
-            </div>
-            <h3
-              id="family-project-modal-title"
-              className="text-[15px] font-semibold text-foreground truncate"
-            >
-              {modalTitle}
-            </h3>
-          </div>
+              {error}
+            </p>
+          )}
+        </ModalBody>
+
+        <ModalFooter>
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full shrink-0"
-            onClick={() => {
-              if (!submitting) onClose();
-            }}
+            variant="outline"
+            size="sm"
+            onClick={onClose}
             disabled={submitting}
-            aria-label="关闭弹窗"
           >
-            <X size={15} />
+            取消
           </Button>
-        </div>
-
-        <form
-          id="createFamilyForm"
-          onSubmit={handleFamilySubmit}
-          noValidate
-        >
-          <div className="p-6 space-y-4">
-            <FamilyProfileFields
-              values={{
-                familyName,
-                familySurname,
-                ancestor,
-                hallName,
-                regionPlace,
-                description,
-              }}
-              errors={errors}
-              onChange={handleFieldsChange}
-              onClearError={(field) =>
-                setErrors((prev) => ({ ...prev, [field]: undefined }))
-              }
-              disabled={submitting}
-              autoFocusName
-            />
-
-            {error && (
-              <p
-                role="alert"
-                className="text-[12px] text-destructive bg-destructive/5 border border-destructive/30 rounded-md px-3 py-2"
-              >
-                {error}
-              </p>
-            )}
-          </div>
-
-          <div className="px-6 py-3.5 border-t border-border bg-[hsl(var(--surface-subtle))] rounded-b-xl flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={submitting}
-              className="flex-1 h-9 font-medium"
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 h-9 font-medium"
-            >
-              {submitting ? '保存中...' : '确认'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
+          <Button type="submit" size="sm" disabled={submitting}>
+            {submitting ? '保存中...' : '确认'}
+          </Button>
+        </ModalFooter>
+      </form>
+    </ModalShell>
   );
 };

@@ -1078,7 +1078,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-[19px] font-semibold text-foreground tracking-tight truncate">
+                <h1 className="yp-h2 text-foreground truncate">
                   {section === 'lineage' && selectedLineageNode
                     ? selectedLineageNode.data?.name || config.title
                     : config.title}
@@ -1280,7 +1280,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
                 <ScrollText size={20} />
               </div>
               <div className="space-y-1">
-                <h2 className="text-[16px] font-semibold text-foreground">
+                <h2 className="yp-h2 text-foreground">
                   开始编修家族谱文
                 </h2>
                 <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-relaxed">
@@ -1312,7 +1312,7 @@ const GenealogySectionPage: React.FC<GenealogySectionPageProps> = ({
               <div className="w-11 h-11 rounded-xl bg-[hsl(var(--surface-subtle))] border border-border mx-auto flex items-center justify-center text-primary">
                 <Icon size={20} />
               </div>
-              <h2 className="text-[16px] font-semibold text-foreground">
+              <h2 className="yp-h2 text-foreground">
                 {config.emptyTitle}
               </h2>
               <p className="text-[13px] text-muted-foreground leading-relaxed">

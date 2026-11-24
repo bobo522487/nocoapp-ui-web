@@ -121,7 +121,7 @@ export const HelpTipButton: React.FC<HelpTipButtonProps> = ({
           <div className="text-[12px] font-semibold text-foreground mb-1">
             {tip.title}
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground font-normal">
+          <p className="text-[12px] leading-relaxed text-muted-foreground font-normal">
             {tip.content}
           </p>
         </div>

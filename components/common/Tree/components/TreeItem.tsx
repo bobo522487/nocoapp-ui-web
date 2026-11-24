@@ -327,7 +327,7 @@ export const TreeItem = forwardRef<HTMLLIElement, TreeItemProps>(
             )}
             
             {clone && childCount && childCount > 0 ? (
-                <span className="ml-auto bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 min-w-[20px] text-center">
+                <span className="ml-auto bg-primary text-primary-foreground text-[12px] font-mono tabular-nums rounded-md px-1.5 min-w-[20px] text-center">
                     {childCount}
                 </span>
             ) : null}

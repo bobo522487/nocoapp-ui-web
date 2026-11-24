@@ -1,7 +1,12 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, User, X } from 'lucide-react';
+import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalShell,
+} from '../../../components/ui/modal';
 import { Select } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
 import { PersonRecord, PersonRomanizedName, RelationKind } from '../types';
@@ -223,8 +228,8 @@ const BlueThemeRadio: React.FC<BlueThemeRadioProps> = ({
     className={cn(
       'inline-flex items-center gap-2 cursor-pointer select-none py-1 pr-2 text-[14px] transition-colors',
       checked
-        ? 'text-[#212225] dark:text-slate-100 font-medium'
-        : 'text-[#4D5053] dark:text-slate-300 hover:text-[#212225] dark:hover:text-slate-100'
+        ? 'text-foreground font-medium'
+        : 'text-muted-foreground hover:text-foreground'
     )}
   >
     <input
@@ -238,15 +243,11 @@ const BlueThemeRadio: React.FC<BlueThemeRadioProps> = ({
     <span
       aria-hidden="true"
       className={cn(
-        'w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors shrink-0',
-        checked
-          ? 'border-[#057091] bg-white dark:bg-slate-900'
-          : 'border-[#737679] dark:border-slate-500 bg-white dark:bg-slate-900'
+        'w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors shrink-0 bg-card',
+        checked ? 'border-primary' : 'border-[hsl(var(--border-strong))]'
       )}
     >
-      {checked && (
-        <span className="w-[9px] h-[9px] rounded-full bg-[#057091]" />
-      )}
+      {checked && <span className="w-[9px] h-[9px] rounded-full bg-primary" />}
     </span>
     <span>{label}</span>
   </label>
@@ -301,8 +302,6 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
   );
   const [nameError, setNameError] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
-
-  const isOpen = Boolean(context);
 
   const motherOptions = useMemo<MotherOption[]>(() => {
     if (!context || context.relation !== 'child') return [];
@@ -409,19 +408,6 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
     // Reset only when modal context opens/switches, not on unrelated allPersons updates
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context, clanSurname]);
-
-  useEffect(() => {
-    if (!isOpen || context?.relation === 'child') return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, context?.relation, onClose]);
 
   const fatherDisplayName = useMemo(() => {
     if (!context) return '';
@@ -572,625 +558,585 @@ export const AddRelativeModal: React.FC<AddRelativeModalProps> = ({
     });
   };
 
-  const controlInputClass =
-    'h-10 rounded-[6px] border-input bg-card text-[14px] text-foreground placeholder:text-placeholder hover:border-[hsl(var(--border-strong))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary focus-visible:shadow-[var(--shadow-focus-halo)] shadow-[var(--shadow-control)]';
+  const labelClass = 'block text-[13px] font-medium text-foreground mb-1.5';
 
-  const labelClass =
-    'block text-[13px] font-semibold text-[#212225] dark:text-slate-200 mb-1.5';
-
-  const modalNode = (
-    <div
+  return (
+    <ModalShell
+      open={Boolean(context)}
+      onClose={onClose}
+      zIndexClass="z-[95]"
+      closeOnBackdrop={false}
+      closeOnEsc={context.relation !== 'child'}
+      ariaLabelledBy={titleId}
       className={cn(
-        'fs-lineage-theme fixed inset-0 z-[95] bg-black/50 backdrop-blur-[2px] flex items-center justify-center',
-        isMaximized ? 'p-0' : 'p-3 sm:p-6'
+        'fs-lineage-theme transition-[border-radius,max-width,height] duration-150',
+        isMaximized
+          ? 'h-[95vh] max-w-none max-h-[95vh]'
+          : 'max-w-[900px]'
       )}
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className={cn(
-          'w-full flex flex-col overflow-hidden bg-white dark:bg-[#1E2329] text-[#212225] dark:text-slate-100 shadow-[0_14px_38px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] transition-[border-radius] duration-150',
-          isMaximized
-            ? 'h-full max-w-none max-h-none rounded-none border-0'
-            : 'max-w-[900px] max-h-[90vh] rounded-[12px] border border-[#D8DADA] dark:border-slate-700/80'
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="shrink-0 bg-[#F5F6F6] dark:bg-[#252B33] border-b border-[#E0E2E2] dark:border-slate-700/80 px-6 py-4 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h2
-              id={titleId}
-              className="text-[20px] font-bold leading-snug text-[#212225] dark:text-slate-100 truncate"
-            >
-              {titleText}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              aria-label={isMaximized ? '还原窗口' : '最大化窗口'}
-              title={isMaximized ? '还原窗口' : '最大化窗口'}
-              onClick={() => setIsMaximized((prev) => !prev)}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 hover:text-[#212225] dark:hover:text-slate-100 transition-colors cursor-pointer"
-            >
-              {isMaximized ? (
-                <Minimize2 size={18} strokeWidth={2} aria-hidden="true" />
-              ) : (
-                <Maximize2 size={18} strokeWidth={2} aria-hidden="true" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              aria-label="关闭"
-              title="关闭"
-              onClick={onClose}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-[#56585A] dark:text-slate-400 hover:bg-[#E4E6E6] dark:hover:bg-slate-700/70 hover:text-[#212225] dark:hover:text-slate-100 transition-colors cursor-pointer"
-            >
-              <X size={20} strokeWidth={2} aria-hidden="true" />
-            </button>
-          </div>
+      {/* Header */}
+      <div className="shrink-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2
+            id={titleId}
+            className="text-[18px] leading-6 font-semibold tracking-[-0.01em] text-foreground truncate"
+          >
+            {titleText}
+          </h2>
         </div>
 
-        {/* Blue accent strip */}
-        <div className="h-[3px] w-full bg-[#057091] shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            aria-label={isMaximized ? '还原窗口' : '最大化窗口'}
+            title={isMaximized ? '还原窗口' : '最大化窗口'}
+            onClick={() => setIsMaximized((prev) => !prev)}
+            className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {isMaximized ? (
+              <Minimize2 size={16} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={16} aria-hidden="true" />
+            )}
+          </button>
 
-        {/* Form Body */}
-        <form
-          id="add-relative-modal-form"
-          onSubmit={handleSubmit}
-          className="flex-1 flex flex-col min-h-0"
-          noValidate
-        >
-          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 space-y-5">
+          <button
+            type="button"
+            aria-label="关闭"
+            title="关闭"
+            onClick={onClose}
+            className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[hsl(var(--surface-hover))] hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
-            {/* Row 1: 姓名区块（汉字 + 拼音，均 50% / 50% 两栏） */}
-            <div id="nameform-block" className="space-y-4">
-              <div data-testid="nameform:zh">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <label htmlFor={surnameInputId} className={labelClass}>
-                      姓氏
-                    </label>
-                    <Input
-                      ref={surnameRef}
-                      id={surnameInputId}
-                      name="nameTemplate.zh.lastName"
-                      data-testid="zh-last-name"
-                      data-lang="zh"
-                      autoComplete="off"
-                      maxLength={256}
-                      value={surname}
-                      onCompositionStart={() => {
-                        isSurnameComposingRef.current = true;
-                      }}
-                      onCompositionEnd={(e) => {
-                        isSurnameComposingRef.current = false;
-                        const nextValue = e.currentTarget.value;
-                        setSurname(nextValue);
+      {/* Form Body */}
+      <form
+        id="add-relative-modal-form"
+        onSubmit={handleSubmit}
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
+        noValidate
+      >
+        <ModalBody className="space-y-5">
+          {/* Row 1: 姓名区块（汉字 + 拼音，均 50% / 50% 两栏） */}
+          <div id="nameform-block" className="space-y-4">
+            <div data-testid="nameform:zh">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <label htmlFor={surnameInputId} className={labelClass}>
+                    姓氏
+                  </label>
+                  <Input
+                    ref={surnameRef}
+                    id={surnameInputId}
+                    name="nameTemplate.zh.lastName"
+                    data-testid="zh-last-name"
+                    data-lang="zh"
+                    autoComplete="off"
+                    maxLength={256}
+                    value={surname}
+                    onCompositionStart={() => {
+                      isSurnameComposingRef.current = true;
+                    }}
+                    onCompositionEnd={(e) => {
+                      isSurnameComposingRef.current = false;
+                      const nextValue = e.currentTarget.value;
+                      setSurname(nextValue);
+                      setSurnamePinyin(toSurnamePinyin(nextValue));
+                    }}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setSurname(nextValue);
+                      if (!isSurnameComposingRef.current) {
                         setSurnamePinyin(toSurnamePinyin(nextValue));
-                      }}
-                      onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setSurname(nextValue);
-                        if (!isSurnameComposingRef.current) {
-                          setSurnamePinyin(toSurnamePinyin(nextValue));
-                        }
-                        if (nameError) setNameError(null);
-                      }}
-                      placeholder="如：陈"
-                      className={controlInputClass}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label htmlFor={givenNameInputId} className={labelClass}>
-                      名字 <span className="text-[#C93B3B] ml-0.5">*</span>
-                    </label>
-                    <Input
-                      ref={givenNameRef}
-                      id={givenNameInputId}
-                      name="nameTemplate.zh.firstName"
-                      data-testid="zh-first-name"
-                      data-lang="zh"
-                      autoComplete="off"
-                      maxLength={256}
-                      value={givenName}
-                      onCompositionStart={() => {
-                        isGivenNameComposingRef.current = true;
-                      }}
-                      onCompositionEnd={(e) => {
-                        isGivenNameComposingRef.current = false;
-                        const nextValue = e.currentTarget.value;
-                        setGivenName(nextValue);
-                        setGivenNamePinyin(toGivenNamePinyin(nextValue));
-                      }}
-                      onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setGivenName(nextValue);
-                        if (!isGivenNameComposingRef.current) {
-                          setGivenNamePinyin(toGivenNamePinyin(nextValue));
-                        }
-                        if (nameError) setNameError(null);
-                      }}
-                      placeholder="请输入名字"
-                      className={cn(
-                        controlInputClass,
-                        nameError
-                          ? 'border-[#C93B3B] focus-visible:border-[#C93B3B] focus-visible:ring-[#C93B3B]/20'
-                          : ''
-                      )}
-                    />
-                  </div>
+                      }
+                      if (nameError) setNameError(null);
+                    }}
+                    placeholder="如：陈"
+                  />
                 </div>
-
-                {nameError && (
-                  <p className="mt-1.5 text-[12px] text-[#C93B3B] font-medium">
-                    {nameError}
-                  </p>
-                )}
+                <div className="min-w-0">
+                  <label htmlFor={givenNameInputId} className={labelClass}>
+                    名字 <span className="text-destructive ml-0.5">*</span>
+                  </label>
+                  <Input
+                    ref={givenNameRef}
+                    id={givenNameInputId}
+                    name="nameTemplate.zh.firstName"
+                    data-testid="zh-first-name"
+                    data-lang="zh"
+                    autoComplete="off"
+                    maxLength={256}
+                    value={givenName}
+                    onCompositionStart={() => {
+                      isGivenNameComposingRef.current = true;
+                    }}
+                    onCompositionEnd={(e) => {
+                      isGivenNameComposingRef.current = false;
+                      const nextValue = e.currentTarget.value;
+                      setGivenName(nextValue);
+                      setGivenNamePinyin(toGivenNamePinyin(nextValue));
+                    }}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setGivenName(nextValue);
+                      if (!isGivenNameComposingRef.current) {
+                        setGivenNamePinyin(toGivenNamePinyin(nextValue));
+                      }
+                      if (nameError) setNameError(null);
+                    }}
+                    placeholder="请输入名字"
+                    className={cn(
+                      nameError
+                        ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20'
+                        : ''
+                    )}
+                  />
+                </div>
               </div>
 
-              <div data-testid="nameform:zh-Latn">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <label htmlFor={surnamePinyinInputId} className={labelClass}>
-                      姓氏拼音
-                    </label>
-                    <Input
-                      id={surnamePinyinInputId}
-                      name="nameTemplate.zh-Latn.lastName"
-                      data-testid="zh-latn-last-name"
-                      data-lang="zh-Latn"
-                      autoComplete="off"
-                      maxLength={256}
-                      value={surnamePinyin}
-                      onChange={(e) => setSurnamePinyin(e.target.value)}
-                      placeholder="如：Chen"
-                      className={controlInputClass}
-                    />
+              {nameError && (
+                <p className="mt-1.5 text-[12px] text-destructive font-medium">
+                  {nameError}
+                </p>
+              )}
+            </div>
+
+            <div data-testid="nameform:zh-Latn">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <label htmlFor={surnamePinyinInputId} className={labelClass}>
+                    姓氏拼音
+                  </label>
+                  <Input
+                    id={surnamePinyinInputId}
+                    name="nameTemplate.zh-Latn.lastName"
+                    data-testid="zh-latn-last-name"
+                    data-lang="zh-Latn"
+                    autoComplete="off"
+                    maxLength={256}
+                    value={surnamePinyin}
+                    onChange={(e) => setSurnamePinyin(e.target.value)}
+                    placeholder="如：Chen"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label
+                    htmlFor={givenNamePinyinInputId}
+                    className={labelClass}
+                  >
+                    名字拼音
+                  </label>
+                  <Input
+                    id={givenNamePinyinInputId}
+                    name="nameTemplate.zh-Latn.firstName"
+                    data-testid="zh-latn-first-name"
+                    data-lang="zh-Latn"
+                    autoComplete="off"
+                    maxLength={256}
+                    value={givenNamePinyin}
+                    onChange={(e) => setGivenNamePinyin(e.target.value)}
+                    placeholder="如：Wenzhao"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: 性别 */}
+          <div>
+            <div className={labelClass}>性别</div>
+            <div
+              role="radiogroup"
+              aria-label="性别"
+              className="flex flex-wrap items-center gap-6 pt-0.5"
+            >
+              <BlueThemeRadio
+                name="add-relative-gender"
+                value="male"
+                checked={gender === 'male'}
+                label="男"
+                onChange={() => setGender('male')}
+              />
+              <BlueThemeRadio
+                name="add-relative-gender"
+                value="female"
+                checked={gender === 'female'}
+                label="女"
+                onChange={() => setGender('female')}
+              />
+              <BlueThemeRadio
+                name="add-relative-gender"
+                value="unknown"
+                checked={gender === 'unknown'}
+                label="未知"
+                onChange={() => setGender('unknown')}
+              />
+            </div>
+          </div>
+
+          {/* Row 3: 出生日期 + 出生地点 (50% / 50%) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="min-w-0">
+              <label htmlFor={birthDateId} className={labelClass}>
+                出生日期
+              </label>
+              <DateInput
+                id={birthDateId}
+                label="出生日期"
+                value={birthDate}
+                onChange={setBirthDate}
+                enableTime
+                enableOriginal
+                placeholder="如 1965-08-12，或点右侧选择"
+              />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor={birthPlaceId} className={labelClass}>
+                出生地点
+              </label>
+              <PlaceInput
+                id={birthPlaceId}
+                label="出生地点"
+                value={birthPlace}
+                onChange={setBirthPlace}
+                clanPersons={allPersons}
+                placeholder="输入省市区县或原始地名，或点右侧选择"
+              />
+            </div>
+          </div>
+
+          {/* Row 4: 状态 (存 / 殁) */}
+          <div>
+            <div className={labelClass}>状态</div>
+            <div
+              role="radiogroup"
+              aria-label="状态"
+              className="flex flex-wrap items-center gap-7 pt-0.5"
+            >
+              <BlueThemeRadio
+                name="add-relative-status"
+                value="living"
+                checked={status === 'living'}
+                label="存"
+                onChange={() => setStatus('living')}
+              />
+              <BlueThemeRadio
+                name="add-relative-status"
+                value="deceased"
+                checked={status === 'deceased'}
+                label="殁"
+                onChange={() => setStatus('deceased')}
+              />
+            </div>
+          </div>
+
+          {/* Row 5: 死亡信息（仅状态为「殁」时显示） */}
+          {isDeceased && (
+            <div className="pt-1 border-t border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                <div className="min-w-0">
+                  <label htmlFor={deathDateId} className={labelClass}>
+                    死亡日期
+                  </label>
+                  <DateInput
+                    id={deathDateId}
+                    label="死亡日期"
+                    value={deathDate}
+                    onChange={setDeathDate}
+                    enableTime
+                    enableOriginal
+                    placeholder="如 2018-04-03，或点右侧选择"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label htmlFor={deathPlaceId} className={labelClass}>
+                    死亡地点
+                  </label>
+                  <PlaceInput
+                    id={deathPlaceId}
+                    label="死亡地点"
+                    value={deathPlace}
+                    onChange={setDeathPlace}
+                    clanPersons={allPersons}
+                    placeholder="输入省市区县或原始地名，或点右侧选择"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isSpouseMode && (
+            <div className="pt-4 border-t border-border">
+              <div className="text-[13px] font-medium text-foreground mb-3">
+                结婚事件
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <label htmlFor={marriageDateId} className={labelClass}>
+                    结婚时间
+                  </label>
+                  <DateInput
+                    id={marriageDateId}
+                    label="结婚时间"
+                    value={marriageDate}
+                    onChange={setMarriageDate}
+                    enableTime
+                    enableOriginal
+                    placeholder="如 1988-05-01，或点右侧选择"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label htmlFor={marriagePlaceId} className={labelClass}>
+                    结婚地点
+                  </label>
+                  <PlaceInput
+                    id={marriagePlaceId}
+                    label="结婚地点"
+                    value={marriagePlace}
+                    onChange={setMarriagePlace}
+                    clanPersons={allPersons}
+                    placeholder="输入省市区县或原始地名，或点右侧选择"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isChildMode && (
+            <div className="pt-4 border-t border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+                {/* 左栏：父亲卡片 + 与父亲的关系 */}
+                <div className="min-w-0 flex flex-col gap-3">
+                  <div>
+                    <span id={fatherFieldId} className={labelClass}>
+                      父亲
+                    </span>
+
+                    <div
+                      aria-labelledby={fatherFieldId}
+                      className="flex items-center gap-3 rounded-lg border border-sky-500/25 dark:border-sky-400/25 bg-sky-500/[0.06] dark:bg-sky-400/[0.08] px-3.5 py-2.5 min-h-[70px]"
+                    >
+                      <div
+                        aria-hidden="true"
+                        className="w-10 h-10 rounded-full overflow-hidden border border-sky-500/30 dark:border-sky-400/35 bg-sky-500/12 dark:bg-sky-400/20 text-primary flex items-center justify-center shrink-0 text-[13px] font-semibold"
+                      >
+                        {context.targetPerson.avatarUrl ? (
+                          <img
+                            src={context.targetPerson.avatarUrl}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{fatherDisplayName.slice(0, 1)}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[14px] font-semibold text-foreground truncate">
+                          {fatherDisplayName}
+                        </div>
+                        <div className="text-[12px] text-muted-foreground truncate font-mono tabular-nums mt-0.5">
+                          {formatPersonLifespan(context.targetPerson)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
+
+                  <div className="mt-auto">
                     <label
-                      htmlFor={givenNamePinyinInputId}
+                      htmlFor={fatherRelationFieldId}
                       className={labelClass}
                     >
-                      名字拼音
+                      与父亲的关系
                     </label>
-                    <Input
-                      id={givenNamePinyinInputId}
-                      name="nameTemplate.zh-Latn.firstName"
-                      data-testid="zh-latn-first-name"
-                      data-lang="zh-Latn"
-                      autoComplete="off"
-                      maxLength={256}
-                      value={givenNamePinyin}
-                      onChange={(e) => setGivenNamePinyin(e.target.value)}
-                      placeholder="如：Wenzhao"
-                      className={controlInputClass}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 2: 性别 */}
-            <div>
-              <div className={labelClass}>性别</div>
-              <div
-                role="radiogroup"
-                aria-label="性别"
-                className="flex flex-wrap items-center gap-6 pt-0.5"
-              >
-                <BlueThemeRadio
-                  name="add-relative-gender"
-                  value="male"
-                  checked={gender === 'male'}
-                  label="男"
-                  onChange={() => setGender('male')}
-                />
-                <BlueThemeRadio
-                  name="add-relative-gender"
-                  value="female"
-                  checked={gender === 'female'}
-                  label="女"
-                  onChange={() => setGender('female')}
-                />
-                <BlueThemeRadio
-                  name="add-relative-gender"
-                  value="unknown"
-                  checked={gender === 'unknown'}
-                  label="未知"
-                  onChange={() => setGender('unknown')}
-                />
-              </div>
-            </div>
-
-            {/* Row 3: 出生日期 + 出生地点 (50% / 50%) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="min-w-0">
-                <label htmlFor={birthDateId} className={labelClass}>
-                  出生日期
-                </label>
-                <DateInput
-                  id={birthDateId}
-                  label="出生日期"
-                  value={birthDate}
-                  onChange={setBirthDate}
-                  enableTime
-                  enableOriginal
-                  placeholder="如 1965-08-12，或点右侧选择"
-                  className={controlInputClass}
-                />
-              </div>
-              <div className="min-w-0">
-                <label htmlFor={birthPlaceId} className={labelClass}>
-                  出生地点
-                </label>
-                <PlaceInput
-                  id={birthPlaceId}
-                  label="出生地点"
-                  value={birthPlace}
-                  onChange={setBirthPlace}
-                  clanPersons={allPersons}
-                  placeholder="输入省市区县或原始地名，或点右侧选择"
-                  className={controlInputClass}
-                />
-              </div>
-            </div>
-
-            {/* Row 4: 状态 (存 / 殁) */}
-            <div>
-              <div className={labelClass}>状态</div>
-              <div
-                role="radiogroup"
-                aria-label="状态"
-                className="flex flex-wrap items-center gap-7 pt-0.5"
-              >
-                <BlueThemeRadio
-                  name="add-relative-status"
-                  value="living"
-                  checked={status === 'living'}
-                  label="存"
-                  onChange={() => setStatus('living')}
-                />
-                <BlueThemeRadio
-                  name="add-relative-status"
-                  value="deceased"
-                  checked={status === 'deceased'}
-                  label="殁"
-                  onChange={() => setStatus('deceased')}
-                />
-              </div>
-            </div>
-
-            {/* Row 5: 死亡信息（仅状态为「殁」时显示） */}
-            {isDeceased && (
-              <div className="pt-1 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-                  <div className="min-w-0">
-                    <label htmlFor={deathDateId} className={labelClass}>
-                      死亡日期
-                    </label>
-                    <DateInput
-                      id={deathDateId}
-                      label="死亡日期"
-                      value={deathDate}
-                      onChange={setDeathDate}
-                      enableTime
-                      enableOriginal
-                      placeholder="如 2018-04-03，或点右侧选择"
-                      className={controlInputClass}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label htmlFor={deathPlaceId} className={labelClass}>
-                      死亡地点
-                    </label>
-                    <PlaceInput
-                      id={deathPlaceId}
-                      label="死亡地点"
-                      value={deathPlace}
-                      onChange={setDeathPlace}
-                      clanPersons={allPersons}
-                      placeholder="输入省市区县或原始地名，或点右侧选择"
-                      className={controlInputClass}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isSpouseMode && (
-              <div className="pt-4 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="text-[13px] font-semibold text-[#212225] dark:text-slate-200 mb-3">
-                  结婚事件
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <label htmlFor={marriageDateId} className={labelClass}>
-                      结婚时间
-                    </label>
-                    <DateInput
-                      id={marriageDateId}
-                      label="结婚时间"
-                      value={marriageDate}
-                      onChange={setMarriageDate}
-                      enableTime
-                      enableOriginal
-                      placeholder="如 1988-05-01，或点右侧选择"
-                      className={controlInputClass}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label htmlFor={marriagePlaceId} className={labelClass}>
-                      结婚地点
-                    </label>
-                    <PlaceInput
-                      id={marriagePlaceId}
-                      label="结婚地点"
-                      value={marriagePlace}
-                      onChange={setMarriagePlace}
-                      clanPersons={allPersons}
-                      placeholder="输入省市区县或原始地名，或点右侧选择"
-                      className={controlInputClass}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isChildMode && (
-              <div className="pt-4 border-t border-[#ECEEEE] dark:border-slate-700/70">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
-                  {/* 左栏：父亲卡片 + 与父亲的关系 */}
-                  <div className="min-w-0 flex flex-col gap-3">
-                    <div>
-                      <span id={fatherFieldId} className={labelClass}>
-                        父亲
-                      </span>
-
-                      <div
-                        aria-labelledby={fatherFieldId}
-                        className="flex items-center gap-3 rounded-[8px] border border-[#2097B7]/25 dark:border-[#3E9EB8]/30 bg-[#2097B7]/[0.06] dark:bg-[#3E9EB8]/[0.10] px-3.5 py-2.5 min-h-[70px]"
-                      >
-                        <div
-                          aria-hidden="true"
-                          className="w-10 h-10 rounded-full overflow-hidden border border-[#2097B7]/30 dark:border-[#3E9EB8]/35 bg-[#2097B7]/12 dark:bg-[#3E9EB8]/20 text-[#057091] dark:text-[#6EC2DB] flex items-center justify-center shrink-0 text-[13px] font-semibold"
+                    <Select
+                      id={fatherRelationFieldId}
+                      value={fatherRelationCategory}
+                      onChange={(e) =>
+                        setFatherRelationCategory(
+                          e.target.value as ChildRelationCategory
+                        )
+                      }
+                    >
+                      {childRelationOptions.map((opt) => (
+                        <option
+                          key={opt.value}
+                          value={opt.value}
+                          className="bg-card text-foreground"
                         >
-                          {context.targetPerson.avatarUrl ? (
-                            <img
-                              src={context.targetPerson.avatarUrl}
-                              alt=""
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span>{fatherDisplayName.slice(0, 1)}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[14px] font-semibold text-[#212225] dark:text-slate-100 truncate">
-                            {fatherDisplayName}
-                          </div>
-                          <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate tabular-nums mt-0.5">
-                            {formatPersonLifespan(context.targetPerson)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-auto">
-                      <label
-                        htmlFor={fatherRelationFieldId}
-                        className={labelClass}
-                      >
-                        与父亲的关系
-                      </label>
-                      <Select
-                        id={fatherRelationFieldId}
-                        value={fatherRelationCategory}
-                        onChange={(e) =>
-                          setFatherRelationCategory(
-                            e.target.value as ChildRelationCategory
-                          )
-                        }
-                        className={controlInputClass}
-                      >
-                        {childRelationOptions.map((opt) => (
-                          <option
-                            key={opt.value}
-                            value={opt.value}
-                            className="bg-card text-foreground"
-                          >
-                            {opt.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
+                </div>
 
-                  {/* 右栏：母亲卡片 + 与母亲的关系 */}
-                  {(() => {
-                    const isUnknownSelected =
-                      activeMotherDisplayName === '不详';
-                    const lockedMotherRecord =
-                      isMotherLocked && context.motherInfo?.motherId
-                        ? allPersons.find(
-                            (p) => p.id === context.motherInfo?.motherId
-                          )
-                        : undefined;
-                    const motherAvatarUrl = isMotherLocked
-                      ? lockedMotherRecord?.avatarUrl
-                      : selectedMotherOption?.avatarUrl;
-                    const motherLifespan = isMotherLocked
-                      ? lockedMotherRecord
-                        ? formatPersonLifespan(lockedMotherRecord)
-                        : ''
-                      : selectedMotherOption?.lifespan || '';
+                {/* 右栏：母亲卡片 + 与母亲的关系 */}
+                {(() => {
+                  const isUnknownSelected =
+                    activeMotherDisplayName === '不详';
+                  const lockedMotherRecord =
+                    isMotherLocked && context.motherInfo?.motherId
+                      ? allPersons.find(
+                          (p) => p.id === context.motherInfo?.motherId
+                        )
+                      : undefined;
+                  const motherAvatarUrl = isMotherLocked
+                    ? lockedMotherRecord?.avatarUrl
+                    : selectedMotherOption?.avatarUrl;
+                  const motherLifespan = isMotherLocked
+                    ? lockedMotherRecord
+                      ? formatPersonLifespan(lockedMotherRecord)
+                      : ''
+                    : selectedMotherOption?.lifespan || '';
 
-                    return (
-                      <div className="min-w-0 flex flex-col gap-3">
-                        <div>
-                          {isMotherLocked ? (
-                            <span id={motherFieldId} className={labelClass}>
-                              母亲
-                            </span>
-                          ) : (
-                            <label htmlFor={motherFieldId} className={labelClass}>
-                              母亲
-                            </label>
+                  return (
+                    <div className="min-w-0 flex flex-col gap-3">
+                      <div>
+                        {isMotherLocked ? (
+                          <span id={motherFieldId} className={labelClass}>
+                            母亲
+                          </span>
+                        ) : (
+                          <label htmlFor={motherFieldId} className={labelClass}>
+                            母亲
+                          </label>
+                        )}
+
+                        <div
+                          aria-labelledby={
+                            isMotherLocked ? motherFieldId : undefined
+                          }
+                          className={cn(
+                            'flex items-center gap-3 rounded-lg border px-3.5 py-2.5 min-h-[70px]',
+                            isUnknownSelected
+                              ? 'border-border bg-[hsl(var(--surface-subtle))]'
+                              : 'border-rose-500/25 dark:border-rose-400/25 bg-rose-500/[0.06] dark:bg-rose-400/[0.08]'
                           )}
-
+                        >
                           <div
-                            aria-labelledby={
-                              isMotherLocked ? motherFieldId : undefined
-                            }
+                            aria-hidden="true"
                             className={cn(
-                              'flex items-center gap-3 rounded-[8px] border px-3.5 py-2.5 min-h-[70px]',
+                              'w-10 h-10 rounded-full overflow-hidden border flex items-center justify-center shrink-0 text-[13px] font-semibold',
                               isUnknownSelected
-                                ? 'border-[#D8DADA] dark:border-slate-600/80 bg-[#F4F5F6] dark:bg-[#272D36]'
-                                : 'border-[#ED5481]/25 dark:border-[#D16686]/30 bg-[#ED5481]/[0.06] dark:bg-[#D16686]/[0.10]'
+                                ? 'border-border bg-card text-muted-foreground'
+                                : 'border-rose-500/30 dark:border-rose-400/35 bg-rose-500/12 dark:bg-rose-400/20 text-rose-700 dark:text-rose-300'
                             )}
                           >
-                            <div
-                              aria-hidden="true"
-                              className={cn(
-                                'w-10 h-10 rounded-full overflow-hidden border flex items-center justify-center shrink-0 text-[13px] font-semibold',
-                                isUnknownSelected
-                                  ? 'border-[#D0D2D4] dark:border-slate-600 bg-white dark:bg-slate-800 text-[#56585A] dark:text-slate-400'
-                                  : 'border-[#ED5481]/30 dark:border-[#D16686]/35 bg-[#ED5481]/12 dark:bg-[#D16686]/20 text-[#B6335A] dark:text-[#E590AA]'
-                              )}
-                            >
-                              {motherAvatarUrl ? (
-                                <img
-                                  src={motherAvatarUrl}
-                                  alt=""
-                                  referrerPolicy="no-referrer"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : isUnknownSelected ? (
-                                <User size={16} strokeWidth={2} />
-                              ) : (
-                                <span>
-                                  {activeMotherDisplayName.slice(0, 1)}
-                                </span>
-                              )}
-                            </div>
+                            {motherAvatarUrl ? (
+                              <img
+                                src={motherAvatarUrl}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : isUnknownSelected ? (
+                              <User size={16} strokeWidth={2} />
+                            ) : (
+                              <span>
+                                {activeMotherDisplayName.slice(0, 1)}
+                              </span>
+                            )}
+                          </div>
 
-                            <div className="min-w-0 flex-1">
-                              {isMotherLocked ? (
-                                <>
-                                  <div className="text-[14px] font-semibold text-[#212225] dark:text-slate-100 truncate">
-                                    {activeMotherDisplayName}
+                          <div className="min-w-0 flex-1">
+                            {isMotherLocked ? (
+                              <>
+                                <div className="text-[14px] font-semibold text-foreground truncate">
+                                  {activeMotherDisplayName}
+                                </div>
+                                {motherLifespan && (
+                                  <div className="text-[12px] text-muted-foreground truncate font-mono tabular-nums mt-0.5">
+                                    {motherLifespan}
                                   </div>
-                                  {motherLifespan && (
-                                    <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate tabular-nums mt-0.5">
-                                      {motherLifespan}
-                                    </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <Select
+                                  id={motherFieldId}
+                                  selectSize="sm"
+                                  value={
+                                    selectedMotherOption?.key ||
+                                    UNKNOWN_MOTHER_KEY
+                                  }
+                                  onChange={(e) =>
+                                    setSelectedMotherKey(e.target.value)
+                                  }
+                                  className={cn(
+                                    '-mx-1.5 px-1.5 pr-7 border-transparent bg-transparent shadow-none text-[14px] font-semibold text-foreground',
+                                    isUnknownSelected
+                                      ? 'hover:bg-[hsl(var(--surface-hover))/0.65]'
+                                      : 'hover:bg-rose-500/[0.09] dark:hover:bg-rose-400/[0.15]'
                                   )}
-                                </>
-                              ) : (
-                                <>
-                                  <Select
-                                    id={motherFieldId}
-                                    value={
-                                      selectedMotherOption?.key ||
-                                      UNKNOWN_MOTHER_KEY
-                                    }
-                                    onChange={(e) =>
-                                      setSelectedMotherKey(e.target.value)
-                                    }
-                                    className={cn(
-                                      'h-7 -mx-1.5 px-1.5 pr-7 rounded-[5px] border-transparent bg-transparent dark:bg-transparent shadow-none text-[14px] font-semibold text-[#212225] dark:text-slate-100',
-                                      isUnknownSelected
-                                        ? 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:border-[#D0D2D4]/70 dark:hover:border-slate-500/70'
-                                        : 'hover:bg-[#ED5481]/[0.09] dark:hover:bg-[#D16686]/[0.15] hover:border-[#ED5481]/35 dark:hover:border-[#D16686]/40'
-                                    )}
-                                  >
-                                    {motherOptions.map((opt) => (
-                                      <option
-                                        key={opt.key}
-                                        value={opt.key}
-                                        className="bg-card text-foreground"
-                                      >
-                                        {opt.name}
-                                      </option>
-                                    ))}
-                                  </Select>
-                                  {motherLifespan && (
-                                    <div className="text-[12px] text-[#56585A] dark:text-slate-400 truncate tabular-nums mt-1">
-                                      {motherLifespan}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
+                                >
+                                  {motherOptions.map((opt) => (
+                                    <option
+                                      key={opt.key}
+                                      value={opt.key}
+                                      className="bg-card text-foreground"
+                                    >
+                                      {opt.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                                {motherLifespan && (
+                                  <div className="text-[12px] text-muted-foreground truncate font-mono tabular-nums mt-1">
+                                    {motherLifespan}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
-
-                        <div className="mt-auto">
-                          <label
-                            htmlFor={motherRelationFieldId}
-                            className={labelClass}
-                          >
-                            与母亲的关系
-                          </label>
-                          <Select
-                            id={motherRelationFieldId}
-                            value={motherRelationCategory}
-                            onChange={(e) =>
-                              setMotherRelationCategory(
-                                e.target.value as ChildRelationCategory
-                              )
-                            }
-                            className={controlInputClass}
-                          >
-                            {childRelationOptions.map((opt) => (
-                              <option
-                                key={opt.value}
-                                value={opt.value}
-                                className="bg-card text-foreground"
-                              >
-                                {opt.label}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
                       </div>
-                    );
-                  })()}
-                </div>
+
+                      <div className="mt-auto">
+                        <label
+                          htmlFor={motherRelationFieldId}
+                          className={labelClass}
+                        >
+                          与母亲的关系
+                        </label>
+                        <Select
+                          id={motherRelationFieldId}
+                          value={motherRelationCategory}
+                          onChange={(e) =>
+                            setMotherRelationCategory(
+                              e.target.value as ChildRelationCategory
+                            )
+                          }
+                        >
+                          {childRelationOptions.map((opt) => (
+                            <option
+                              key={opt.value}
+                              value={opt.value}
+                              className="bg-card text-foreground"
+                            >
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </ModalBody>
 
-          {/* Fixed 72px Footer */}
-          <div className="h-[72px] shrink-0 px-6 border-t border-[#E0E2E2] dark:border-slate-700/80 bg-white dark:bg-[#1E2329] flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-10 px-5 rounded-[6px] text-[14px] font-semibold text-[#057091] dark:text-[#58B1CD] hover:bg-[#EAF4F7] dark:hover:bg-[#057091]/20 transition-colors cursor-pointer"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="h-10 px-6 rounded-[6px] text-[14px] font-semibold bg-[#057091] hover:bg-[#045B76] active:bg-[#034C63] text-white shadow-xs transition-colors cursor-pointer"
-            >
-              保存并加入
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button type="submit">保存并加入</Button>
+        </ModalFooter>
+      </form>
+    </ModalShell>
   );
-
-  if (typeof document === 'undefined') return modalNode;
-  return createPortal(modalNode, document.body);
 };

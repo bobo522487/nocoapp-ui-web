@@ -340,11 +340,11 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
                     <div className="text-[13px] font-medium text-foreground truncate">
                       {art.title}
                     </div>
-                    <div className="text-[11px] text-muted-foreground tabular-nums truncate">
+                    <div className="text-[12px] text-muted-foreground font-mono tabular-nums truncate">
                       {art.folderName} · {art.wordCount} 字
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary opacity-80 group-hover:opacity-100 shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary opacity-80 group-hover:opacity-100 shrink-0">
                     <Plus size={13} />
                     添加
                   </span>
@@ -364,7 +364,7 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
               <span className="text-[12px] font-semibold text-foreground">
                 已选谱文队列
               </span>
-              <span className="text-[11px] text-muted-foreground tabular-nums">
+              <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
                 {queue.length} 篇
               </span>
             </div>
@@ -375,7 +375,7 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
                   className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-card"
                 >
                   <div className="min-w-0 flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-muted-foreground tabular-nums w-5 shrink-0">
+                    <span className="text-[12px] font-medium text-muted-foreground font-mono tabular-nums w-5 shrink-0">
                       {idx + 1}.
                     </span>
                     <span className="text-[13px] font-medium text-foreground truncate">

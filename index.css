@@ -163,6 +163,48 @@
   text-wrap: balance;
 }
 
+/* Standardized 6-step UI Typography Scale (Sans for UI/data, 12px floor) */
+.yp-h1 {
+  font-family: var(--font-sans);
+  font-size: 1.5rem; /* 24px */
+  line-height: 2rem; /* 32px */
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.yp-h2 {
+  font-family: var(--font-sans);
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.75rem; /* 28px */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.yp-h3 {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem; /* 15px */
+  line-height: 1.375rem; /* 22px */
+  font-weight: 600;
+}
+
+.yp-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.375rem; /* 22px */
+}
+
+.yp-label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.25rem; /* 20px */
+}
+
+.yp-caption {
+  font-family: var(--font-sans);
+  font-size: 0.75rem; /* 12px */
+  line-height: 1rem; /* 16px */
+}
+
 .nc-dot-grid {
   background-image: radial-gradient(circle, hsl(var(--border-strong) / 0.55) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -228,18 +270,18 @@
 }
 /* Lineage canvas stage inherits global blue-teal tokens cleanly */
 .fs-lineage-theme {
-  --background: 180 5% 92.2%;
-  --fs-edge-stroke: #9EA1A3;
+  --background: 180 6% 94.5%;
+  --fs-edge-stroke: hsl(var(--border-strong));
 }
 
 .dark .fs-lineage-theme {
   --background: 214 18% 10.5%;
-  --fs-edge-stroke: #5E6973;
+  --fs-edge-stroke: hsl(var(--border-strong));
 }
 
 .fs-card-tree-stage.react-flow,
 .fs-card-tree-stage .react-flow__pane {
-  background-color: #EAECEC !important;
+  background-color: hsl(var(--background)) !important;
 }
 .dark .fs-card-tree-stage.react-flow,
 .dark .fs-card-tree-stage .react-flow__pane {
@@ -249,7 +291,7 @@
   background-color: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
   border-radius: var(--radius-md) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 .react-flow__controls button {
   background-color: transparent !important;

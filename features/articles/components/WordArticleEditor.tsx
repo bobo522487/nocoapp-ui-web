@@ -90,18 +90,23 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
       saveQueueRef.current?.flush();
       activeArticleIdRef.current = article.id;
       isSyncingContentRef.current = true;
-      let content: ArticleDocument['contentJson'] | string =
+      const content: ArticleDocument['contentJson'] | string =
         article.contentJson ?? (article.contentHtml || '<p></p>');
-      if (!article.contentJson && article.contentHtml) {
-        const contentJson = htmlToContentJson(article.contentHtml);
-        onUpdateRef.current({ contentJson });
-        content = contentJson;
-      }
       editor.commands.setContent(content, false);
       isSyncingContentRef.current = false;
       setSaveState('saved');
     }
   }, [article.id, article.contentHtml, article.contentJson, editor]);
+
+  // Lazily persist contentJson from HTML as soon as the editor is ready (first open or after switch)
+  useEffect(() => {
+    if (!editor) return;
+    if (activeArticleIdRef.current !== article.id) return;
+    if (article.contentJson) return;
+
+    const contentJson = htmlToContentJson(article.contentHtml || '<p></p>');
+    onUpdateRef.current({ contentJson });
+  }, [editor, article.id, article.contentHtml, article.contentJson]);
 
   // Keep editable flag synced with preview mode
   useEffect(() => {

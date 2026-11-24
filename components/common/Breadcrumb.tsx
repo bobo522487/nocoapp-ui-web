@@ -314,14 +314,18 @@ const Breadcrumb: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        const copy = duplicateProject(activeProject.id);
                         setIsProjMenuOpen(false);
-                        if (copy) {
-                          void navigate({
-                            to: '/projects/$projectId',
-                            params: { projectId: copy.id },
+                        void duplicateProject(activeProject.id)
+                          .then((copy) => {
+                            if (!copy) return;
+                            void navigate({
+                              to: '/projects/$projectId',
+                              params: { projectId: copy.id },
+                            });
+                          })
+                          .catch((error: unknown) => {
+                            setCreateError(errorMessage(error));
                           });
-                        }
                       }}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
                     >

@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/api-mode.test.ts lib/api-transport.test.ts features/dashboard/project-payload.test.ts"
+    "test": "node --experimental-strip-types --test lib/api-mode.test.ts lib/api-transport.test.ts features/dashboard/project-payload.test.ts store/workspace-persist.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.1.0",

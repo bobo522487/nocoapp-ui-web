@@ -1,20 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import {
-  AssetColorTheme,
-  ProjectItem,
-  Workspace,
-  WorkspaceNotification,
-} from '../types';
+import { Workspace, WorkspaceNotification } from '../types';
 import {
   activateOrganizationRequest,
+  createProjectRequest,
   fetchOrganizations,
+  type ProjectColorTheme,
+  type ProjectRecord,
 } from '../features/dashboard/api';
-import { parsePlaceText, type GenealogyPlace } from '../features/place-input';
 import { createAppStorage } from './storageAdapter';
+import { migrateWorkspaceState } from './workspacePersist';
 
 export const ASSET_COLOR_PALETTES: Record<
-  AssetColorTheme,
+  ProjectColorTheme,
   { tileBg: string; darkTileBg: string; fillDark: string; fillLight: string; label: string }
 > = {
   sky: {
@@ -61,76 +59,6 @@ export const ASSET_COLOR_PALETTES: Record<
   },
 };
 
-const INITIAL_WORKSPACES: Workspace[] = [
-  {
-    id: 'ws-personal',
-    name: '个人空间',
-    kind: 'personal',
-    color: '#057091',
-    plan: '免费版',
-    createdAt: '2026-01-12',
-  },
-  {
-    id: 'ws-team',
-    name: '宗亲修谱空间',
-    kind: 'team',
-    color: '#2C7A92',
-    plan: '团队版',
-    createdAt: '2026-03-04',
-  },
-];
-
-const INITIAL_PROJECTS: ProjectItem[] = [
-  {
-    id: 'proj-chen-yimen',
-    workspaceId: 'ws-personal',
-    name: '义门陈氏宗谱',
-    description: '梳理义门陈氏历代迁徙源流、分庄支派及世系行传。',
-    colorTheme: 'sky',
-    ownerType: 'owned',
-    defaultTableId: 'clan_members',
-    updatedAt: '2 小时前',
-    primarySurname: '陈',
-    ancestor: '陈旺',
-    primaryName: '义门陈氏宗谱',
-    region: parsePlaceText('江西省/九江市/德安县'),
-    projectState: '0',
-    projectLevel: 5,
-  },
-  {
-    id: 'proj-han-royal',
-    workspaceId: 'ws-personal',
-    name: '两汉刘氏天潢谱',
-    description: '收录西汉、东汉及蜀汉宗室世系图谱与帝王行传参考。',
-    colorTheme: 'indigo',
-    ownerType: 'owned',
-    defaultTableId: 'clan_members',
-    updatedAt: '1 天前',
-    primarySurname: '刘',
-    ancestor: '刘邦',
-    primaryName: '丰沛刘氏天潢',
-    region: parsePlaceText('江苏省/徐州市/丰县'),
-    projectState: '1',
-    projectLevel: 4,
-  },
-  {
-    id: 'proj-peng-ancestors',
-    workspaceId: 'ws-team',
-    name: '彭城远祖合修谱',
-    description: '宗亲协同校勘各房世派字辈、墓茔坐向与行状传记。',
-    colorTheme: 'emerald',
-    ownerType: 'shared',
-    defaultTableId: 'branch_records',
-    updatedAt: '5 小时前',
-    primarySurname: '彭',
-    ancestor: '彭祖',
-    primaryName: '彭城彭氏合谱',
-    region: parsePlaceText('贵州省/遵义市/桐梓县'),
-    projectState: '0',
-    projectLevel: 4,
-  },
-];
-
 const INITIAL_NOTIFICATIONS: WorkspaceNotification[] = [
   {
     id: 'notif-genealogy-1',
@@ -148,59 +76,14 @@ const INITIAL_NOTIFICATIONS: WorkspaceNotification[] = [
   },
 ];
 
-export interface ApiProjectPayload {
-  id: string;
-  organizationId: string;
-  name: string;
-  description?: string | null;
-  surname?: string | null;
-  ancestor?: string | null;
-  hallName?: string | null;
-  originText?: string | null;
-  status?: 'planning' | 'in_progress' | 'completed';
-  colorTheme?: AssetColorTheme;
-  projectLevel?: number;
-  updatedAt: string;
-}
-
-function mapApiProjectToItem(
-  project: ApiProjectPayload,
-  existing?: ProjectItem
-): ProjectItem {
-  const resolvedRegion =
-    project.originText !== undefined
-      ? parsePlaceText(project.originText)
-      : existing?.region ?? null;
-  return {
-    id: project.id,
-    workspaceId: project.organizationId,
-    name: project.name,
-    description: project.description ?? existing?.description,
-    colorTheme: project.colorTheme ?? existing?.colorTheme ?? 'sky',
-    ownerType: existing?.ownerType ?? 'owned',
-    defaultTableId: existing?.defaultTableId ?? '',
-    primarySurname: project.surname ?? existing?.primarySurname,
-    ancestor: project.ancestor ?? existing?.ancestor,
-    primaryName: project.hallName ?? existing?.primaryName,
-    region: resolvedRegion,
-    projectState:
-      project.status !== undefined
-        ? project.status === 'completed'
-          ? '1'
-          : '0'
-        : existing?.projectState,
-    projectLevel: project.projectLevel ?? existing?.projectLevel,
-    updatedAt: new Date(project.updatedAt).toLocaleDateString(),
-  };
-}
-
 interface WorkspaceState {
   workspaces: Workspace[];
   activeWorkspaceId: string;
   activeProjectId: string;
-  projects: ProjectItem[];
+  projects: ProjectRecord[];
   notifications: WorkspaceNotification[];
   searchQuery: string;
+  /** 本机草稿，不是 ProjectRecord 的字段。 */
   zibeiByProject: Record<string, string[]>;
 
   setSearchQuery: (query: string) => void;
@@ -210,23 +93,10 @@ interface WorkspaceState {
   resolveNextAvailableOrganization: () => Workspace | null;
   setActiveProjectId: (projectId: string) => void;
 
-  createProject: (payload: {
-    name: string;
-    description?: string;
-    colorTheme: AssetColorTheme;
-    defaultTableId?: string;
-    primarySurname?: string;
-    ancestor?: string;
-    region?: GenealogyPlace | string | null;
-    primaryName?: string;
-    projectState?: '0' | '1';
-    projectLevel?: number;
-  }) => ProjectItem;
-  syncProject: (project: ApiProjectPayload) => void;
-  syncWorkspaceProjects: (organizationId: string, items: ApiProjectPayload[]) => void;
+  syncProject: (project: ProjectRecord) => void;
+  syncWorkspaceProjects: (organizationId: string, items: ProjectRecord[]) => void;
   dropProject: (projectId: string) => void;
-  updateProject: (id: string, updates: Partial<ProjectItem>) => void;
-  duplicateProject: (id: string) => ProjectItem | null;
+  duplicateProject: (id: string) => Promise<ProjectRecord | null>;
 
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -237,15 +107,13 @@ const ORG_COLORS = ['#057091', '#2C7A92', '#0D9488', '#3B82A6', '#58B1CD'];
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      workspaces: INITIAL_WORKSPACES,
-      activeWorkspaceId: INITIAL_WORKSPACES[0].id,
-      activeProjectId: INITIAL_PROJECTS[0].id,
-      projects: INITIAL_PROJECTS,
+      workspaces: [],
+      activeWorkspaceId: '',
+      activeProjectId: '',
+      projects: [],
       notifications: INITIAL_NOTIFICATIONS,
       searchQuery: '',
-      zibeiByProject: {
-        'proj-chen-yimen': ['旺', '崇', '仲', '伯', '叔', '季', '文', '明', '昌', '盛'],
-      },
+      zibeiByProject: {},
 
       setSearchQuery: (searchQuery) => set({ searchQuery }),
 
@@ -293,7 +161,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         await activateOrganizationRequest(workspaceId);
         set((state) => {
           const wsProjects = state.projects.filter(
-            (p) => p.workspaceId === workspaceId
+            (p) => p.organizationId === workspaceId
           );
           return {
             activeWorkspaceId: workspaceId,
@@ -314,70 +182,28 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setActiveProjectId: (activeProjectId) =>
         set((state) => {
           const proj = state.projects.find((p) => p.id === activeProjectId);
-          if (proj && proj.workspaceId !== state.activeWorkspaceId) {
-            return { activeProjectId, activeWorkspaceId: proj.workspaceId };
+          if (proj && proj.organizationId !== state.activeWorkspaceId) {
+            return { activeProjectId, activeWorkspaceId: proj.organizationId };
           }
           return { activeProjectId };
         }),
 
-      createProject: ({
-        name,
-        description,
-        colorTheme,
-        defaultTableId,
-        primarySurname,
-        ancestor,
-        region,
-        primaryName,
-        projectState,
-        projectLevel,
-      }) => {
-        const newProj: ProjectItem = {
-          id: `proj-${Date.now()}`,
-          workspaceId: get().activeWorkspaceId,
-          name: name.trim(),
-          description: description?.trim() || '',
-          colorTheme,
-          ownerType: 'owned',
-          defaultTableId: defaultTableId || '',
-          updatedAt: '刚刚',
-          primarySurname: primarySurname?.trim() || undefined,
-          ancestor: ancestor?.trim() || undefined,
-          region: parsePlaceText(region),
-          primaryName: primaryName?.trim() || undefined,
-          projectState: projectState || '0',
-          projectLevel: projectLevel ?? 1,
-        };
-        set((state) => ({
-          projects: [...state.projects, newProj],
-          activeProjectId: newProj.id,
-        }));
-        return newProj;
-      },
-
       syncProject: (project) =>
         set((state) => {
           const existing = state.projects.find((p) => p.id === project.id);
-          const item = mapApiProjectToItem(project, existing);
           return {
             projects: existing
-              ? state.projects.map((p) => (p.id === project.id ? item : p))
-              : [...state.projects, item],
+              ? state.projects.map((p) => (p.id === project.id ? project : p))
+              : [...state.projects, project],
           };
         }),
 
       syncWorkspaceProjects: (organizationId, items) =>
         set((state) => {
           const otherProjects = state.projects.filter(
-            (p) => p.workspaceId !== organizationId
+            (p) => p.organizationId !== organizationId
           );
-          const synced = items.map((project) =>
-            mapApiProjectToItem(
-              project,
-              state.projects.find((p) => p.id === project.id)
-            )
-          );
-          return { projects: [...otherProjects, ...synced] };
+          return { projects: [...otherProjects, ...items] };
         }),
 
       dropProject: (projectId) =>
@@ -387,28 +213,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             state.activeProjectId === projectId ? '' : state.activeProjectId,
         })),
 
-      updateProject: (id, updates) =>
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === id ? { ...p, ...updates, updatedAt: '刚刚' } : p
-          ),
-        })),
-
-      duplicateProject: (id) => {
+      duplicateProject: async (id) => {
         const source = get().projects.find((p) => p.id === id);
         if (!source) return null;
-        const copy: ProjectItem = {
-          ...structuredClone(source),
-          id: `proj-${Date.now()}`,
+        const result = await createProjectRequest(source.organizationId, {
           name: `${source.name} (副本)`,
-          ownerType: 'owned',
-          updatedAt: '刚刚',
-        };
-        set((state) => ({
-          projects: [...state.projects, copy],
-          activeProjectId: copy.id,
-        }));
-        return copy;
+          status: source.status,
+          surname: source.surname ?? undefined,
+          ancestor: source.ancestor ?? undefined,
+          hallName: source.hallName ?? undefined,
+          originText: source.originText ?? undefined,
+          description: source.description ?? undefined,
+          colorTheme: source.colorTheme,
+          projectLevel: source.projectLevel,
+        });
+        get().syncProject(result.project);
+        set({ activeProjectId: result.project.id });
+        return result.project;
       },
 
       markNotificationRead: (id) =>
@@ -425,8 +246,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'yunpu:workspace',
-      version: 1,
+      version: 2,
       storage: createAppStorage(),
+      migrate: migrateWorkspaceState,
     }
   )
 );

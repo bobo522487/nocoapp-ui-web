@@ -19,11 +19,20 @@ import {
 } from '../features/articles/articleData';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
 import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
-import { migrateArticlesV1ToV2 } from '../features/articles/domain/migrateArticles';
+import {
+  migrateArticlesV1ToV2,
+  migrateArticlesV2ToV3,
+} from '../features/articles/domain/migrateArticles';
+import {
+  appendArticleRevision,
+  articleRevisionFromDocument,
+  restoreArticleFromRevision,
+} from '../features/articles/domain/articleRevisions';
 import type { JSONContent } from '@tiptap/core';
 import type {
   ArticleDocument,
   ArticleMetaInput,
+  ArticleRevision,
   ProjectArticleSeedContext,
 } from '../features/articles/types';
 
@@ -31,6 +40,7 @@ interface ArticleState {
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   articlesByKey: Record<string, ArticleDocument>;
+  revisionsByArticleId: Record<string, ArticleRevision[]>;
 
   ensureProjectInitialized: (
     projectId: string,
@@ -60,6 +70,18 @@ interface ArticleState {
   renameNode: (projectId: string, id: string, name: string) => void;
   duplicateNode: (projectId: string, id: string) => void;
   removeNode: (projectId: string, id: string) => void;
+  recordRevision: (
+    projectId: string,
+    articleId: string,
+    summary: string,
+    authorName: string,
+  ) => void;
+  restoreRevision: (
+    projectId: string,
+    articleId: string,
+    revisionId: string,
+    authorName: string,
+  ) => void;
 }
 
 export const useArticleStore = create<ArticleState>()(
@@ -68,6 +90,7 @@ export const useArticleStore = create<ArticleState>()(
       treesByProject: {},
       selectedNodeIdByProject: {},
       articlesByKey: {},
+      revisionsByArticleId: {},
 
       ensureProjectInitialized: (projectId, ctx) => {
         if (!projectId || get().treesByProject[projectId] !== undefined) return;
@@ -344,13 +367,76 @@ export const useArticleStore = create<ArticleState>()(
             articlesByKey: nextArticles,
           };
         }),
+
+      recordRevision: (projectId, articleId, summary, authorName) =>
+        set((state) => {
+          const key = makeArticleStorageKey(projectId, articleId);
+          const doc = state.articlesByKey[key];
+          if (!doc?.contentJson) return state;
+          const createdAt = formatNowTimestamp();
+          const revision = articleRevisionFromDocument(
+            doc,
+            summary,
+            authorName,
+            createdAt,
+          );
+          const existing = state.revisionsByArticleId[articleId] ?? [];
+          return {
+            revisionsByArticleId: {
+              ...state.revisionsByArticleId,
+              [articleId]: appendArticleRevision(existing, revision),
+            },
+          };
+        }),
+
+      restoreRevision: (projectId, articleId, revisionId, authorName) =>
+        set((state) => {
+          const key = makeArticleStorageKey(projectId, articleId);
+          const current = state.articlesByKey[key];
+          if (!current) return state;
+          const revisions = state.revisionsByArticleId[articleId] ?? [];
+          const revision = revisions.find((r) => r.id === revisionId);
+          if (!revision) return state;
+          const updatedAt = formatNowTimestamp();
+          const restored = restoreArticleFromRevision(current, revision, updatedAt);
+          const rollbackRevision = articleRevisionFromDocument(
+            restored,
+            `回滚至版本 ${revision.version}`,
+            authorName,
+            updatedAt,
+          );
+          const nextRevisions = appendArticleRevision(revisions, rollbackRevision);
+          const currentTree = state.treesByProject[projectId] || [];
+          return {
+            articlesByKey: { ...state.articlesByKey, [key]: restored },
+            revisionsByArticleId: {
+              ...state.revisionsByArticleId,
+              [articleId]: nextRevisions,
+            },
+            treesByProject: {
+              ...state.treesByProject,
+              [projectId]: updateTreeNodeData(currentTree, articleId, (data) => ({
+                ...data,
+                name: restored.title,
+              })),
+            },
+          };
+        }),
     }),
     {
       name: 'yunpu:articles',
-      version: 2,
+      version: 3,
       storage: createAsyncEntityStorage(),
-      migrate: (persisted, version) =>
-        version < 2 ? migrateArticlesV1ToV2(persisted) : persisted,
+      migrate: (persisted, version) => {
+        let state =
+          version < 2
+            ? migrateArticlesV1ToV2(persisted)
+            : (persisted as ReturnType<typeof migrateArticlesV1ToV2>);
+        if (version < 3) {
+          state = migrateArticlesV2ToV3(state);
+        }
+        return state;
+      },
     }
   )
 );

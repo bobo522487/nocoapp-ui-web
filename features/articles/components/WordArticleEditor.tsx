@@ -36,7 +36,7 @@ interface WordArticleEditorProps {
     updates: Partial<
       Pick<
         ArticleDocument,
-        'title' | 'subtitle' | 'author' | 'contentJson' | 'citations'
+        'title' | 'subtitle' | 'author' | 'contentJson' | 'citations' | 'status'
       >
     >
   ) => void;
@@ -485,6 +485,8 @@ export const WordArticleEditor: React.FC<WordArticleEditorProps> = ({
         </div>
         </div>
         <ArticleInspectorPanel
+          projectId={activeProjectId ?? ''}
+          article={article}
           headings={liveMetrics.headings}
           wordCount={liveMetrics.wordCount}
           paragraphCount={liveMetrics.paragraphCount}

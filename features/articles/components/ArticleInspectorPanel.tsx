@@ -1,7 +1,11 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, ListTree, Plus, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, History, ListTree, Plus, Trash2 } from 'lucide-react';
+import { useAuthStore } from '../../auth/useAuthStore';
+import { useArticleStore } from '../../../store/useArticleStore';
+import { STATUS_LABELS } from '../articleLabels';
 import type { ArticleHeading } from '../domain/articleMetrics';
-import type { ArticleCitation } from '../types';
+import type { ArticleCitation, ArticleDocument, ArticleStatus } from '../types';
+import { ArticleRevisionModal } from './ArticleRevisionModal';
 
 const CITATION_SOURCE_LABELS: Record<ArticleCitation['sourceType'], string> = {
   old_genealogy: '旧谱',
@@ -12,6 +16,8 @@ const CITATION_SOURCE_LABELS: Record<ArticleCitation['sourceType'], string> = {
 };
 
 export interface ArticleInspectorPanelProps {
+  projectId: string;
+  article: ArticleDocument;
   headings: ArticleHeading[];
   wordCount: number;
   paragraphCount: number;
@@ -20,10 +26,16 @@ export interface ArticleInspectorPanelProps {
   collapsed: boolean;
   onToggle: () => void;
   onHeadingClick?: (index: number) => void;
-  onUpdateArticle: (updates: { citations: ArticleCitation[] }) => void;
+  onUpdateArticle: (
+    updates: Partial<
+      Pick<ArticleDocument, 'citations' | 'status'>
+    >,
+  ) => void;
 }
 
 export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
+  projectId,
+  article,
   headings,
   citations,
   collapsed,
@@ -34,8 +46,31 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
   paragraphCount: _paragraphCount,
   readingLabel: _readingLabel,
 }) => {
+  const recordRevision = useArticleStore((s) => s.recordRevision);
+  const [revisionSummary, setRevisionSummary] = useState('');
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+
+  const revisionAuthor =
+    useAuthStore.getState().user?.name || '家族编委会';
+
   const updateCitations = (next: ArticleCitation[]) => {
     onUpdateArticle({ citations: next });
+  };
+
+  const handleStatusChange = (status: ArticleStatus) => {
+    onUpdateArticle({ status });
+    recordRevision(
+      projectId,
+      article.id,
+      `状态改为${STATUS_LABELS[status]}`,
+      revisionAuthor,
+    );
+  };
+
+  const handleRecordRevision = () => {
+    const summary = revisionSummary.trim() || '手动记入修订';
+    recordRevision(projectId, article.id, summary, revisionAuthor);
+    setRevisionSummary('');
   };
 
   const patchCitation = (id: string, patch: Partial<ArticleCitation>) => {
@@ -135,6 +170,76 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
             </ul>
           )}
         </section>
+
+        <section className="border-t border-border pt-3 px-1 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] font-semibold text-foreground">
+              审校与修订
+            </span>
+            <button
+              type="button"
+              onClick={() => setRevisionModalOpen(true)}
+              className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+            >
+              <History size={12} />
+              修订历史
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="articleInspectorStatus"
+              className="text-[11px] text-muted-foreground"
+            >
+              审校状态
+            </label>
+            <select
+              id="articleInspectorStatus"
+              value={article.status}
+              onChange={(e) =>
+                handleStatusChange(e.target.value as ArticleStatus)
+              }
+              className="w-full h-8 rounded-md border border-input bg-background px-2 text-[12px]"
+            >
+              {(Object.keys(STATUS_LABELS) as ArticleStatus[]).map((key) => (
+                <option key={key} value={key}>
+                  {STATUS_LABELS[key]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="articleRevisionSummary"
+              className="text-[11px] text-muted-foreground"
+            >
+              修订说明
+            </label>
+            <div className="flex gap-1.5">
+              <input
+                id="articleRevisionSummary"
+                type="text"
+                value={revisionSummary}
+                onChange={(e) => setRevisionSummary(e.target.value)}
+                placeholder="例如：谱序字句校订"
+                className="flex-1 min-w-0 h-8 rounded-md border border-input bg-background px-2 text-[12px]"
+              />
+              <button
+                type="button"
+                onClick={handleRecordRevision}
+                className="shrink-0 h-8 px-2.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 cursor-pointer"
+              >
+                记入修订
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <ArticleRevisionModal
+          open={revisionModalOpen}
+          onClose={() => setRevisionModalOpen(false)}
+          projectId={projectId}
+          article={article}
+        />
 
         <section className="border-t border-border pt-3 px-1">
           <div className="flex items-center justify-between gap-2 mb-2">

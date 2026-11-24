@@ -1,4 +1,4 @@
-import type { ArticleDocument } from '../types';
+import type { ArticleDocument, ArticleRevision } from '../types';
 
 interface V1Article {
   id?: string;
@@ -52,5 +52,21 @@ export function migrateArticlesV1ToV2(persisted: unknown): {
     treesByProject: state.treesByProject || {},
     selectedNodeIdByProject: state.selectedNodeIdByProject || {},
     articlesByKey,
+  };
+}
+
+type ArticlePersistV2 = ReturnType<typeof migrateArticlesV1ToV2>;
+
+export function migrateArticlesV2ToV3(persisted: unknown): ArticlePersistV2 & {
+  revisionsByArticleId: Record<string, ArticleRevision[]>;
+} {
+  const state = (persisted ?? {}) as ArticlePersistV2 & {
+    revisionsByArticleId?: Record<string, ArticleRevision[]>;
+  };
+  return {
+    treesByProject: state.treesByProject || {},
+    selectedNodeIdByProject: state.selectedNodeIdByProject || {},
+    articlesByKey: state.articlesByKey || {},
+    revisionsByArticleId: state.revisionsByArticleId ?? {},
   };
 }

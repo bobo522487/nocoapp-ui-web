@@ -18,6 +18,7 @@ import {
   LINEAGE_STYLE_LABELS,
   PAPER_SIZE_LABELS,
 } from '../bookCompiler';
+import type { BookArticleAuditIssue } from '../domain/bookArticleAudit';
 import type { BookEdition, BookRecord } from '../types';
 import { BookCoverThumb } from './BookCoverThumb';
 import { BookReaderModal } from './BookReaderModal';
@@ -25,6 +26,7 @@ import { HelpTipButton } from './HelpTipButton';
 
 interface BookEditionsStepProps {
   book: BookRecord;
+  auditIssues?: BookArticleAuditIssue[];
   onGenerateNewEdition: () => void;
 }
 
@@ -42,6 +44,7 @@ function triggerHtmlDownload(filename: string, html: string) {
 
 export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
   book,
+  auditIssues = [],
   onGenerateNewEdition,
 }) => {
   const activeProjectId = useProjectId();
@@ -91,16 +94,23 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
             )}
           </div>
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={onGenerateNewEdition}
-            disabled={book.editions.length >= 9}
-            className="gap-1.5 whitespace-nowrap shrink-0"
-          >
-            <Sparkles size={14} />
-            <span>生成新谱例</span>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {auditIssues.length > 0 && (
+              <span className="text-[12px] text-amber-700 dark:text-amber-300 font-medium">
+                有 {auditIssues.length} 篇谱文尚未定稿或已删除
+              </span>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              onClick={onGenerateNewEdition}
+              disabled={book.editions.length >= 9}
+              className="gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <Sparkles size={14} />
+              <span>生成新谱例</span>
+            </Button>
+          </div>
         </div>
 
         {/* Notice Banner */}

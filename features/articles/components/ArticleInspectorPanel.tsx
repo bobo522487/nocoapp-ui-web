@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, History, ListTree, Plus, Trash2 } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '../../auth/useAuthStore';
 import { useArticleStore } from '../../../store/useArticleStore';
+import { useBookStore } from '../../../store/useBookStore';
+import { findBooksReferencingArticle } from '../../books/domain/bookArticleAudit';
 import { STATUS_LABELS } from '../articleLabels';
 import type { ArticleHeading } from '../domain/articleMetrics';
 import type { ArticleCitation, ArticleDocument, ArticleStatus } from '../types';
@@ -46,7 +49,14 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
   paragraphCount: _paragraphCount,
   readingLabel: _readingLabel,
 }) => {
+  const navigate = useNavigate();
   const recordRevision = useArticleStore((s) => s.recordRevision);
+  const booksByProject = useBookStore((s) => s.booksByProject);
+  const selectBook = useBookStore((s) => s.selectBook);
+  const bookRefs = useMemo(
+    () => findBooksReferencingArticle(article.id, booksByProject[projectId] || []),
+    [article.id, booksByProject, projectId],
+  );
   const [revisionSummary, setRevisionSummary] = useState('');
   const [revisionModalOpen, setRevisionModalOpen] = useState(false);
 
@@ -240,6 +250,33 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
           projectId={projectId}
           article={article}
         />
+
+        {bookRefs.length > 0 && (
+          <section className="border-t border-border pt-3 px-1 space-y-2">
+            <span className="text-[12px] font-semibold text-foreground">
+              收录于谱书
+            </span>
+            <ul className="space-y-1.5">
+              {bookRefs.map((ref) => (
+                <li key={ref.bookId}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      selectBook(projectId, ref.bookId);
+                      void navigate({
+                        to: '/projects/$projectId/books',
+                        params: { projectId },
+                      });
+                    }}
+                    className="w-full text-left text-[12px] text-primary hover:underline cursor-pointer px-1 py-1 rounded hover:bg-muted/50"
+                  >
+                    {`已被收录至：《${ref.bookName} · ${ref.volumeNo}》`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="border-t border-border pt-3 px-1">
           <div className="flex items-center justify-between gap-2 mb-2">

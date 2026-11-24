@@ -18,6 +18,7 @@ import {
   useLineageStore,
 } from '../../../store/useLineageStore';
 import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { auditBookArticles } from '../domain/bookArticleAudit';
 import type { BookStep } from '../types';
 import { BookCatalogStep } from './BookCatalogStep';
 import { BookEditionsStep } from './BookEditionsStep';
@@ -147,6 +148,11 @@ export const BookWorkspace: React.FC = () => {
   const activeStep: BookStep = activeBook
     ? activeStepByBook[activeBook.id] || 'catalog'
     : 'catalog';
+
+  const catalogAuditIssues = useMemo(() => {
+    if (!activeBook) return [];
+    return auditBookArticles(activeProjectId, activeBook, articlesByKey);
+  }, [activeProjectId, activeBook, articlesByKey]);
 
   const handleSave = () => {
     if (!activeBook) return;
@@ -308,7 +314,9 @@ export const BookWorkspace: React.FC = () => {
       </div>
 
       {/* Step Body */}
-      {activeStep === 'catalog' && <BookCatalogStep book={activeBook} />}
+      {activeStep === 'catalog' && (
+        <BookCatalogStep book={activeBook} auditIssues={catalogAuditIssues} />
+      )}
       {activeStep === 'layout' && (
         <BookLayoutStep
           book={activeBook}
@@ -318,6 +326,7 @@ export const BookWorkspace: React.FC = () => {
       {activeStep === 'editions' && (
         <BookEditionsStep
           book={activeBook}
+          auditIssues={catalogAuditIssues}
           onGenerateNewEdition={handleGenerateEdition}
         />
       )}

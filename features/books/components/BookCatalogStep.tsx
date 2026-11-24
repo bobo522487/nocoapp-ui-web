@@ -17,6 +17,7 @@ import {
 import { useProjectId } from '../../../hooks/useProjectId';
 import { useBookStore } from '../../../store/useBookStore';
 import ConfirmDialog from '../../dashboard/components/ConfirmDialog';
+import type { BookArticleAuditIssue } from '../domain/bookArticleAudit';
 import type {
   BookRecord,
   CatalogArticleNode,
@@ -39,6 +40,7 @@ import { LineageQuickPanel } from './LineageQuickPanel';
 
 interface BookCatalogStepProps {
   book: BookRecord;
+  auditIssues?: BookArticleAuditIssue[];
 }
 
 function describeLineageScope(node: CatalogLineageNode): string {
@@ -60,7 +62,10 @@ function describeLineageScope(node: CatalogLineageNode): string {
   return parts.join(' · ');
 }
 
-export const BookCatalogStep: React.FC<BookCatalogStepProps> = ({ book }) => {
+export const BookCatalogStep: React.FC<BookCatalogStepProps> = ({
+  book,
+  auditIssues = [],
+}) => {
   const activeProjectId = useProjectId();
 
   const toggleSectionCollapsed = useBookStore((s) => s.toggleSectionCollapsed);
@@ -457,6 +462,20 @@ export const BookCatalogStep: React.FC<BookCatalogStepProps> = ({ book }) => {
     <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 p-4 md:p-5 overflow-hidden">
       {/* Left 2/3: 4-Section Catalog Tree */}
       <div className="min-h-0 overflow-y-auto pr-1 space-y-4">
+        {auditIssues.length > 0 && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-950 dark:text-amber-100 space-y-1.5">
+            <p className="font-semibold">
+              有 {auditIssues.length} 篇谱文尚未定稿或已删除
+            </p>
+            <ul className="list-disc list-inside text-amber-900/90 dark:text-amber-50/90 space-y-0.5">
+              {auditIssues.map((issue) => (
+                <li key={`${issue.sourceArticleId}-${issue.reason}`}>
+                  {issue.displayTitle}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {sections.map((sec) => (
           <section
             key={sec.code}

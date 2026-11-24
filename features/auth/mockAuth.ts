@@ -25,7 +25,7 @@ export type MockDb = {
   sessionUserId: string | null;
 };
 
-const STORAGE_KEY = 'nocoapp:mock-auth';
+const STORAGE_KEY = 'nocoapp:mock-auth:v2';
 
 function createSeedDb(): MockDb {
   return {
@@ -33,14 +33,14 @@ function createSeedDb(): MockDb {
     organizations: {
       [DEMO_ACCOUNT.id]: [
         {
-          id: 'ws-personal',
+          id: 'org-demo-personal',
           name: '个人修谱空间',
           role: 'owner',
           isOwner: true,
           status: 'active',
         },
         {
-          id: 'ws-team',
+          id: 'org-demo-team',
           name: '宗亲修谱空间',
           role: 'owner',
           isOwner: true,
@@ -48,7 +48,7 @@ function createSeedDb(): MockDb {
         },
       ],
     },
-    sessionUserId: DEMO_ACCOUNT.id,
+    sessionUserId: null,
   };
 }
 

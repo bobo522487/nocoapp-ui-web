@@ -1,5 +1,8 @@
 import type { TreeItem } from '../../components/common/Tree/types';
 import type { ArticleDocument, ProjectArticleSeedContext } from './types';
+import { getArticleTemplate } from './domain/articleTemplates';
+import { extractArticleMetrics } from './domain/articleMetrics';
+import { contentJsonToHtml, htmlToContentJson } from './domain/htmlProjection';
 import { formatPlacePath } from '../place-input';
 
 export function makeArticleStorageKey(projectId: string, articleId: string): string {
@@ -151,131 +154,80 @@ export function createInitialArticleSeed(
     },
   ];
 
-  const makeDoc = (
-    id: string,
-    title: string,
-    subtitle: string,
-    author: string,
-    contentHtml: string
-  ): ArticleDocument => ({
-    id,
-    title,
-    subtitle,
-    author,
-    contentHtml,
-    wordCount: computeWordCount(contentHtml),
-    updatedAt: timestamp,
-  });
-
-  const docs: ArticleDocument[] = [
-    makeDoc(
-      prefaceId,
-      '重修族谱序',
-      `卷首 · ${familyName}重修谱序`,
-      `${hallName}修谱编委会`,
-      `<h2>一、修谱缘起</h2>
-<p>夫木有本而枝叶茂，水有源而流泽长；人有祖而后世系明，族有谱而亲疏序。吾族${familyName}，以「${hallName}」为堂号，自始迁祖${ancestor}公择居${region}以来，耕读传家，瓜瓞绵延，迄今已历数世。</p>
-<blockquote><p>「盛世修志，旺族修谱。」谱牒之设，非徒纪名讳、辨昭穆而已，实欲使后世子孙知所从来，明孝悌之义，敦睦宗族之情。</p></blockquote>
-<h2>二、本次重修宗旨</h2>
-<p>岁月既久，旧谱残佚堪虞，加之近年宗亲迁徙四方，生卒婚配亟待续录。今由族中贤达共议，依托云谱数字修谱平台汇辑旧闻、采录新丁，务求世系清晰、传记翔实、体例谨严，俾千秋百代之后，展卷而知本源，开帙而见先风。</p>
-<hr />
-<p style="text-align: right">岁次重修之时 · ${hallName}谨识</p>`
-    ),
-    makeDoc(
-      rulesId,
-      '修谱凡例',
-      '卷首 · 编修体例与收录规范',
-      `${hallName}修谱编委会`,
-      `<h2>编修总则</h2>
-<ol>
-  <li><p><strong>尊祖敬宗，详近略远</strong>：凡本支一脉，自${ancestor}公起为一世，依代次顺列，远祖源流则另立专篇考述，以免附会。</p></li>
-  <li><p><strong>男女并录，一视同仁</strong>：新时代修谱秉持男女平等之义，凡本族子女及配偶均按实录入名讳、字辈与生平纪略。</p></li>
-  <li><p><strong>秉笔直书，信以传信</strong>：生卒年月、配娶氏族、迁徙地名及葬地坟向，均以核实为准；存疑之处注明「待考」，绝不臆造。</p></li>
-</ol>
-<h2>字辈与体例对照示例</h2>
-<table>
-  <tbody>
-    <tr>
-      <th>项目</th>
-      <th>编修规范说明</th>
-      <th>著录示例</th>
-    </tr>
-    <tr>
-      <td>名讳与字号</td>
-      <td>正名居首，字、号附后，曾用名可另注</td>
-      <td>讳宗文，字伯章，号竹溪</td>
-    </tr>
-    <tr>
-      <td>生卒纪年</td>
-      <td>优先采用公历，亦可并注农历与干支</td>
-      <td>生于一九三二年壬申十月</td>
-    </tr>
-    <tr>
-      <td>世次行第</td>
-      <td>标明第几世及兄弟姐妹长幼排行</td>
-      <td>五世 · 长子 / 次女</td>
-    </tr>
-  </tbody>
-</table>`
-    ),
-    makeDoc(
-      originId,
-      `${surname}氏得姓源流考`,
-      `卷一 · ${surname}氏受姓源流与迁徙沿革`,
-      '谱牒文献考订组',
-      `<h2>一、得姓之始</h2>
-<p>${surname}姓源远流长，历代郡望堂号播迁有序，本支素重「${hallName}」渊源。自上古受姓以来，历秦汉魏晋唐宋元明清各代，先祖多以礼法传家、忠信立身，散居大江南北。</p>
-<h2>二、本支迁徙脉络</h2>
-<p>据旧谱残卷及地方志乘所载，本支先祖自中原南渡或北迁，辗转徙居${region}。${ancestor}公相度山川形胜，见此地土沃泉甘、风俗淳厚，遂筑室定居，开基立业，是为本族一世之祖。</p>
-<ul>
-  <li><p><strong>立基创业期</strong>：${ancestor}公躬耕力行，兴修田庐，奠定家族生计基础。</p></li>
-  <li><p><strong>分房衍派期</strong>：传至三世、四世之后，支派渐繁，分居邻邑各村落，仍岁时祭扫不辍。</p></li>
-</ul>`
-    ),
-    makeDoc(
-      mottoId,
-      '祖训家规十条',
-      `卷二 · ${hallName}传家训诫`,
-      '先祖遗训辑录',
-      `<blockquote><p>「积善之家，必有余庆；诗书传家，其泽乃长。」</p></blockquote>
-<ol>
-  <li><p><strong>孝顺父母</strong>：晨昏定省，生养死葬皆尽其诚，毋违尊长教诲。</p></li>
-  <li><p><strong>友爱手足</strong>：同气连枝，患难相恤，切忌因财帛细故伤及骨肉之情。</p></li>
-  <li><p><strong>敬宗睦族</strong>：凡我宗亲，无论贫富贵贱，皆一祖之遗脉，当彼此扶持。</p></li>
-  <li><p><strong>崇尚诗书</strong>：无论农工商贾，皆宜督课子弟读书明理，知书则礼义自明。</p></li>
-  <li><p><strong>勤俭持家</strong>：一粥一饭当思来处不易，戒奢靡，尚朴素。</p></li>
-  <li><p><strong>诚信立世</strong>：言必信，行必果，商贾交易尤重仁义。</p></li>
-  <li><p><strong>奉公守法</strong>：谨守国法乡约，安分守己，勿作非分之想。</p></li>
-  <li><p><strong>慎终追远</strong>：清明冬至祭扫祖茔，不可怠废先人祀典。</p></li>
-</ol>`
-    ),
-    makeDoc(
-      biographyId,
-      `${ancestor}公传略`,
-      '卷三 · 人物传记',
-      `${hallName}编委会`,
-      `<h2>生平概略</h2>
-<p>${ancestor}公，乃本支一世始迁祖。公生性敦厚，少时勤勉好学，长而精于耕读营生。值世道迁变之际，公携眷属迁徙至${region}，披荆斩棘，兴建屋宇，敦睦乡邻，遂开本族百年基业。</p>
-<h3>品行与遗泽</h3>
-<p>公尝谓子孙曰：「做人以诚为本，立业以勤为先。财帛可散，惟忠厚与诗书不可废。」乡人感其德行，每有纷争多请公居间排解，皆心悦诚服而去。</p>`
-    ),
-    makeDoc(
-      inscriptionId,
-      '宗祠碑记与艺文录',
-      '卷三 · 碑刻铭文与诗词选存',
-      '艺文辑录组',
-      `<h2 style="text-align: center">${hallName}宗祠重修记</h2>
-<p>维岁序更新，宗亲合力修葺祖祠。栋宇既崇，丹楹刻桷，非徒壮观瞻也，实以安先灵、聚宗情、垂典范于后昆。祠内正厅悬「${hallName}」匾额，左列昭穆世系，右刻祖训家规，凡入斯堂者，当肃然起敬，思先人之劳苦，勉今日之奋发。</p>
-<hr />
-<h3 style="text-align: center">宗谱告成偶成</h3>
-<p style="text-align: center">一脉相承数百秋，山高水长溯源流。</p>
-<p style="text-align: center">枝繁叶茂今重记，长使清芬万古留。</p>`
-    ),
+  const templateIds: Array<{
+    articleId: string;
+    templateId: string;
+    title: string;
+    subtitle: string;
+    author: string;
+  }> = [
+    {
+      articleId: prefaceId,
+      templateId: 'preface',
+      title: '重修族谱序',
+      subtitle: `卷首 · ${familyName}重修谱序`,
+      author: `${hallName}修谱编委会`,
+    },
+    {
+      articleId: rulesId,
+      templateId: 'rules',
+      title: '修谱凡例',
+      subtitle: '卷首 · 编修体例与收录规范',
+      author: `${hallName}修谱编委会`,
+    },
+    {
+      articleId: originId,
+      templateId: 'origin',
+      title: `${surname}氏得姓源流考`,
+      subtitle: `卷一 · ${surname}氏受姓源流与迁徙沿革`,
+      author: '谱牒文献考订组',
+    },
+    {
+      articleId: mottoId,
+      templateId: 'motto',
+      title: '祖训家规十条',
+      subtitle: `卷二 · ${hallName}传家训诫`,
+      author: '先祖遗训辑录',
+    },
+    {
+      articleId: biographyId,
+      templateId: 'biography',
+      title: `${ancestor}公传略`,
+      subtitle: '卷三 · 人物传记',
+      author: `${hallName}编委会`,
+    },
+    {
+      articleId: inscriptionId,
+      templateId: 'inscription',
+      title: '宗祠碑记与艺文录',
+      subtitle: '卷三 · 碑刻铭文与诗词选存',
+      author: '艺文辑录组',
+    },
   ];
 
   const articles: Record<string, ArticleDocument> = {};
-  for (const doc of docs) {
-    articles[makeArticleStorageKey(projectId, doc.id)] = doc;
+  for (const item of templateIds) {
+    const template = getArticleTemplate(item.templateId);
+    if (!template) continue;
+    const contentJson = htmlToContentJson(template.buildContent(ctx));
+    const metrics = extractArticleMetrics(contentJson);
+    articles[makeArticleStorageKey(projectId, item.articleId)] = {
+      id: item.articleId,
+      title: item.title,
+      subtitle: item.subtitle,
+      author: item.author,
+      docType: template.docType,
+      status: 'draft',
+      privacy: 'clan',
+      contentJson,
+      contentHtml: contentJsonToHtml(contentJson),
+      linkedPersonIds: metrics.linkedPersonIds,
+      linkedChartIds: metrics.linkedChartIds,
+      citations: [],
+      version: 1,
+      wordCount: metrics.wordCount,
+      updatedAt: timestamp,
+    };
   }
 
   return {

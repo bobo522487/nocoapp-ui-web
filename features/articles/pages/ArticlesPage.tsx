@@ -30,6 +30,7 @@ import type { ArticleStatus } from '../types';
 import { parsePlaceText } from '../../place-input';
 import { surnameOf } from '../../dashboard/projectView';
 import { WordArticleEditor } from '../components/WordArticleEditor';
+import { ArticleConflictDialog } from '../components/ArticleConflictDialog';
 import { ArticleMetaModal } from '../components/ArticleMetaModal';
 
 const ArticlesPage: React.FC = () => {
@@ -55,6 +56,10 @@ const ArticlesPage: React.FC = () => {
   const addArticleFolder = useArticleStore((s) => s.addFolder);
   const addArticle = useArticleStore((s) => s.addArticle);
   const updateArticleContent = useArticleStore((s) => s.updateArticleContent);
+  const articleConflict = useArticleStore((s) => s.articleConflict);
+  const chooseArticleConflictResolution = useArticleStore(
+    (s) => s.chooseArticleConflictResolution,
+  );
 
   const activeProject =
     projects.find((p) => p.id === activeProjectId) ||
@@ -195,6 +200,14 @@ const ArticlesPage: React.FC = () => {
             updateArticleContent(activeProjectId, activeArticleDoc.id, updates)
           }
         />
+        {articleConflict ? (
+          <ArticleConflictDialog
+            open
+            local={articleConflict.local}
+            server={articleConflict.server}
+            onChoose={chooseArticleConflictResolution}
+          />
+        ) : null}
       </div>
     );
   }
@@ -407,6 +420,15 @@ const ArticlesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {articleConflict ? (
+        <ArticleConflictDialog
+          open
+          local={articleConflict.local}
+          server={articleConflict.server}
+          onChoose={chooseArticleConflictResolution}
+        />
+      ) : null}
 
       <ArticleMetaModal
         open={isCreateArticleOpen}

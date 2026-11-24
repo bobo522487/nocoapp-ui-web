@@ -17,7 +17,10 @@ import {
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
+import { saveArticleRemote } from '../features/articles/api';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
+import { resolveArticleConflict } from '../features/articles/domain/articleConflict';
+import { resolveApiMode } from '../lib/apiMode';
 import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
 import {
   migrateArticlesV1ToV2,
@@ -36,11 +39,19 @@ import type {
   ProjectArticleSeedContext,
 } from '../features/articles/types';
 
+export interface ArticleConflictState {
+  projectId: string;
+  articleId: string;
+  local: ArticleDocument;
+  server: ArticleDocument;
+}
+
 interface ArticleState {
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   articlesByKey: Record<string, ArticleDocument>;
   revisionsByArticleId: Record<string, ArticleRevision[]>;
+  articleConflict: ArticleConflictState | null;
 
   ensureProjectInitialized: (
     projectId: string,
@@ -82,6 +93,42 @@ interface ArticleState {
     revisionId: string,
     authorName: string,
   ) => void;
+  chooseArticleConflictResolution: (
+    choice: 'keep-local' | 'take-server',
+  ) => void;
+}
+
+function articleWriteUrl(articleId: string): string {
+  return `/api/articles/${articleId}`;
+}
+
+function applyArticleRowToState(
+  state: ArticleState,
+  projectId: string,
+  articleId: string,
+  doc: ArticleDocument,
+  titleUpdateFrom?: string,
+): Partial<ArticleState> {
+  const key = makeArticleStorageKey(projectId, articleId);
+  const currentTree = state.treesByProject[projectId] || [];
+  const treeNode = findTreeNode(currentTree, articleId);
+  const shouldUpdateTreeTitle =
+    Boolean(titleUpdateFrom?.trim()) &&
+    treeNode &&
+    treeNode.data?.name !== titleUpdateFrom!.trim();
+
+  return {
+    treesByProject: {
+      ...state.treesByProject,
+      [projectId]: shouldUpdateTreeTitle
+        ? updateTreeNodeData(currentTree, articleId, (data) => ({
+            ...data,
+            name: titleUpdateFrom!.trim(),
+          }))
+        : currentTree,
+    },
+    articlesByKey: { ...state.articlesByKey, [key]: doc },
+  };
 }
 
 export const useArticleStore = create<ArticleState>()(
@@ -91,6 +138,7 @@ export const useArticleStore = create<ArticleState>()(
       selectedNodeIdByProject: {},
       articlesByKey: {},
       revisionsByArticleId: {},
+      articleConflict: null,
 
       ensureProjectInitialized: (projectId, ctx) => {
         if (!projectId || get().treesByProject[projectId] !== undefined) return;
@@ -200,45 +248,141 @@ export const useArticleStore = create<ArticleState>()(
         return id;
       },
 
-      updateArticleContent: (projectId, articleId, updates) =>
-        set((state) => {
-          const key = makeArticleStorageKey(projectId, articleId);
-          const existing = state.articlesByKey[key];
-          const currentTree = state.treesByProject[projectId] || [];
-          const treeNode = findTreeNode(currentTree, articleId);
+      updateArticleContent: (projectId, articleId, updates) => {
+        const state = get();
+        const key = makeArticleStorageKey(projectId, articleId);
+        const existing = state.articlesByKey[key];
+        const currentTree = state.treesByProject[projectId] || [];
+        const treeNode = findTreeNode(currentTree, articleId);
 
-          const mergedUpdates = {
-            ...updates,
-            title:
-              updates.title !== undefined
-                ? updates.title
-                : existing?.title || treeNode?.data?.name || '未命名谱文',
-          };
-          const nextDoc = commitArticleContent(
-            existing,
-            articleId,
-            mergedUpdates,
-            formatNowTimestamp()
-          );
+        const mergedUpdates = {
+          ...updates,
+          title:
+            updates.title !== undefined
+              ? updates.title
+              : existing?.title || treeNode?.data?.name || '未命名谱文',
+        };
+        const nextDoc = commitArticleContent(
+          existing,
+          articleId,
+          mergedUpdates,
+          formatNowTimestamp(),
+        );
 
-          const shouldUpdateTreeTitle =
-            Boolean(updates.title?.trim()) &&
-            treeNode &&
-            treeNode.data?.name !== updates.title!.trim();
+        if (resolveApiMode(import.meta.env) !== 'network') {
+          set((s) => {
+            const shouldUpdateTreeTitle =
+              Boolean(updates.title?.trim()) &&
+              treeNode &&
+              treeNode.data?.name !== updates.title!.trim();
+            return {
+              ...applyArticleRowToState(
+                s,
+                projectId,
+                articleId,
+                nextDoc,
+                shouldUpdateTreeTitle ? updates.title : undefined,
+              ),
+            };
+          });
+          return;
+        }
 
-          return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: shouldUpdateTreeTitle
-                ? updateTreeNodeData(currentTree, articleId, (data) => ({
-                    ...data,
-                    name: updates.title!.trim(),
-                  }))
-                : currentTree,
+        void (async () => {
+          const result = await saveArticleRemote(
+            fetch,
+            articleWriteUrl(articleId),
+            {
+              articleId,
+              expectedVersion: existing?.version ?? 0,
+              article: nextDoc,
             },
-            articlesByKey: { ...state.articlesByKey, [key]: nextDoc },
-          };
-        }),
+          );
+          if (result.ok) {
+            set((s) => ({
+              ...applyArticleRowToState(
+                s,
+                projectId,
+                articleId,
+                result.article,
+                updates.title,
+              ),
+              articleConflict: null,
+            }));
+            return;
+          }
+          if (result.status === 409) {
+            set({
+              articleConflict: {
+                projectId,
+                articleId,
+                local: nextDoc,
+                server: result.server,
+              },
+            });
+          }
+        })();
+      },
+
+      chooseArticleConflictResolution: (choice) => {
+        const conflict = get().articleConflict;
+        if (!conflict) return;
+
+        if (choice === 'take-server') {
+          set((state) => ({
+            ...applyArticleRowToState(
+              state,
+              conflict.projectId,
+              conflict.articleId,
+              conflict.server,
+              conflict.server.title,
+            ),
+            articleConflict: null,
+          }));
+          return;
+        }
+
+        const resolved = resolveArticleConflict(
+          'keep-local',
+          conflict.local,
+          conflict.server,
+        );
+
+        void (async () => {
+          const result = await saveArticleRemote(
+            fetch,
+            articleWriteUrl(conflict.articleId),
+            {
+              articleId: conflict.articleId,
+              expectedVersion: conflict.server.version,
+              article: resolved,
+            },
+          );
+          if (result.ok) {
+            set((s) => ({
+              ...applyArticleRowToState(
+                s,
+                conflict.projectId,
+                conflict.articleId,
+                result.article,
+                resolved.title,
+              ),
+              articleConflict: null,
+            }));
+            return;
+          }
+          if (result.status === 409) {
+            set({
+              articleConflict: {
+                projectId: conflict.projectId,
+                articleId: conflict.articleId,
+                local: resolved,
+                server: result.server,
+              },
+            });
+          }
+        })();
+      },
 
       updateArticleMeta: (projectId, articleId, meta) =>
         set((state) => {

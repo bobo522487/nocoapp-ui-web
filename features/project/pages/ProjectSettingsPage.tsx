@@ -13,7 +13,7 @@ import {
   fetchProject,
   updateProjectRequest,
 } from '../../dashboard/api';
-import { ApiError, errorMessage } from '../../../lib/api';
+import { errorMessage } from '../../../lib/api';
 import {
   FamilyProfileFields,
   validateFamilyProfile,
@@ -164,18 +164,8 @@ const ProjectSettingsPage: React.FC = () => {
       dropProject(targetProjectId);
       void navigate({ to: '/' });
     } catch (err) {
-      const isOfflineOrLocalOnly =
-        err instanceof ApiError &&
-        (err.code === 'UNREACHABLE' ||
-          (err.status === 404 && !expectedUpdatedAt));
-
-      if (isOfflineOrLocalOnly) {
-        dropProject(targetProjectId);
-        void navigate({ to: '/' });
-      } else {
-        setDeleteError(errorMessage(err));
-        setConfirmDelete(false);
-      }
+      setDeleteError(errorMessage(err));
+      setConfirmDelete(false);
     } finally {
       setDeleting(false);
     }

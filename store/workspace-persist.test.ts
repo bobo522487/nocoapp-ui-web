@@ -18,8 +18,15 @@ test('v1 里的种子项目和 0/1 状态全部丢掉', () => {
       workspaces: [{ id: 'ws-personal', name: '个人空间' }],
     },
     1,
-  ) as { projects: unknown[]; activeProjectId: string };
+  ) as {
+    projects: unknown[];
+    activeProjectId: string;
+    workspaces: unknown[];
+    activeWorkspaceId: string;
+  };
 
   assert.deepEqual(next.projects, []);
   assert.equal(next.activeProjectId, '');
+  assert.deepEqual(next.workspaces, []);
+  assert.equal(next.activeWorkspaceId, '');
 });

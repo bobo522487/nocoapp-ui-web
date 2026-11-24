@@ -62,6 +62,7 @@ const Breadcrumb: React.FC = () => {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [breadcrumbError, setBreadcrumbError] = useState<string | null>(null);
 
   const projDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -324,7 +325,7 @@ const Breadcrumb: React.FC = () => {
                             });
                           })
                           .catch((error: unknown) => {
-                            setCreateError(errorMessage(error));
+                            setBreadcrumbError(errorMessage(error));
                           });
                       }}
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-foreground hover:bg-[hsl(var(--surface-hover))] transition-colors cursor-pointer"
@@ -339,6 +340,7 @@ const Breadcrumb: React.FC = () => {
                   onClick={() => {
                     setIsProjMenuOpen(false);
                     setCreateError(null);
+                    setBreadcrumbError(null);
                     setIsCreateProjectOpen(true);
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12px] font-medium text-primary hover:bg-accent/70 transition-colors cursor-pointer"
@@ -364,6 +366,11 @@ const Breadcrumb: React.FC = () => {
               <span>{viewBadge.label}</span>
             </div>
           </>
+        )}
+        {breadcrumbError && (
+          <p className="text-[12px] text-destructive truncate max-w-[240px] shrink-0">
+            {breadcrumbError}
+          </p>
         )}
       </div>
 

@@ -1,20 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Folder, FolderOpen, FolderPlus, GitFork, Plus } from 'lucide-react';
 import { Tree } from '../../../components/common/Tree/Tree';
 import { FlattenedItem } from '../../../components/common/Tree/types';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
-import { useProjectId } from '../../../hooks/useProjectId';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { useActiveProject } from '../../../hooks/useActiveProject';
 import {
   DEFAULT_LINEAGE_TREE,
   findFirstChartId,
   LineageChartMeta,
   makeChartStorageKey,
+  resolveChartSurname,
   useLineageStore,
 } from '../../../store/useLineageStore';
 import { createSeedPersonsForChart } from '../../lineage/lineageData';
 import { parsePlaceText } from '../../place-input';
-import { surnameOf } from '../../dashboard/projectView';
 import { LineageEditorModal } from './LineageEditorModal';
 
 interface LineageModalState {
@@ -26,15 +25,16 @@ interface LineageModalState {
 }
 
 export const LineageTreePanel: React.FC = () => {
-  const activeProjectId = useProjectId();
+  const {
+    projectId: activeProjectId,
+    project: activeProject,
+    surname: projectSurname,
+  } = useActiveProject();
 
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const activeProject =
-    projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.organizationId === activeWorkspaceId) ||
-    projects[0];
-
+  const hasHydrated = useLineageStore((s) => s._hasHydrated);
+  const ensureProjectInitialized = useLineageStore(
+    (s) => s.ensureProjectInitialized
+  );
   const treesByProject = useLineageStore((s) => s.treesByProject);
   const selectedNodeIdByProject = useLineageStore(
     (s) => s.selectedNodeIdByProject
@@ -53,6 +53,11 @@ export const LineageTreePanel: React.FC = () => {
     open: false,
     mode: 'create',
   });
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    ensureProjectInitialized(activeProjectId);
+  }, [hasHydrated, activeProjectId, ensureProjectInitialized]);
 
   const treeItems = useMemo(
     () => treesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE,
@@ -74,7 +79,7 @@ export const LineageTreePanel: React.FC = () => {
       parentId,
       initialValue: {
         name: '',
-        surname: surnameOf(activeProject),
+        surname: projectSurname,
         hallName: activeProject?.hallName || '',
         progenitor: '',
         region: null,
@@ -86,15 +91,7 @@ export const LineageTreePanel: React.FC = () => {
     const node = findItemDeep(treeItems, chartId);
     if (!node) return;
     const key = makeChartStorageKey(activeProjectId, chartId);
-    const fallbackSurname =
-      node.data?.surname !== undefined
-        ? node.data.surname
-        : chartId.startsWith('lineage-royal-')
-          ? '刘'
-          : chartId.startsWith('lineage-other-') ||
-              chartId.startsWith('lineage-ancestor-')
-            ? ''
-            : surnameOf(activeProject);
+    const fallbackSurname = resolveChartSurname(node, projectSurname);
     const persons =
       personsByChart[key] ||
       createSeedPersonsForChart(chartId, node.data?.name, fallbackSurname);

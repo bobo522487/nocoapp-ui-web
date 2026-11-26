@@ -1,6 +1,6 @@
 import { TreeItem } from '../../../components/common/Tree/types';
 import { collectTreeNodesByType } from '../../../lib/treeOps';
-import { buildLineageGraph } from '../domain/lineageGraph';
+import { getLineageGraph } from '../domain/lineageGraph';
 import { PersonRecord } from '../types';
 
 export interface ChartEntry {
@@ -58,7 +58,7 @@ export function computeLineageStats(
   persons: PersonRecord[],
   chartCount = 1
 ): LineageStatsSummary {
-  const index = buildLineageGraph(persons);
+  const index = getLineageGraph(persons);
 
   let allMaleCount = 0;
   let allMaleLiving = 0;

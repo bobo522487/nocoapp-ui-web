@@ -53,12 +53,16 @@ const EMPTY: PageState = {
   nextCursor: null,
 };
 
+const EMPTY_ZIBEI_BY_PROJECT: Record<string, string[]> = {};
+
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const user = useCurrentUserProfile();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const activeProjectId = useWorkspaceStore((s) => s.activeProjectId);
-  const zibeiByProject = useWorkspaceStore((s) => s.zibeiByProject || {});
+  const zibeiByProject = useWorkspaceStore(
+    (s) => s.zibeiByProject ?? EMPTY_ZIBEI_BY_PROJECT,
+  );
   const setProjectZibei = useWorkspaceStore((s) => s.setProjectZibei);
   const syncProject = useWorkspaceStore((s) => s.syncProject);
   const dropProject = useWorkspaceStore((s) => s.dropProject);

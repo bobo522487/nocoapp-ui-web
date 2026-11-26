@@ -7,7 +7,11 @@ export function migrateWorkspaceState(persisted: unknown, version: number): unkn
       activeProjectId: '',
       workspaces: [],
       activeWorkspaceId: '',
+      zibeiByProject: state.zibeiByProject ?? {},
     };
   }
-  return state;
+  return {
+    ...state,
+    zibeiByProject: state.zibeiByProject ?? {},
+  };
 }

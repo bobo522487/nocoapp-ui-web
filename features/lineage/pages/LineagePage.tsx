@@ -10,16 +10,15 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
-import { useProjectId } from '../../../hooks/useProjectId';
+import { useActiveProject } from '../../../hooks/useActiveProject';
 import { useResizable } from '../../../hooks/useResizable';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import {
   DEFAULT_LINEAGE_TREE,
   findFirstChartId,
   makeChartStorageKey,
+  resolveChartSurname,
   useLineageStore,
 } from '../../../store/useLineageStore';
-import { surnameOf } from '../../dashboard/projectView';
 import { createSeedPersonsForChart } from '../lineageData';
 import type { PersonRecord } from '../types';
 import {
@@ -37,10 +36,16 @@ import { LineageEditorModal } from '../../project/components/LineageEditorModal'
 
 const LineagePage: React.FC = () => {
   const navigate = useNavigate();
-  const activeProjectId = useProjectId();
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const {
+    projectId: activeProjectId,
+    project: activeProject,
+    surname: projectSurname,
+  } = useActiveProject();
 
+  const hasHydrated = useLineageStore((s) => s._hasHydrated);
+  const ensureProjectInitialized = useLineageStore(
+    (s) => s.ensureProjectInitialized
+  );
   const treesByProject = useLineageStore((s) => s.treesByProject);
   const selectedNodeIdByProject = useLineageStore(
     (s) => s.selectedNodeIdByProject
@@ -65,10 +70,10 @@ const LineagePage: React.FC = () => {
     edge: 'right',
   });
 
-  const activeProject =
-    projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.organizationId === activeWorkspaceId) ||
-    projects[0];
+  useEffect(() => {
+    if (!hasHydrated) return;
+    ensureProjectInitialized(activeProjectId);
+  }, [hasHydrated, activeProjectId, ensureProjectInitialized]);
 
   const lineageTree = useMemo(
     () => treesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE,
@@ -97,19 +102,10 @@ const LineagePage: React.FC = () => {
   const chartName = selectedLineageNode?.data?.name || '世系图谱';
   const chartStorageKey = makeChartStorageKey(activeProjectId, chartId);
 
-  const effectiveSurname = useMemo(() => {
-    if (selectedLineageNode?.data?.surname !== undefined) {
-      return selectedLineageNode.data.surname;
-    }
-    if (chartId.startsWith('lineage-royal-')) return '刘';
-    if (
-      chartId.startsWith('lineage-other-') ||
-      chartId.startsWith('lineage-ancestor-')
-    ) {
-      return '';
-    }
-    return surnameOf(activeProject);
-  }, [selectedLineageNode?.data?.surname, chartId, activeProject?.surname]);
+  const effectiveSurname = useMemo(
+    () => resolveChartSurname(selectedLineageNode, projectSurname),
+    [selectedLineageNode, projectSurname]
+  );
 
   const chartPersons = useMemo(() => {
     if (!chartId || selectedLineageNode?.type === 'folder') return [];
@@ -345,6 +341,9 @@ const LineagePage: React.FC = () => {
                 clanSurname={effectiveSurname}
                 onSelectPerson={handleSelectPerson}
                 onUpdatePerson={handleUpdatePerson}
+                onCommitPersons={(nextPersons) =>
+                  commitChartPersons(activeProjectId, chartId, nextPersons)
+                }
                 onDeletePerson={handleDeletePerson}
                 onAddChild={handleOpenAddChild}
                 onAddSpouse={handleOpenAddSpouse}
@@ -479,7 +478,7 @@ const LineagePage: React.FC = () => {
         mode="create"
         initialValue={{
           name: '',
-          surname: surnameOf(activeProject),
+          surname: projectSurname,
           hallName: activeProject?.hallName || '',
           progenitor: '',
           region: null,

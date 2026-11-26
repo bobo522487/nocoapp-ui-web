@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core';
+import { createEntityId } from '../../../lib/id';
 import type { ArticleDocument, ArticleRevision } from '../types';
 import { extractArticleMetrics } from './articleMetrics';
 
@@ -9,7 +10,7 @@ export function articleRevisionFromDocument(
   createdAt: string,
 ): ArticleRevision {
   return {
-    id: `rev-${doc.id}-${doc.version}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: createEntityId(`rev-${doc.id}-${doc.version}`),
     articleId: doc.id,
     version: doc.version,
     title: doc.title,

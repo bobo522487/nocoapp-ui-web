@@ -2,7 +2,7 @@ import type { PersonRecord, RelationKind } from '../types';
 import {
   getSpouseSortScore,
   sortChildrenChronologically,
-} from '../utils/personHelpers';
+} from '../utils/personSort';
 
 export interface FamilyChildEdge {
   childId: string;
@@ -26,10 +26,31 @@ export interface LineageGraph {
   unionsById: Map<string, FamilyUnion>;
   unionsByPartnerId: Map<string, FamilyUnion[]>;
   parentUnionByChildId: Map<string, FamilyUnion>;
-  /** O(1) parent -> ordered children (supports both paternal and single-mother lines) */
+  /** O(1) primary parent -> ordered children (supports both paternal and single-mother lines without double-counting) */
   childrenByFatherId: Map<string, PersonRecord[]>;
+  /** O(1) any parent (fatherId or motherId) -> ordered children for kinship queries */
+  childrenByAnyParentId: Map<string, PersonRecord[]>;
   /** O(1) partner -> ordered spouse nodes */
   spousesByPartnerId: Map<string, PersonRecord[]>;
+}
+
+const lineageGraphCache = new WeakMap<
+  PersonRecord[],
+  { length: number; graph: LineageGraph }
+>();
+
+/**
+ * Return a WeakMap-memoized LineageGraph for immutable PersonRecord[] arrays.
+ * Falls back cleanly to a fresh build when array length mutates.
+ */
+export function getLineageGraph(persons: PersonRecord[]): LineageGraph {
+  const cached = lineageGraphCache.get(persons);
+  if (cached && cached.length === persons.length) {
+    return cached.graph;
+  }
+  const graph = buildLineageGraph(persons);
+  lineageGraphCache.set(persons, { length: persons.length, graph });
+  return graph;
 }
 
 /**
@@ -38,6 +59,7 @@ export interface LineageGraph {
 export function buildLineageGraph(persons: PersonRecord[]): LineageGraph {
   const personById = new Map<string, PersonRecord>();
   const childrenByFatherId = new Map<string, PersonRecord[]>();
+  const childrenByAnyParentId = new Map<string, PersonRecord[]>();
   const spousesByPartnerId = new Map<string, PersonRecord[]>();
   const unionsById = new Map<string, FamilyUnion>();
   const unionsByPartnerId = new Map<string, FamilyUnion[]>();
@@ -62,10 +84,25 @@ export function buildLineageGraph(persons: PersonRecord[]): LineageGraph {
       if (list) list.push(p);
       else childrenByFatherId.set(primaryParentId, [p]);
     }
+
+    if (p.fatherId) {
+      const fList = childrenByAnyParentId.get(p.fatherId);
+      if (fList) fList.push(p);
+      else childrenByAnyParentId.set(p.fatherId, [p]);
+    }
+    if (p.motherId && p.motherId !== p.fatherId) {
+      const mList = childrenByAnyParentId.get(p.motherId);
+      if (mList) mList.push(p);
+      else childrenByAnyParentId.set(p.motherId, [p]);
+    }
   }
 
   for (const [parentId, list] of childrenByFatherId.entries()) {
     childrenByFatherId.set(parentId, sortChildrenChronologically(list));
+  }
+
+  for (const [parentId, list] of childrenByAnyParentId.entries()) {
+    childrenByAnyParentId.set(parentId, sortChildrenChronologically(list));
   }
 
   for (const list of spousesByPartnerId.values()) {
@@ -123,6 +160,7 @@ export function buildLineageGraph(persons: PersonRecord[]): LineageGraph {
     unionsByPartnerId,
     parentUnionByChildId,
     childrenByFatherId,
+    childrenByAnyParentId,
     spousesByPartnerId,
   };
 }
@@ -135,7 +173,7 @@ export function collectSubtreeIds(
   rootId: string
 ): Set<string> {
   const graph = Array.isArray(graphOrPersons)
-    ? buildLineageGraph(graphOrPersons)
+    ? getLineageGraph(graphOrPersons)
     : graphOrPersons;
 
   const visited = new Set<string>();
@@ -177,7 +215,7 @@ export function detachPersonFromPersons(
   persons: PersonRecord[],
   personId: string
 ): PersonRecord[] {
-  const graph = buildLineageGraph(persons);
+  const graph = getLineageGraph(persons);
   const target = graph.personById.get(personId);
   if (!target) return persons;
 
@@ -194,7 +232,7 @@ export function detachPersonFromPersons(
 
   const shiftIds = new Set<string>();
   if (shouldShiftBack) {
-    const remainingGraph = buildLineageGraph(remaining);
+    const remainingGraph = getLineageGraph(remaining);
     for (const child of directChildren) {
       for (const id of collectSubtreeIds(remainingGraph, child.id)) {
         shiftIds.add(id);
@@ -224,12 +262,13 @@ export function normalizeSpouseOrderInPersons(
   targetId: string,
   desiredOrder: number
 ): PersonRecord[] {
-  const target = persons.find((p) => p.id === targetId);
+  const graph = getLineageGraph(persons);
+  const target = graph.personById.get(targetId);
   if (!target) return persons;
 
-  const otherSpouses = persons
-    .filter((p) => p.spouseOfId === partnerId && p.id !== targetId)
-    .sort((a, b) => getSpouseSortScore(a) - getSpouseSortScore(b));
+  const otherSpouses = (graph.spousesByPartnerId.get(partnerId) || []).filter(
+    (p) => p.id !== targetId
+  );
 
   const desiredIdx = Math.max(
     0,
@@ -253,13 +292,14 @@ export function reorderSiblingInPersons(
   childId: string,
   direction: 'up' | 'down'
 ): PersonRecord[] {
-  const siblings = persons
-    .filter((p) => (p.fatherId === parentId || p.motherId === parentId) && !p.spouseOfId)
-    .sort((a, b) => {
+  const graph = getLineageGraph(persons);
+  const siblings = [...(graph.childrenByAnyParentId.get(parentId) || [])].sort(
+    (a, b) => {
       const orderA = a.siblingOrder ?? a.biographyOrder ?? 50;
       const orderB = b.siblingOrder ?? b.biographyOrder ?? 50;
       return orderA - orderB;
-    });
+    }
+  );
 
   const idx = siblings.findIndex((s) => s.id === childId);
   if (idx < 0) return persons;
@@ -285,7 +325,7 @@ export function addParentToPersons(
   childId: string,
   parentPerson: PersonRecord
 ): { persons: PersonRecord[]; addedParentId: string | null } {
-  const graph = buildLineageGraph(persons);
+  const graph = getLineageGraph(persons);
   const child = graph.personById.get(childId);
   if (!child || child.spouseOfId) {
     return { persons, addedParentId: null };

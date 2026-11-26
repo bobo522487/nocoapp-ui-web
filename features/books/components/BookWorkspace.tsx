@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -10,22 +10,20 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { useProjectId } from '../../../hooks/useProjectId';
+import { useActiveProject } from '../../../hooks/useActiveProject';
+import { useEnsureBookInitialized } from '../../../hooks/useEnsureBookInitialized';
 import { useArticleStore } from '../../../store/useArticleStore';
 import { useBookStore } from '../../../store/useBookStore';
 import {
   DEFAULT_LINEAGE_TREE,
   useLineageStore,
 } from '../../../store/useLineageStore';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { auditBookArticles } from '../domain/bookArticleAudit';
 import type { BookStep } from '../types';
 import { BookCatalogStep } from './BookCatalogStep';
 import { BookEditionsStep } from './BookEditionsStep';
 import { BookLayoutStep } from './BookLayoutStep';
 import { BookMetaModal } from './BookMetaModal';
-import { parsePlaceText } from '../../place-input';
-import { surnameOf } from '../../dashboard/projectView';
 import { HelpTipButton, type HelpTipKey } from './HelpTipButton';
 
 const STEPS: Array<{
@@ -59,17 +57,15 @@ const STEPS: Array<{
 ];
 
 export const BookWorkspace: React.FC = () => {
-  const activeProjectId = useProjectId();
+  const {
+    projectId: activeProjectId,
+    project: activeProject,
+    surname: projectSurname,
+  } = useActiveProject();
 
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeProject = projects.find((p) => p.id === activeProjectId);
+  useEnsureBookInitialized();
 
-  const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const articlesByKey = useArticleStore((s) => s.articlesByKey);
-  const ensureArticleInitialized = useArticleStore(
-    (s) => s.ensureProjectInitialized
-  );
-
   const lineageTreesByProject = useLineageStore((s) => s.treesByProject);
   const personsByChart = useLineageStore((s) => s.personsByChart);
 
@@ -78,9 +74,6 @@ export const BookWorkspace: React.FC = () => {
     (s) => s.selectedBookIdByProject
   );
   const activeStepByBook = useBookStore((s) => s.activeStepByBook);
-  const ensureBookInitialized = useBookStore(
-    (s) => s.ensureProjectInitialized
-  );
   const setActiveStep = useBookStore((s) => s.setActiveStep);
   const touchBookSaved = useBookStore((s) => s.touchBookSaved);
   const generateEdition = useBookStore((s) => s.generateEdition);
@@ -88,49 +81,6 @@ export const BookWorkspace: React.FC = () => {
 
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!activeProjectId) return;
-    if (!articleTreesByProject[activeProjectId]) {
-      ensureArticleInitialized(activeProjectId, {
-        familyName: activeProject?.name,
-        surname: surnameOf(activeProject) || undefined,
-        hallName: activeProject?.hallName ?? undefined,
-        ancestor: activeProject?.ancestor ?? undefined,
-        region: parsePlaceText(activeProject?.originText ?? undefined),
-      });
-      return;
-    }
-
-    const lineageTree =
-      lineageTreesByProject[activeProjectId] || DEFAULT_LINEAGE_TREE;
-
-    ensureBookInitialized(activeProjectId, {
-      familyName: activeProject?.name,
-      surname: surnameOf(activeProject) || undefined,
-      hallName: activeProject?.hallName ?? undefined,
-      editor: activeProject?.hallName
-        ? `${activeProject.hallName}编委会`
-        : '家族编委会',
-      articlesByKey,
-      articleTree: articleTreesByProject[activeProjectId],
-      lineageTree,
-      personsByChart,
-    });
-  }, [
-    activeProjectId,
-    activeProject?.name,
-    activeProject?.surname,
-    activeProject?.hallName,
-    activeProject?.ancestor,
-    activeProject?.originText,
-    articleTreesByProject,
-    articlesByKey,
-    lineageTreesByProject,
-    personsByChart,
-    ensureArticleInitialized,
-    ensureBookInitialized,
-  ]);
 
   const books = useMemo(
     () => booksByProject[activeProjectId] || [],
@@ -169,7 +119,7 @@ export const BookWorkspace: React.FC = () => {
       articlesByKey,
       lineageTree,
       personsByChart,
-      projectSurname: surnameOf(activeProject) || undefined,
+      projectSurname: projectSurname || undefined,
     });
     setActiveStep(activeBook.id, 'editions');
   };
@@ -206,8 +156,8 @@ export const BookWorkspace: React.FC = () => {
             bookName: activeProject?.name
               ? `${activeProject.name}族谱`
               : '家族宗谱',
-            headerName: surnameOf(activeProject)
-              ? `${surnameOf(activeProject)}氏宗谱`
+            headerName: projectSurname
+              ? `${projectSurname}氏宗谱`
               : '家族宗谱',
             hallName: activeProject?.hallName || '敦睦堂',
             volumeNo: '卷一',

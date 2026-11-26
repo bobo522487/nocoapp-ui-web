@@ -3,6 +3,7 @@ import { extractArticleMetrics } from './articleMetrics';
 import { persistableContentJson } from './persistableContent';
 
 export interface ArticleSaveCommit {
+  projectId?: string;
   articleId: string;
   contentJson: JSONContent;
   contentHtml: string;
@@ -20,7 +21,11 @@ export function createArticleSaveQueue(options: {
   onCommit: (commit: ArticleSaveCommit) => void;
 }) {
   let timer: number | null = null;
-  let pending: { articleId: string; readJson: () => JSONContent } | null = null;
+  let pending: {
+    projectId?: string;
+    articleId: string;
+    readJson: () => JSONContent;
+  } | null = null;
 
   const clearTimer = () => {
     if (timer !== null) {
@@ -36,6 +41,7 @@ export function createArticleSaveQueue(options: {
     const contentJson = persistableContentJson(current.readJson());
     const metrics = extractArticleMetrics(contentJson);
     const commit: ArticleSaveCommit = {
+      ...(current.projectId !== undefined ? { projectId: current.projectId } : {}),
       articleId: current.articleId,
       contentJson,
       contentHtml: options.projectHtml(contentJson),
@@ -49,8 +55,12 @@ export function createArticleSaveQueue(options: {
   };
 
   return {
-    noteEdit(articleId: string, readJson: () => JSONContent) {
-      pending = { articleId, readJson };
+    noteEdit(
+      articleId: string,
+      readJson: () => JSONContent,
+      projectId?: string,
+    ) {
+      pending = { projectId, articleId, readJson };
       clearTimer();
       timer = options.schedule(() => {
         timer = null;

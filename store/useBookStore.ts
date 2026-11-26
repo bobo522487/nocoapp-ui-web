@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TreeItem } from '../components/common/Tree/types';
+import { createEntityId } from '../lib/id';
 import {
   collectTreeNodesByType,
   findFirstTreeNodeByType,
 } from '../lib/treeOps';
+import { shouldInitializeProjectSeed } from './hydrationGate';
 import { createAsyncEntityStorage } from './storageAdapter';
+import { useBookEditionStore } from './useBookEditionStore';
 import {
   compileBookEdition,
   formatTimestampNow,
@@ -40,6 +43,13 @@ export const DEFAULT_BOOK_LAYOUT: BookLayoutConfig = {
   showHeaderName: true,
   pageNumberStyle: 'chinese',
 };
+
+const SECTION_CODES: CatalogSectionCode[] = [
+  'preface',
+  'body',
+  'lineage',
+  'appendix',
+];
 
 export function createEmptySections(): Record<
   CatalogSectionCode,
@@ -82,15 +92,64 @@ export interface BookSeedContext {
   surname?: string;
   hallName?: string;
   editor?: string;
-  articlesByKey: Record<string, ArticleDocument>;
   articleTree: TreeItem[];
   lineageTree: TreeItem[];
   personsByChart: Record<string, PersonRecord[]>;
 }
 
+function mapBookSections(
+  sections: Record<CatalogSectionCode, CatalogSectionState>,
+  transform: (section: CatalogSectionState) => CatalogNode[],
+): Record<CatalogSectionCode, CatalogSectionState> {
+  const next = { ...sections };
+  for (const code of SECTION_CODES) {
+    next[code] = { ...next[code], items: transform(next[code]) };
+  }
+  return next;
+}
+
+function mapSectionLeafNodes(
+  nodes: CatalogNode[],
+  patchLeaf: (leaf: CatalogLeafNode) => CatalogLeafNode,
+): CatalogNode[] {
+  return nodes.map((node) =>
+    node.nodeType === 'chapter'
+      ? { ...node, children: node.children.map(patchLeaf) }
+      : patchLeaf(node),
+  );
+}
+
+function appendNodesToSection(
+  sections: Record<CatalogSectionCode, CatalogSectionState>,
+  sectionCode: CatalogSectionCode,
+  chapterId: string | undefined,
+  newNodes: CatalogNode[],
+): Record<CatalogSectionCode, CatalogSectionState> {
+  const sec = sections[sectionCode];
+  const nextItems = chapterId
+    ? sec.items.map((n) =>
+        n.id === chapterId && n.nodeType === 'chapter'
+          ? {
+              ...n,
+              collapsed: false,
+              children: [
+                ...n.children,
+                ...(newNodes.filter((x) => x.nodeType !== 'chapter') as CatalogLeafNode[]),
+              ],
+            }
+          : n,
+      )
+    : [...sec.items, ...newNodes];
+
+  return {
+    ...sections,
+    [sectionCode]: { ...sec, collapsed: false, items: nextItems },
+  };
+}
+
 function removeNodeFromList(
   nodes: CatalogNode[],
-  nodeId: string
+  nodeId: string,
 ): { nextNodes: CatalogNode[]; removed: CatalogNode | null } {
   let removed: CatalogNode | null = null;
   const nextNodes: CatalogNode[] = [];
@@ -119,7 +178,7 @@ function removeNodeFromList(
 function reorderInList<T extends { id: string }>(
   list: T[],
   id: string,
-  direction: 'up' | 'down'
+  direction: 'up' | 'down',
 ): T[] {
   const idx = list.findIndex((item) => item.id === id);
   if (idx < 0) return list;
@@ -132,6 +191,8 @@ function reorderInList<T extends { id: string }>(
 }
 
 interface BookState {
+  _hasHydrated: boolean;
+  _setHasHydrated: (hydrated: boolean) => void;
   booksByProject: Record<string, BookRecord[]>;
   selectedBookIdByProject: Record<string, string>;
   activeStepByBook: Record<string, BookStep>;
@@ -149,32 +210,32 @@ interface BookState {
   toggleSectionCollapsed: (
     projectId: string,
     bookId: string,
-    sectionCode: CatalogSectionCode
+    sectionCode: CatalogSectionCode,
   ) => void;
   toggleChapterCollapsed: (
     projectId: string,
     bookId: string,
     sectionCode: CatalogSectionCode,
-    chapterId: string
+    chapterId: string,
   ) => void;
   addChapter: (
     projectId: string,
     bookId: string,
     sectionCode: CatalogSectionCode,
-    title: string
+    title: string,
   ) => string;
   renameChapter: (
     projectId: string,
     bookId: string,
     chapterId: string,
-    title: string
+    title: string,
   ) => void;
   addArticleRefs: (
     projectId: string,
     bookId: string,
     sectionCode: CatalogSectionCode,
     chapterId: string | undefined,
-    articles: Array<{ sourceArticleId: string; sourceTitle: string }>
+    articles: Array<{ sourceArticleId: string; sourceTitle: string }>,
   ) => void;
   updateArticleRef: (
     projectId: string,
@@ -184,14 +245,14 @@ interface BookState {
       displayTitle: string;
       sourceArticleId: string;
       sourceTitle: string;
-    }
+    },
   ) => void;
   addLineageRef: (
     projectId: string,
     bookId: string,
     sectionCode: CatalogSectionCode,
     chapterId: string | undefined,
-    payload: Omit<CatalogLineageNode, 'id' | 'nodeType'>
+    payload: Omit<CatalogLineageNode, 'id' | 'nodeType'>,
   ) => void;
   updateLineageRefSettings: (
     projectId: string,
@@ -200,12 +261,12 @@ interface BookState {
     updates: Pick<
       CatalogLineageNode,
       'indexConfig' | 'diaoxianConfig' | 'shixiConfig'
-    >
+    >,
   ) => void;
   removeCatalogNode: (
     projectId: string,
     bookId: string,
-    nodeId: string
+    nodeId: string,
   ) => { blocked: boolean; reason?: string };
   moveCatalogNodeOrder: (
     projectId: string,
@@ -213,21 +274,21 @@ interface BookState {
     sectionCode: CatalogSectionCode,
     parentChapterId: string | undefined,
     nodeId: string,
-    direction: 'up' | 'down'
+    direction: 'up' | 'down',
   ) => void;
   transferCatalogNode: (
     projectId: string,
     bookId: string,
     sourceNodeId: string,
     targetSectionCode: CatalogSectionCode,
-    targetChapterId?: string
+    targetChapterId?: string,
   ) => void;
   touchBookSaved: (projectId: string, bookId: string) => void;
 
   updateLayoutConfig: (
     projectId: string,
     bookId: string,
-    updates: Partial<BookLayoutConfig>
+    updates: Partial<BookLayoutConfig>,
   ) => void;
   generateEdition: (
     projectId: string,
@@ -237,13 +298,13 @@ interface BookState {
       lineageTree: TreeItem[];
       personsByChart: Record<string, PersonRecord[]>;
       projectSurname?: string;
-    }
+    },
   ) => BookEdition | null;
   deleteEdition: (projectId: string, bookId: string, editionId: string) => void;
   finalizeEditionPrint: (
     projectId: string,
     bookId: string,
-    editionId: string
+    editionId: string,
   ) => void;
 }
 
@@ -251,7 +312,7 @@ function updateBookInProject(
   state: BookState,
   projectId: string,
   bookId: string,
-  updater: (book: BookRecord) => BookRecord
+  updater: (book: BookRecord) => BookRecord,
 ): Record<string, BookRecord[]> {
   const list = state.booksByProject[projectId] || [];
   return {
@@ -263,12 +324,23 @@ function updateBookInProject(
 export const useBookStore = create<BookState>()(
   persist(
     (set, get) => ({
+      _hasHydrated: false,
+      _setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       booksByProject: {},
       selectedBookIdByProject: {},
       activeStepByBook: {},
 
       ensureProjectInitialized: (projectId, ctx) => {
-        if (!projectId || get().booksByProject[projectId] !== undefined) return;
+        const current = get();
+        if (
+          !shouldInitializeProjectSeed({
+            hasHydrated: current._hasHydrated,
+            projectId,
+            existingEntry: current.booksByProject[projectId],
+          })
+        ) {
+          return;
+        }
 
         const cleanFamily = ctx.familyName?.trim() || '本族';
         const surname = ctx.surname?.trim() || '';
@@ -283,7 +355,7 @@ export const useBookStore = create<BookState>()(
         const sections = createEmptySections();
         const availableArticles = collectTreeNodesByType(
           ctx.articleTree,
-          'article'
+          'article',
         ).map((node) => ({
           id: String(node.id),
           title: node.data?.name || '谱文',
@@ -291,13 +363,13 @@ export const useBookStore = create<BookState>()(
 
         if (availableArticles.length > 0) {
           sections.preface.items.push({
-            id: `cat-ch-preface-${Date.now()}`,
+            id: createEntityId('cat-ch-preface'),
             nodeType: 'chapter',
             title: '谱序凡例',
             collapsed: false,
             children: [
               {
-                id: `cat-art-1-${Date.now()}`,
+                id: createEntityId('cat-art'),
                 nodeType: 'article',
                 sourceArticleId: availableArticles[0].id,
                 sourceTitle: availableArticles[0].title,
@@ -307,7 +379,7 @@ export const useBookStore = create<BookState>()(
           });
           if (availableArticles[1]) {
             sections.body.items.push({
-              id: `cat-art-2-${Date.now()}`,
+              id: createEntityId('cat-art'),
               nodeType: 'article',
               sourceArticleId: availableArticles[1].id,
               sourceTitle: availableArticles[1].title,
@@ -323,13 +395,13 @@ export const useBookStore = create<BookState>()(
             String(firstChart.id),
             ctx.lineageTree,
             ctx.personsByChart,
-            surname
+            surname,
           );
           const rootPerson =
             persons.find((p) => p.generation === 1 && !p.fatherId) || persons[0];
           if (rootPerson) {
             sections.lineage.items.push({
-              id: `cat-lin-${Date.now()}`,
+              id: createEntityId('cat-lin'),
               nodeType: 'lineage',
               totalTitle: bookName,
               eyebrowTitle: `${chartName}世系`,
@@ -345,7 +417,7 @@ export const useBookStore = create<BookState>()(
           }
         }
 
-        const bookId = `book-${Date.now()}`;
+        const bookId = createEntityId('book');
         const draftBook: BookRecord = {
           id: bookId,
           bookName,
@@ -359,17 +431,6 @@ export const useBookStore = create<BookState>()(
           editions: [],
           updatedAt: formatTimestampNow(),
         };
-
-        draftBook.editions = [
-          compileBookEdition({
-            projectId,
-            book: draftBook,
-            articlesByKey: ctx.articlesByKey,
-            lineageTree: ctx.lineageTree,
-            personsByChart: ctx.personsByChart,
-            projectSurname: surname,
-          }),
-        ];
 
         set((state) => {
           if (state.booksByProject[projectId] !== undefined) return state;
@@ -398,7 +459,7 @@ export const useBookStore = create<BookState>()(
         })),
 
       createBook: (projectId, meta) => {
-        const id = `book-${Date.now()}`;
+        const id = createEntityId('book');
         const newBook: BookRecord = {
           id,
           bookName: meta.bookName.trim() || '新建谱书',
@@ -441,21 +502,24 @@ export const useBookStore = create<BookState>()(
           })),
         })),
 
-      duplicateBook: (projectId, bookId) =>
+      duplicateBook: (projectId, bookId) => {
+        const list = get().booksByProject[projectId] || [];
+        const idx = list.findIndex((b) => b.id === bookId);
+        if (idx < 0) return;
+        const src = list[idx];
+        const copyId = createEntityId('book');
+        const cloned: BookRecord = {
+          ...structuredClone(src),
+          id: copyId,
+          bookName: `${src.bookName} (副本)`,
+          editions: [],
+          updatedAt: formatTimestampNow(),
+        };
         set((state) => {
-          const list = state.booksByProject[projectId] || [];
-          const idx = list.findIndex((b) => b.id === bookId);
-          if (idx < 0) return state;
-          const src = list[idx];
-          const copyId = `book-${Date.now()}`;
-          const cloned: BookRecord = {
-            ...structuredClone(src),
-            id: copyId,
-            bookName: `${src.bookName} (副本)`,
-            updatedAt: formatTimestampNow(),
-          };
-          const nextList = [...list];
-          nextList.splice(idx + 1, 0, cloned);
+          const curList = state.booksByProject[projectId] || [];
+          const nextList = [...curList];
+          const curIdx = curList.findIndex((b) => b.id === bookId);
+          nextList.splice(curIdx >= 0 ? curIdx + 1 : curList.length, 0, cloned);
           return {
             booksByProject: { ...state.booksByProject, [projectId]: nextList },
             selectedBookIdByProject: {
@@ -464,9 +528,11 @@ export const useBookStore = create<BookState>()(
             },
             activeStepByBook: { ...state.activeStepByBook, [copyId]: 'catalog' },
           };
-        }),
+        });
+        useBookEditionStore.getState().duplicateBookEditions(bookId, copyId);
+      },
 
-      deleteBook: (projectId, bookId) =>
+      deleteBook: (projectId, bookId) => {
         set((state) => {
           const list = state.booksByProject[projectId] || [];
           const idx = list.findIndex((b) => b.id === bookId);
@@ -483,7 +549,9 @@ export const useBookStore = create<BookState>()(
               [projectId]: nextSelected,
             },
           };
-        }),
+        });
+        useBookEditionStore.getState().removeBookEditions(bookId);
+      },
 
       moveBook: (projectId, bookId, direction) =>
         set((state) => {
@@ -525,7 +593,7 @@ export const useBookStore = create<BookState>()(
                 items: b.sections[sectionCode].items.map((n) =>
                   n.id === chapterId && n.nodeType === 'chapter'
                     ? { ...n, collapsed: !n.collapsed }
-                    : n
+                    : n,
                 ),
               },
             },
@@ -533,9 +601,7 @@ export const useBookStore = create<BookState>()(
         })),
 
       addChapter: (projectId, bookId, sectionCode, title) => {
-        const chapterId = `cat-ch-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 5)}`;
+        const chapterId = createEntityId('cat-ch');
         const newChapter: CatalogChapterNode = {
           id: chapterId,
           nodeType: 'chapter',
@@ -546,14 +612,9 @@ export const useBookStore = create<BookState>()(
         set((state) => ({
           booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
             ...b,
-            sections: {
-              ...b.sections,
-              [sectionCode]: {
-                ...b.sections[sectionCode],
-                collapsed: false,
-                items: [...b.sections[sectionCode].items, newChapter],
-              },
-            },
+            sections: appendNodesToSection(b.sections, sectionCode, undefined, [
+              newChapter,
+            ]),
             updatedAt: formatTimestampNow(),
           })),
         }));
@@ -565,141 +626,96 @@ export const useBookStore = create<BookState>()(
           const clean = title.trim();
           if (!clean) return state;
           return {
-            booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-              const nextSections = { ...b.sections };
-              (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
-                (code) => {
-                  nextSections[code] = {
-                    ...nextSections[code],
-                    items: nextSections[code].items.map((n) =>
-                      n.id === chapterId && n.nodeType === 'chapter'
-                        ? { ...n, title: clean }
-                        : n
-                    ),
-                  };
-                }
-              );
-              return { ...b, sections: nextSections, updatedAt: formatTimestampNow() };
-            }),
+            booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+              ...b,
+              sections: mapBookSections(b.sections, (sec) =>
+                sec.items.map((n) =>
+                  n.id === chapterId && n.nodeType === 'chapter'
+                    ? { ...n, title: clean }
+                    : n,
+                ),
+              ),
+              updatedAt: formatTimestampNow(),
+            })),
           };
         }),
 
       addArticleRefs: (projectId, bookId, sectionCode, chapterId, articles) =>
         set((state) => {
           if (!articles.length) return state;
-          const newNodes: CatalogLeafNode[] = articles.map((a, idx) => ({
-            id: `cat-art-${Date.now()}-${idx}-${Math.random()
-              .toString(36)
-              .slice(2, 5)}`,
+          const newNodes: CatalogLeafNode[] = articles.map((a) => ({
+            id: createEntityId('cat-art'),
             nodeType: 'article',
             sourceArticleId: a.sourceArticleId,
             sourceTitle: a.sourceTitle,
             displayTitle: a.sourceTitle,
           }));
-
           return {
-            booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-              const sec = b.sections[sectionCode];
-              const nextItems = chapterId
-                ? sec.items.map((n) =>
-                    n.id === chapterId && n.nodeType === 'chapter'
-                      ? { ...n, collapsed: false, children: [...n.children, ...newNodes] }
-                      : n
-                  )
-                : [...sec.items, ...newNodes];
-              return {
-                ...b,
-                sections: {
-                  ...b.sections,
-                  [sectionCode]: { ...sec, collapsed: false, items: nextItems },
-                },
-                updatedAt: formatTimestampNow(),
-              };
-            }),
+            booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+              ...b,
+              sections: appendNodesToSection(
+                b.sections,
+                sectionCode,
+                chapterId,
+                newNodes,
+              ),
+              updatedAt: formatTimestampNow(),
+            })),
           };
         }),
 
       updateArticleRef: (projectId, bookId, nodeId, updates) =>
         set((state) => ({
-          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-            const nextSections = { ...b.sections };
-            const patchLeaf = (node: CatalogLeafNode): CatalogLeafNode =>
-              node.id === nodeId && node.nodeType === 'article'
-                ? {
-                    ...node,
-                    displayTitle: updates.displayTitle.trim() || node.displayTitle,
-                    sourceArticleId: updates.sourceArticleId,
-                    sourceTitle: updates.sourceTitle,
-                  }
-                : node;
-
-            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
-              (code) => {
-                nextSections[code] = {
-                  ...nextSections[code],
-                  items: nextSections[code].items.map((n) =>
-                    n.nodeType === 'chapter'
-                      ? { ...n, children: n.children.map(patchLeaf) }
-                      : patchLeaf(n)
-                  ),
-                };
-              }
-            );
-            return { ...b, sections: nextSections, updatedAt: formatTimestampNow() };
-          }),
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: mapBookSections(b.sections, (sec) =>
+              mapSectionLeafNodes(sec.items, (node) =>
+                node.id === nodeId && node.nodeType === 'article'
+                  ? {
+                      ...node,
+                      displayTitle:
+                        updates.displayTitle.trim() || node.displayTitle,
+                      sourceArticleId: updates.sourceArticleId,
+                      sourceTitle: updates.sourceTitle,
+                    }
+                  : node,
+              ),
+            ),
+            updatedAt: formatTimestampNow(),
+          })),
         })),
 
       addLineageRef: (projectId, bookId, sectionCode, chapterId, payload) =>
         set((state) => {
           const newNode: CatalogLineageNode = {
             ...payload,
-            id: `cat-lin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            id: createEntityId('cat-lin'),
             nodeType: 'lineage',
           };
           return {
-            booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-              const sec = b.sections[sectionCode];
-              const nextItems = chapterId
-                ? sec.items.map((n) =>
-                    n.id === chapterId && n.nodeType === 'chapter'
-                      ? { ...n, collapsed: false, children: [...n.children, newNode] }
-                      : n
-                  )
-                : [...sec.items, newNode];
-              return {
-                ...b,
-                sections: {
-                  ...b.sections,
-                  [sectionCode]: { ...sec, collapsed: false, items: nextItems },
-                },
-                updatedAt: formatTimestampNow(),
-              };
-            }),
+            booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+              ...b,
+              sections: appendNodesToSection(b.sections, sectionCode, chapterId, [
+                newNode,
+              ]),
+              updatedAt: formatTimestampNow(),
+            })),
           };
         }),
 
       updateLineageRefSettings: (projectId, bookId, nodeId, updates) =>
         set((state) => ({
-          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-            const nextSections = { ...b.sections };
-            const patchLeaf = (node: CatalogLeafNode): CatalogLeafNode =>
-              node.id === nodeId && node.nodeType === 'lineage'
-                ? { ...node, ...updates }
-                : node;
-            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
-              (code) => {
-                nextSections[code] = {
-                  ...nextSections[code],
-                  items: nextSections[code].items.map((n) =>
-                    n.nodeType === 'chapter'
-                      ? { ...n, children: n.children.map(patchLeaf) }
-                      : patchLeaf(n)
-                  ),
-                };
-              }
-            );
-            return { ...b, sections: nextSections, updatedAt: formatTimestampNow() };
-          }),
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: mapBookSections(b.sections, (sec) =>
+              mapSectionLeafNodes(sec.items, (node) =>
+                node.id === nodeId && node.nodeType === 'lineage'
+                  ? { ...node, ...updates }
+                  : node,
+              ),
+            ),
+            updatedAt: formatTimestampNow(),
+          })),
         })),
 
       removeCatalogNode: (projectId, bookId, nodeId) => {
@@ -707,7 +723,7 @@ export const useBookStore = create<BookState>()(
         const book = list.find((b) => b.id === bookId);
         if (!book) return { blocked: false };
 
-        for (const code of Object.keys(book.sections) as CatalogSectionCode[]) {
+        for (const code of SECTION_CODES) {
           const hit = book.sections[code].items.find((n) => n.id === nodeId);
           if (hit && hit.nodeType === 'chapter' && hit.children.length > 0) {
             return {
@@ -718,19 +734,14 @@ export const useBookStore = create<BookState>()(
         }
 
         set((state) => ({
-          booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
-            const nextSections = { ...b.sections };
-            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
-              (code) => {
-                const { nextNodes } = removeNodeFromList(
-                  nextSections[code].items,
-                  nodeId
-                );
-                nextSections[code] = { ...nextSections[code], items: nextNodes };
-              }
-            );
-            return { ...b, sections: nextSections, updatedAt: formatTimestampNow() };
-          }),
+          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
+            ...b,
+            sections: mapBookSections(
+              b.sections,
+              (sec) => removeNodeFromList(sec.items, nodeId).nextNodes,
+            ),
+            updatedAt: formatTimestampNow(),
+          })),
         }));
 
         return { blocked: false };
@@ -742,7 +753,7 @@ export const useBookStore = create<BookState>()(
         sectionCode,
         parentChapterId,
         nodeId,
-        direction
+        direction,
       ) =>
         set((state) => ({
           booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
@@ -750,13 +761,19 @@ export const useBookStore = create<BookState>()(
             const nextItems = parentChapterId
               ? sec.items.map((n) =>
                   n.id === parentChapterId && n.nodeType === 'chapter'
-                    ? { ...n, children: reorderInList(n.children, nodeId, direction) }
-                    : n
+                    ? {
+                        ...n,
+                        children: reorderInList(n.children, nodeId, direction),
+                      }
+                    : n,
                 )
               : reorderInList(sec.items, nodeId, direction);
             return {
               ...b,
-              sections: { ...b.sections, [sectionCode]: { ...sec, items: nextItems } },
+              sections: {
+                ...b.sections,
+                [sectionCode]: { ...sec, items: nextItems },
+              },
               updatedAt: formatTimestampNow(),
             };
           }),
@@ -767,53 +784,33 @@ export const useBookStore = create<BookState>()(
         bookId,
         sourceNodeId,
         targetSectionCode,
-        targetChapterId
+        targetChapterId,
       ) =>
         set((state) => ({
           booksByProject: updateBookInProject(state, projectId, bookId, (b) => {
             let extracted: CatalogNode | null = null;
-            const nextSections = { ...b.sections };
-
-            (Object.keys(nextSections) as CatalogSectionCode[]).forEach(
-              (code) => {
-                if (extracted) return;
-                const { nextNodes, removed } = removeNodeFromList(
-                  nextSections[code].items,
-                  sourceNodeId
-                );
-                if (removed) {
-                  extracted = removed;
-                  nextSections[code] = { ...nextSections[code], items: nextNodes };
-                }
-              }
-            );
+            const nextSections = mapBookSections(b.sections, (sec) => {
+              if (extracted) return sec.items;
+              const { nextNodes, removed } = removeNodeFromList(
+                sec.items,
+                sourceNodeId,
+              );
+              if (removed) extracted = removed;
+              return nextNodes;
+            });
 
             if (!extracted) return b;
             const movedNode = extracted as CatalogNode;
-            const targetSec = nextSections[targetSectionCode];
-            if (targetChapterId && movedNode.nodeType !== 'chapter') {
-              nextSections[targetSectionCode] = {
-                ...targetSec,
-                collapsed: false,
-                items: targetSec.items.map((n) =>
-                  n.id === targetChapterId && n.nodeType === 'chapter'
-                    ? {
-                        ...n,
-                        collapsed: false,
-                        children: [...n.children, movedNode],
-                      }
-                    : n
-                ),
-              };
-            } else {
-              nextSections[targetSectionCode] = {
-                ...targetSec,
-                collapsed: false,
-                items: [...targetSec.items, movedNode],
-              };
-            }
-
-            return { ...b, sections: nextSections, updatedAt: formatTimestampNow() };
+            return {
+              ...b,
+              sections: appendNodesToSection(
+                nextSections,
+                targetSectionCode,
+                movedNode.nodeType !== 'chapter' ? targetChapterId : undefined,
+                [movedNode],
+              ),
+              updatedAt: formatTimestampNow(),
+            };
           }),
         })),
 
@@ -848,10 +845,10 @@ export const useBookStore = create<BookState>()(
           projectSurname: ctx.projectSurname,
         });
 
+        useBookEditionStore.getState().addEdition(bookId, edition);
         set((state) => ({
           booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
             ...b,
-            editions: [edition, ...b.editions].slice(0, 9),
             updatedAt: formatTimestampNow(),
           })),
         }));
@@ -859,28 +856,60 @@ export const useBookStore = create<BookState>()(
         return edition;
       },
 
-      deleteEdition: (projectId, bookId, editionId) =>
-        set((state) => ({
-          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
-            ...b,
-            editions: b.editions.filter((ed) => ed.id !== editionId),
-          })),
-        })),
+      deleteEdition: (_projectId, bookId, editionId) => {
+        useBookEditionStore.getState().deleteEdition(bookId, editionId);
+      },
 
-      finalizeEditionPrint: (projectId, bookId, editionId) =>
-        set((state) => ({
-          booksByProject: updateBookInProject(state, projectId, bookId, (b) => ({
-            ...b,
-            editions: b.editions.map((ed) =>
-              ed.id === editionId ? { ...ed, printStatus: 'finalized' } : ed
-            ),
-          })),
-        })),
+      finalizeEditionPrint: (_projectId, bookId, editionId) => {
+        useBookEditionStore.getState().finalizeEditionPrint(bookId, editionId);
+      },
     }),
     {
       name: 'yunpu:books',
-      version: 1,
+      version: 2,
       storage: createAsyncEntityStorage(),
-    }
-  )
+      partialize: (state) => {
+        // Keep book metadata & catalog hot; compiled edition snapshots live in yunpu:book-editions
+        const slimBooksByProject: Record<string, BookRecord[]> = {};
+        for (const [pid, books] of Object.entries(state.booksByProject)) {
+          slimBooksByProject[pid] = books.map((b) =>
+            b.editions?.length ? { ...b, editions: [] } : b,
+          );
+        }
+        return {
+          booksByProject: slimBooksByProject,
+          selectedBookIdByProject: state.selectedBookIdByProject,
+          activeStepByBook: state.activeStepByBook,
+        };
+      },
+      migrate: (persisted, version) => {
+        if (!persisted || typeof persisted !== 'object') return persisted;
+        const record = persisted as Record<string, unknown>;
+        if (version < 2 && record.booksByProject && typeof record.booksByProject === 'object') {
+          const legacyEditions: Record<string, BookEdition[]> = {};
+          const nextBooksByProject: Record<string, BookRecord[]> = {};
+          for (const [pid, books] of Object.entries(
+            record.booksByProject as Record<string, BookRecord[]>,
+          )) {
+            if (!Array.isArray(books)) continue;
+            nextBooksByProject[pid] = books.map((book) => {
+              if (book.editions?.length) {
+                legacyEditions[book.id] = book.editions;
+                return { ...book, editions: [] };
+              }
+              return book;
+            });
+          }
+          if (Object.keys(legacyEditions).length > 0) {
+            useBookEditionStore.getState().importLegacyEditions(legacyEditions);
+          }
+          return { ...record, booksByProject: nextBooksByProject };
+        }
+        return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
+      },
+    },
+  ),
 );

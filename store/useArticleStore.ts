@@ -11,31 +11,31 @@ import {
   updateTreeNodeData,
 } from '../lib/treeOps';
 import { createAsyncEntityStorage } from './storageAdapter';
+import { shouldInitializeProjectSeed } from './hydrationGate';
 import {
   createInitialArticleSeed,
   findFirstArticleId,
   formatNowTimestamp,
   makeArticleStorageKey,
 } from '../features/articles/articleData';
-import { createHttpArticleSave } from '../features/articles/articleSaveHttp';
+import { createEntityId } from '../lib/id';
+import { saveArticleRemote } from '../features/articles/api';
 import { commitArticleContent } from '../features/articles/domain/articleCommit';
 import { createArticleWrite } from '../features/articles/domain/articleWrite';
 import { resolveApiMode } from '../lib/apiMode';
-import { htmlToContentJson } from '../features/articles/domain/htmlProjection';
+import {
+  contentJsonToHtml,
+  htmlToContentJson,
+} from '../features/articles/domain/htmlProjection';
 import {
   migrateArticlesV1ToV2,
   migrateArticlesV2ToV3,
 } from '../features/articles/domain/migrateArticles';
-import {
-  appendArticleRevision,
-  articleRevisionFromDocument,
-  restoreArticleFromRevision,
-} from '../features/articles/domain/articleRevisions';
+import { useArticleRevisionStore } from './useArticleRevisionStore';
 import type { JSONContent } from '@tiptap/core';
 import type {
   ArticleDocument,
   ArticleMetaInput,
-  ArticleRevision,
   ProjectArticleSeedContext,
 } from '../features/articles/types';
 
@@ -47,10 +47,11 @@ export interface ArticleConflictState {
 }
 
 interface ArticleState {
+  _hasHydrated: boolean;
+  _setHasHydrated: (hydrated: boolean) => void;
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   articlesByKey: Record<string, ArticleDocument>;
-  revisionsByArticleId: Record<string, ArticleRevision[]>;
   articleConflict: ArticleConflictState | null;
 
   ensureProjectInitialized: (
@@ -98,8 +99,8 @@ interface ArticleState {
   ) => void;
 }
 
-const articleWrite = createArticleWrite(
-  createHttpArticleSave(fetch, (articleId) => `/api/articles/${articleId}`),
+const articleWrite = createArticleWrite((request) =>
+  saveArticleRemote(fetch, `/api/articles/${request.articleId}`, request),
 );
 
 function articleWriteMode(): 'local' | 'network' {
@@ -116,10 +117,9 @@ function applyArticleRowToState(
   const key = makeArticleStorageKey(projectId, articleId);
   const currentTree = state.treesByProject[projectId] || [];
   const treeNode = findTreeNode(currentTree, articleId);
+  const nextTitle = titleUpdateFrom?.trim();
   const shouldUpdateTreeTitle =
-    Boolean(titleUpdateFrom?.trim()) &&
-    treeNode &&
-    treeNode.data?.name !== titleUpdateFrom!.trim();
+    Boolean(nextTitle) && treeNode && treeNode.data?.name !== nextTitle;
 
   return {
     treesByProject: {
@@ -127,7 +127,7 @@ function applyArticleRowToState(
       [projectId]: shouldUpdateTreeTitle
         ? updateTreeNodeData(currentTree, articleId, (data) => ({
             ...data,
-            name: titleUpdateFrom!.trim(),
+            name: nextTitle!,
           }))
         : currentTree,
     },
@@ -135,17 +135,109 @@ function applyArticleRowToState(
   };
 }
 
+function commitArticlePatch(
+  get: () => ArticleState,
+  set: (
+    partial:
+      | Partial<ArticleState>
+      | ((state: ArticleState) => Partial<ArticleState>),
+  ) => void,
+  projectId: string,
+  articleId: string,
+  updates: Partial<ArticleMetaInput> & {
+    contentJson?: JSONContent;
+    contentHtml?: string;
+  },
+  titleForTree?: string,
+): ArticleDocument {
+  const state = get();
+  const key = makeArticleStorageKey(projectId, articleId);
+  const existing = state.articlesByKey[key];
+  const currentTree = state.treesByProject[projectId] || [];
+  const treeNode = findTreeNode(currentTree, articleId);
+
+  const mergedUpdates = {
+    ...updates,
+    title:
+      updates.title !== undefined
+        ? updates.title
+        : existing?.title || treeNode?.data?.name || '未命名谱文',
+  };
+
+  const nextDoc = articleWrite.commitContent({
+    projectId,
+    articleId,
+    existing,
+    updates: mergedUpdates,
+    mode: articleWriteMode(),
+    updatedAt: formatNowTimestamp(),
+    readCurrent: () => get().articlesByKey[key],
+    handlers: {
+      onSuccess: (article) => {
+        set((s) => ({
+          ...applyArticleRowToState(
+            s,
+            projectId,
+            articleId,
+            article,
+            titleForTree ?? article.title,
+          ),
+          articleConflict: null,
+        }));
+      },
+      onSupersededSuccess: (article) => {
+        set((s) => {
+          const current = s.articlesByKey[key];
+          if (!current || article.version <= current.version) return s;
+          return applyArticleRowToState(s, projectId, articleId, {
+            ...current,
+            version: article.version,
+          });
+        });
+      },
+      onConflict: (server) => {
+        const local = get().articlesByKey[key] ?? nextDoc;
+        set({
+          articleConflict: {
+            projectId,
+            articleId,
+            local,
+            server,
+          },
+        });
+      },
+      onError: () => undefined,
+    },
+  });
+
+  set((s) => ({
+    ...applyArticleRowToState(s, projectId, articleId, nextDoc, titleForTree),
+  }));
+
+  return nextDoc;
+}
+
 export const useArticleStore = create<ArticleState>()(
   persist(
     (set, get) => ({
+      _hasHydrated: false,
+      _setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       treesByProject: {},
       selectedNodeIdByProject: {},
       articlesByKey: {},
-      revisionsByArticleId: {},
       articleConflict: null,
 
       ensureProjectInitialized: (projectId, ctx) => {
-        if (!projectId || get().treesByProject[projectId] !== undefined) return;
+        const current = get();
+        if (
+          !shouldInitializeProjectSeed({
+            hasHydrated: current._hasHydrated,
+            projectId,
+            existingEntry: current.treesByProject[projectId],
+          })
+        ) {
+          return;
+        }
         const seed = createInitialArticleSeed(projectId, ctx);
         set((state) => {
           if (state.treesByProject[projectId] !== undefined) return state;
@@ -181,7 +273,7 @@ export const useArticleStore = create<ArticleState>()(
         })),
 
       addFolder: (projectId, name) => {
-        const id = `article-vol-${Date.now()}`;
+        const id = createEntityId('article-vol');
         const current = get().treesByProject[projectId] || [];
         const newFolder: TreeItem = {
           id,
@@ -204,7 +296,7 @@ export const useArticleStore = create<ArticleState>()(
       },
 
       addArticle: (projectId, parentId, meta) => {
-        const id = `article-${Date.now()}`;
+        const id = createEntityId('article');
         const title = meta?.title?.trim() || '未命名谱文';
         const doc = commitArticleContent(
           undefined,
@@ -253,82 +345,14 @@ export const useArticleStore = create<ArticleState>()(
       },
 
       updateArticleContent: (projectId, articleId, updates) => {
-        const state = get();
-        const key = makeArticleStorageKey(projectId, articleId);
-        const existing = state.articlesByKey[key];
-        const currentTree = state.treesByProject[projectId] || [];
-        const treeNode = findTreeNode(currentTree, articleId);
-
-        const mergedUpdates = {
-          ...updates,
-          title:
-            updates.title !== undefined
-              ? updates.title
-              : existing?.title || treeNode?.data?.name || '未命名谱文',
-        };
-        const mode = articleWriteMode();
-        const nextDoc = articleWrite.commitContent({
+        commitArticlePatch(
+          get,
+          set,
           projectId,
           articleId,
-          existing,
-          updates: mergedUpdates,
-          mode,
-          updatedAt: formatNowTimestamp(),
-          readCurrent: () => get().articlesByKey[key],
-          handlers: {
-            onSuccess: (article) => {
-              set((s) => ({
-                ...applyArticleRowToState(
-                  s,
-                  projectId,
-                  articleId,
-                  article,
-                  updates.title,
-                ),
-                articleConflict: null,
-              }));
-            },
-            onSupersededSuccess: (article) => {
-              set((s) => {
-                const current = s.articlesByKey[key];
-                if (!current || article.version <= current.version) return s;
-                return applyArticleRowToState(
-                  s,
-                  projectId,
-                  articleId,
-                  { ...current, version: article.version },
-                );
-              });
-            },
-            onConflict: (server) => {
-              const local = get().articlesByKey[key] ?? nextDoc;
-              set({
-                articleConflict: {
-                  projectId,
-                  articleId,
-                  local,
-                  server,
-                },
-              });
-            },
-            onError: () => undefined,
-          },
-        });
-
-        const shouldUpdateTreeTitle =
-          Boolean(updates.title?.trim()) &&
-          treeNode &&
-          treeNode.data?.name !== updates.title!.trim();
-
-        set((s) => ({
-          ...applyArticleRowToState(
-            s,
-            projectId,
-            articleId,
-            nextDoc,
-            shouldUpdateTreeTitle ? updates.title : undefined,
-          ),
-        }));
+          updates,
+          updates.title,
+        );
       },
 
       chooseArticleConflictResolution: (choice) => {
@@ -385,76 +409,48 @@ export const useArticleStore = create<ArticleState>()(
         }));
       },
 
-      updateArticleMeta: (projectId, articleId, meta) =>
-        set((state) => {
-          const title = meta.title?.trim() || '未命名谱文';
-          const key = makeArticleStorageKey(projectId, articleId);
-          const existing = state.articlesByKey[key];
-          const currentTree = state.treesByProject[projectId] || [];
+      updateArticleMeta: (projectId, articleId, meta) => {
+        const title = meta.title?.trim() || '未命名谱文';
+        const existing = get().articlesByKey[makeArticleStorageKey(projectId, articleId)];
+        commitArticlePatch(
+          get,
+          set,
+          projectId,
+          articleId,
+          {
+            title,
+            subtitle: meta.subtitle,
+            author: meta.author,
+            status: meta.status,
+            privacy: meta.privacy,
+            citations: meta.citations,
+            docType: meta.docType,
+            contentHtml: existing ? undefined : '<p></p>',
+          },
+          title,
+        );
+      },
 
-          const nextDoc: ArticleDocument = commitArticleContent(
-            existing,
-            articleId,
-            {
-              title,
-              subtitle: meta.subtitle,
-              author: meta.author,
-              status: meta.status,
-              privacy: meta.privacy,
-              citations: meta.citations,
-              docType: meta.docType,
-              contentHtml: existing ? undefined : '<p></p>',
-            },
-            formatNowTimestamp(),
-          );
-
-          return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: updateTreeNodeData(currentTree, articleId, (data) => ({
-                ...data,
-                name: title,
-              })),
-            },
-            articlesByKey: { ...state.articlesByKey, [key]: nextDoc },
-          };
-        }),
-
-      renameNode: (projectId, id, name) =>
-        set((state) => {
-          const trimmed = name.trim();
-          if (!trimmed) return state;
-          const currentTree = state.treesByProject[projectId] || [];
-          const node = findTreeNode(currentTree, id);
-
-          let nextArticles = state.articlesByKey;
-          if (node?.type === 'article') {
-            const key = makeArticleStorageKey(projectId, id);
-            const existing = state.articlesByKey[key];
-            if (existing) {
-              nextArticles = {
-                ...state.articlesByKey,
-                [key]: {
-                  ...existing,
-                  title: trimmed,
-                  updatedAt: formatNowTimestamp(),
-                  version: (existing.version ?? 0) + 1,
-                },
-              };
-            }
-          }
-
-          return {
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: updateTreeNodeData(currentTree, id, (data) => ({
-                ...data,
-                name: trimmed,
-              })),
-            },
-            articlesByKey: nextArticles,
-          };
-        }),
+      renameNode: (projectId, id, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const currentTree = get().treesByProject[projectId] || [];
+        const node = findTreeNode(currentTree, id);
+        if (node?.type === 'article') {
+          commitArticlePatch(get, set, projectId, id, { title: trimmed }, trimmed);
+          return;
+        }
+        set((state) => ({
+          treesByProject: {
+            ...state.treesByProject,
+            [projectId]: updateTreeNodeData(
+              state.treesByProject[projectId] || [],
+              id,
+              (data) => ({ ...data, name: trimmed }),
+            ),
+          },
+        }));
+      },
 
       duplicateNode: (projectId, id) =>
         set((state) => {
@@ -482,15 +478,16 @@ export const useArticleStore = create<ArticleState>()(
           };
         }),
 
-      removeNode: (projectId, id) =>
-        set((state) => {
-          const currentTree = state.treesByProject[projectId] || [];
-          const targetNode = findTreeNode(currentTree, id);
-          const removedIds = targetNode
-            ? collectSubtreeIdsByType(targetNode, 'article')
-            : [id];
+      removeNode: (projectId, id) => {
+        const currentTree = get().treesByProject[projectId] || [];
+        const targetNode = findTreeNode(currentTree, id);
+        const removedIds = targetNode
+          ? collectSubtreeIdsByType(targetNode, 'article')
+          : [id];
 
-          const nextTree = removeTreeNode(currentTree, id);
+        set((state) => {
+          const tree = state.treesByProject[projectId] || [];
+          const nextTree = removeTreeNode(tree, id);
           const nextArticles = { ...state.articlesByKey };
           for (const aid of removedIds) {
             delete nextArticles[makeArticleStorageKey(projectId, aid)];
@@ -511,69 +508,77 @@ export const useArticleStore = create<ArticleState>()(
             },
             articlesByKey: nextArticles,
           };
-        }),
+        });
 
-      recordRevision: (projectId, articleId, summary, authorName) =>
-        set((state) => {
-          const key = makeArticleStorageKey(projectId, articleId);
-          const doc = state.articlesByKey[key];
-          if (!doc?.contentJson) return state;
-          const createdAt = formatNowTimestamp();
-          const revision = articleRevisionFromDocument(
-            doc,
-            summary,
-            authorName,
-            createdAt,
-          );
-          const existing = state.revisionsByArticleId[articleId] ?? [];
-          return {
-            revisionsByArticleId: {
-              ...state.revisionsByArticleId,
-              [articleId]: appendArticleRevision(existing, revision),
-            },
-          };
-        }),
+        useArticleRevisionStore
+          .getState()
+          .removeArticleRevisions(projectId, removedIds);
+      },
+
+      recordRevision: (projectId, articleId, summary, authorName) => {
+        const doc = get().articlesByKey[makeArticleStorageKey(projectId, articleId)];
+        if (!doc?.contentJson) return;
+        useArticleRevisionStore
+          .getState()
+          .recordRevisionForDoc(projectId, doc, summary, authorName);
+      },
 
       restoreRevision: (projectId, articleId, revisionId, authorName) => {
         const key = makeArticleStorageKey(projectId, articleId);
+        const current = get().articlesByKey[key];
+        if (!current) return;
+        const revisions = useArticleRevisionStore
+          .getState()
+          .getRevisions(projectId, articleId);
+        const revision = revisions.find((r) => r.id === revisionId);
+        if (!revision) return;
+
         articleWrite.invalidate(projectId, articleId);
-        set((state) => {
-          const current = state.articlesByKey[key];
-          if (!current) return state;
-          const revisions = state.revisionsByArticleId[articleId] ?? [];
-          const revision = revisions.find((r) => r.id === revisionId);
-          if (!revision) return state;
-          const updatedAt = formatNowTimestamp();
-          const restored = restoreArticleFromRevision(current, revision, updatedAt);
-          const rollbackRevision = articleRevisionFromDocument(
+        const restored = commitArticlePatch(
+          get,
+          set,
+          projectId,
+          articleId,
+          {
+            title: revision.title,
+            status: revision.status,
+            contentJson: revision.contentJson,
+          },
+          revision.title,
+        );
+
+        useArticleRevisionStore
+          .getState()
+          .recordRevisionForDoc(
+            projectId,
             restored,
             `回滚至版本 ${revision.version}`,
             authorName,
-            updatedAt,
+            restored.updatedAt,
           );
-          const nextRevisions = appendArticleRevision(revisions, rollbackRevision);
-          const currentTree = state.treesByProject[projectId] || [];
-          return {
-            articlesByKey: { ...state.articlesByKey, [key]: restored },
-            revisionsByArticleId: {
-              ...state.revisionsByArticleId,
-              [articleId]: nextRevisions,
-            },
-            treesByProject: {
-              ...state.treesByProject,
-              [projectId]: updateTreeNodeData(currentTree, articleId, (data) => ({
-                ...data,
-                name: restored.title,
-              })),
-            },
-          };
-        });
       },
     }),
     {
       name: 'yunpu:articles',
-      version: 3,
+      version: 4,
       storage: createAsyncEntityStorage(),
+      partialize: (state) => {
+        // Persist contentJson as single source of truth; omit redundant contentHtml when JSON exists
+        const slimArticles: Record<string, ArticleDocument> = {};
+        for (const [key, doc] of Object.entries(state.articlesByKey)) {
+          if (doc.contentJson) {
+            const { contentHtml: _omit, ...rest } = doc;
+            slimArticles[key] = rest as ArticleDocument;
+          } else {
+            slimArticles[key] = doc;
+          }
+        }
+        return {
+          treesByProject: state.treesByProject,
+          selectedNodeIdByProject: state.selectedNodeIdByProject,
+          articlesByKey: slimArticles,
+        };
+      },
       migrate: (persisted, version) => {
         let state =
           version < 2
@@ -582,7 +587,39 @@ export const useArticleStore = create<ArticleState>()(
         if (version < 3) {
           state = migrateArticlesV2ToV3(state);
         }
+        if (version < 4) {
+          const v3 = state as ReturnType<typeof migrateArticlesV2ToV3>;
+          const legacyRevisions = v3.revisionsByArticleId;
+          if (legacyRevisions && Object.keys(legacyRevisions).length > 0) {
+            useArticleRevisionStore
+              .getState()
+              .importLegacyRevisions(
+                legacyRevisions,
+                Object.keys(v3.articlesByKey ?? {}),
+              );
+          }
+          const { revisionsByArticleId: _drop, ...rest } = v3;
+          return rest;
+        }
         return state;
+      },
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<ArticleState>;
+        const hydratedArticles: Record<string, ArticleDocument> = {};
+        for (const [key, doc] of Object.entries(persisted.articlesByKey ?? {})) {
+          hydratedArticles[key] =
+            doc.contentJson && !doc.contentHtml
+              ? { ...doc, contentHtml: contentJsonToHtml(doc.contentJson) }
+              : doc;
+        }
+        return {
+          ...currentState,
+          ...persisted,
+          articlesByKey: hydratedArticles,
+        };
+      },
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
       },
     }
   )

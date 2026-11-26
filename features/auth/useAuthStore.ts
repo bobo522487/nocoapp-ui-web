@@ -133,12 +133,17 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   markUnauthorized: () => {
+    const { status } = get();
+    if (status === 'anonymous') return;
+    const wasAuthenticated = status === 'authenticated';
     set({
       status: 'anonymous',
       user: null,
       defaultOrganization: null,
       onboarding: false,
-      error: null,
+      error: wasAuthenticated
+        ? '登录状态已失效或浏览器未保存会话 Cookie，请重新登录'
+        : null,
     });
   },
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TreeItem } from '../components/common/Tree/types';
+import { createEntityId } from '../lib/id';
 import {
   duplicateTreeNode,
   findFirstTreeNodeByType,
@@ -10,6 +11,7 @@ import {
   removeTreeNode,
   updateTreeNodeData,
 } from '../lib/treeOps';
+import { shouldInitializeProjectSeed } from './hydrationGate';
 import { createAsyncEntityStorage } from './storageAdapter';
 import type { LineageViewMode, PersonRecord } from '../features/lineage/types';
 import { createSeedPersonsForChart } from '../features/lineage/lineageData';
@@ -29,13 +31,13 @@ export const DEFAULT_LINEAGE_TREE: TreeItem[] = [
     collapsed: false,
     data: { name: '【范例】皇族世系参考' },
     children: [
-      { id: 'lineage-royal-1', type: 'chart', data: { name: '西汉天潢图系' }, children: [] },
-      { id: 'lineage-royal-2', type: 'chart', data: { name: '西汉楚元王交公世系图' }, children: [] },
-      { id: 'lineage-royal-3', type: 'chart', data: { name: '西汉梁孝王武之裔图系' }, children: [] },
-      { id: 'lineage-royal-4', type: 'chart', data: { name: '东汉天潢图系' }, children: [] },
-      { id: 'lineage-royal-5', type: 'chart', data: { name: '蜀汉天潢图系' }, children: [] },
-      { id: 'lineage-royal-6', type: 'chart', data: { name: '东汉广陵思王荆之裔图系' }, children: [] },
-      { id: 'lineage-royal-7', type: 'chart', data: { name: '南朝宋刘天潢图系' }, children: [] },
+      { id: 'lineage-royal-1', type: 'chart', data: { name: '西汉天潢图系', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-2', type: 'chart', data: { name: '西汉楚元王交公世系图', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-3', type: 'chart', data: { name: '西汉梁孝王武之裔图系', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-4', type: 'chart', data: { name: '东汉天潢图系', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-5', type: 'chart', data: { name: '蜀汉天潢图系', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-6', type: 'chart', data: { name: '东汉广陵思王荆之裔图系', surname: '刘' }, children: [] },
+      { id: 'lineage-royal-7', type: 'chart', data: { name: '南朝宋刘天潢图系', surname: '刘' }, children: [] },
     ],
   },
   {
@@ -44,9 +46,9 @@ export const DEFAULT_LINEAGE_TREE: TreeItem[] = [
     collapsed: false,
     data: { name: '【范例】其他世系参考' },
     children: [
-      { id: 'lineage-other-1', type: 'chart', data: { name: '小田幼房世派世系图' }, children: [] },
-      { id: 'lineage-other-2', type: 'chart', data: { name: '墨山王氏習静位下世系' }, children: [] },
-      { id: 'lineage-other-3', type: 'chart', data: { name: '小田幼房世派世系图' }, children: [] },
+      { id: 'lineage-other-1', type: 'chart', data: { name: '小田幼房世派世系图', surname: '' }, children: [] },
+      { id: 'lineage-other-2', type: 'chart', data: { name: '墨山王氏習静位下世系', surname: '' }, children: [] },
+      { id: 'lineage-other-3', type: 'chart', data: { name: '小田幼房世派世系图', surname: '' }, children: [] },
     ],
   },
   {
@@ -55,10 +57,43 @@ export const DEFAULT_LINEAGE_TREE: TreeItem[] = [
     collapsed: false,
     data: { name: '【范例】远祖世系参考' },
     children: [
-      { id: 'lineage-ancestor-1', type: 'chart', data: { name: '彭氏远祖世次' }, children: [] },
+      { id: 'lineage-ancestor-1', type: 'chart', data: { name: '彭氏远祖世次', surname: '' }, children: [] },
     ],
   },
 ];
+
+const DEFAULT_SURNAME_BY_NODE_ID = new Map<string, string>(
+  DEFAULT_LINEAGE_TREE.flatMap((group) =>
+    (group.children ?? [])
+      .filter((child) => child.data?.surname !== undefined)
+      .map((child) => [String(child.id), child.data!.surname!])
+  )
+);
+
+function backfillDefaultChartSurnames(items: TreeItem[]): TreeItem[] {
+  return items.map((item) => {
+    const defaultSurname = DEFAULT_SURNAME_BY_NODE_ID.get(String(item.id));
+    const nextData =
+      defaultSurname !== undefined && item.data?.surname === undefined
+        ? { ...item.data, name: item.data?.name ?? '', surname: defaultSurname }
+        : item.data;
+    const nextChildren = item.children
+      ? backfillDefaultChartSurnames(item.children)
+      : item.children;
+    if (nextData === item.data && nextChildren === item.children) return item;
+    return { ...item, data: nextData, children: nextChildren };
+  });
+}
+
+export function resolveChartSurname(
+  node: TreeItem | undefined,
+  projectSurname?: string
+): string {
+  if (node?.data?.surname !== undefined) {
+    return node.data.surname;
+  }
+  return projectSurname?.trim() ?? '';
+}
 
 export function findFirstChartId(items: TreeItem[]): string | null {
   const hit = findFirstTreeNodeByType(items, 'chart');
@@ -78,12 +113,15 @@ export interface LineageChartMeta {
 }
 
 export interface LineageState {
+  _hasHydrated: boolean;
+  _setHasHydrated: (hydrated: boolean) => void;
   treesByProject: Record<string, TreeItem[]>;
   selectedNodeIdByProject: Record<string, string>;
   personsByChart: Record<string, PersonRecord[]>;
   selectedPersonIdByChart: Record<string, string | null>;
   viewModeByProject: Record<string, LineageViewMode>;
 
+  ensureProjectInitialized: (projectId: string) => void;
   setTree: (projectId: string, items: TreeItem[]) => void;
   initializeProjectLineage: (
     projectId: string,
@@ -185,11 +223,39 @@ function getOrSeedChartPersons(
 export const useLineageStore = create<LineageState>()(
   persist(
     (set, get) => ({
+      _hasHydrated: false,
+      _setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
       treesByProject: {},
       selectedNodeIdByProject: {},
       personsByChart: {},
       selectedPersonIdByChart: {},
       viewModeByProject: {},
+
+      ensureProjectInitialized: (projectId) => {
+        const current = get();
+        if (
+          !shouldInitializeProjectSeed({
+            hasHydrated: current._hasHydrated,
+            projectId,
+            existingEntry: current.treesByProject[projectId],
+          })
+        ) {
+          return;
+        }
+        const defaultTree = structuredClone(DEFAULT_LINEAGE_TREE);
+        const firstChartId = findFirstChartId(defaultTree) || String(defaultTree[0]?.id || '');
+        set((state) => {
+          if (state.treesByProject[projectId] !== undefined) return state;
+          return {
+            treesByProject: { ...state.treesByProject, [projectId]: defaultTree },
+            selectedNodeIdByProject: {
+              ...state.selectedNodeIdByProject,
+              [projectId]:
+                state.selectedNodeIdByProject[projectId] || firstChartId,
+            },
+          };
+        });
+      },
 
       setTree: (projectId, nextItems) =>
         set((state) => {
@@ -213,7 +279,7 @@ export const useLineageStore = create<LineageState>()(
           const cleanAncestor = ancestor.trim() || '始迁祖';
           const cleanSurname = surname?.trim() || undefined;
           const cleanRegion = parsePlaceText(region) ?? undefined;
-          const chartId = `lineage-chart-${Date.now()}`;
+          const chartId = createEntityId('lineage-chart');
           const chartName = `${cleanFamily}总世系`;
           const key = makeChartStorageKey(projectId, chartId);
 
@@ -260,7 +326,7 @@ export const useLineageStore = create<LineageState>()(
         })),
 
       addGroup: (projectId, name) => {
-        const id = `lineage-group-${Date.now()}`;
+        const id = createEntityId('lineage-group');
         const current = get().treesByProject[projectId] || structuredClone(DEFAULT_LINEAGE_TREE);
         const newGroup: TreeItem = {
           id,
@@ -277,7 +343,7 @@ export const useLineageStore = create<LineageState>()(
       },
 
       addChart: (projectId, parentId, input) => {
-        const id = `lineage-chart-${Date.now()}`;
+        const id = createEntityId('lineage-chart');
         const meta: LineageChartMeta =
           typeof input === 'string' ? { name: input } : input || { name: '新建世系图' };
         const chartName = meta.name?.trim() || '新建世系图';
@@ -608,7 +674,7 @@ export const useLineageStore = create<LineageState>()(
     }),
     {
       name: 'yunpu:lineage',
-      version: 1,
+      version: 2,
       storage: createAsyncEntityStorage(),
       partialize: (state) => ({
         treesByProject: state.treesByProject,
@@ -616,6 +682,21 @@ export const useLineageStore = create<LineageState>()(
         personsByChart: state.personsByChart,
         viewModeByProject: state.viewModeByProject,
       }),
+      migrate: (persisted, version) => {
+        if (!persisted || typeof persisted !== 'object') return persisted;
+        const record = persisted as Record<string, unknown>;
+        if (version < 2 && record.treesByProject && typeof record.treesByProject === 'object') {
+          const nextTrees: Record<string, TreeItem[]> = {};
+          for (const [pid, tree] of Object.entries(record.treesByProject as Record<string, TreeItem[]>)) {
+            nextTrees[pid] = Array.isArray(tree) ? backfillDefaultChartSurnames(tree) : tree;
+          }
+          return { ...record, treesByProject: nextTrees };
+        }
+        return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
+      },
     }
   )
 );

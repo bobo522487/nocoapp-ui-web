@@ -13,15 +13,13 @@ import {
   DEFAULT_LINEAGE_TREE,
   useLineageStore,
 } from '../../../store/useLineageStore';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
-import { useProjectId } from '../../../hooks/useProjectId';
+import { useActiveProject } from '../../../hooks/useActiveProject';
 import type { PersonRecord } from '../../lineage/types';
-import { buildLineageGraph } from '../../lineage/domain/lineageGraph';
+import { getLineageGraph } from '../../lineage/domain/lineageGraph';
 import {
   computeAutoRankLabel,
   formatPersonAliases,
 } from '../../lineage/utils/personHelpers';
-import { surnameOf } from '../../dashboard/projectView';
 import { resolveChartPersons, toChineseNumeral } from '../bookCompiler';
 
 export interface SelectedLineageMember {
@@ -45,9 +43,11 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   onSelectMember,
   className = '',
 }) => {
-  const activeProjectId = useProjectId();
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const {
+    projectId: activeProjectId,
+    project: activeProject,
+    surname: projectSurname,
+  } = useActiveProject();
 
   const treesByProject = useLineageStore((s) => s.treesByProject);
   const personsByChart = useLineageStore((s) => s.personsByChart);
@@ -86,14 +86,14 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
       activeChartId,
       lineageTree,
       personsByChart,
-      surnameOf(activeProject) || undefined
+      projectSurname || undefined
     );
   }, [
     activeProjectId,
     activeChartId,
     lineageTree,
     personsByChart,
-    activeProject?.surname,
+    projectSurname,
   ]);
 
   const [genFilter, setGenFilter] = useState('');
@@ -105,7 +105,7 @@ export const LineageQuickPanel: React.FC<LineageQuickPanelProps> = ({
   );
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
 
-  const graphIndex = useMemo(() => buildLineageGraph(persons), [persons]);
+  const graphIndex = useMemo(() => getLineageGraph(persons), [persons]);
   const personMap = graphIndex.personById;
   const childrenMap = graphIndex.childrenByFatherId;
 

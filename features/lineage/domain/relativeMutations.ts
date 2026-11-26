@@ -1,3 +1,4 @@
+import { createEntityId } from '../../../lib/id';
 import type {
   AddRelativeContext,
   AddRelativeSubmitPayload,
@@ -12,7 +13,7 @@ export interface RelativeMutationResult {
 }
 
 function makePersonId(prefix = 'person'): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  return createEntityId(prefix);
 }
 
 function buildVitalFields(payload: AddRelativeSubmitPayload): {

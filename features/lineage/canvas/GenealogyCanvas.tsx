@@ -19,6 +19,10 @@ import { ClanHeaderNode } from './nodes/ClanHeaderNode';
 import { UnionNode } from './nodes/UnionNode';
 import { GenealogyEdge } from './edges/GenealogyEdge';
 import { buildGenealogyGraph } from './utils/layoutBuilder';
+import {
+  computeTopologySignature,
+  patchFlowNodesAttributes,
+} from './utils/canvasGraphDiff';
 import { layoutWithElk } from './utils/elkLayout';
 import { GenealogyFlowNode, GenealogyFlowEdge } from './types';
 import { CanvasZoomBar } from './components/CanvasZoomBar';
@@ -165,49 +169,81 @@ const CardTreeCanvasView: React.FC<CardTreeCanvasViewProps> = ({
     []
   );
 
-  const { initialNodes, initialEdges } = useMemo(() => {
-    const res = buildGenealogyGraph(filteredPersons, {
+  const topologySignature = useMemo(
+    () =>
+      computeTopologySignature(filteredPersons, collapsedNodeIds, clanSurname),
+    [filteredPersons, collapsedNodeIds, clanSurname]
+  );
+
+  const buildGraphWithLatestCallbacks = useCallback(
+    () =>
+      buildGenealogyGraph(filteredPersons, {
+        selectedPersonId,
+        openMenuPersonId,
+        clanSurname,
+        collapsedNodeIds,
+        onToggleCollapse: handleToggleCollapse,
+        onToggleAddMenu: setOpenMenuPersonId,
+        onSelectPerson: stableOnSelectPerson,
+        onAddChild: stableOnAddChild,
+        onAddSibling: stableOnAddSibling,
+        onAddSpouse: stableOnAddSpouse,
+        onAddParent: stableOnAddParent,
+        onDeletePerson: stableOnDeletePerson,
+      }),
+    [
+      filteredPersons,
       selectedPersonId,
       openMenuPersonId,
       clanSurname,
       collapsedNodeIds,
-      onToggleCollapse: handleToggleCollapse,
-      onToggleAddMenu: setOpenMenuPersonId,
-      onSelectPerson: stableOnSelectPerson,
-      onAddChild: stableOnAddChild,
-      onAddSibling: stableOnAddSibling,
-      onAddSpouse: stableOnAddSpouse,
-      onAddParent: stableOnAddParent,
-      onDeletePerson: stableOnDeletePerson,
-    });
-    return {
-      initialNodes: res.nodes,
-      initialEdges: res.edges,
-    };
+      handleToggleCollapse,
+      stableOnSelectPerson,
+      stableOnAddChild,
+      stableOnAddSibling,
+      stableOnAddSpouse,
+      stableOnAddParent,
+      stableOnDeletePerson,
+    ]
+  );
+
+  const initialGraph = useMemo(() => buildGraphWithLatestCallbacks(), []);
+
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<GenealogyFlowNode>(initialGraph.nodes);
+  const [edges, setEdges, onEdgesChange] =
+    useEdgesState<GenealogyFlowEdge>(initialGraph.edges);
+
+  const prevTopologyRef = useRef<string>(topologySignature);
+  const latestBuildRef = useRef(buildGraphWithLatestCallbacks);
+  latestBuildRef.current = buildGraphWithLatestCallbacks;
+
+  useEffect(() => {
+    if (prevTopologyRef.current !== topologySignature) {
+      prevTopologyRef.current = topologySignature;
+      const next = latestBuildRef.current();
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      return;
+    }
+
+    setNodes((prev) =>
+      patchFlowNodesAttributes(prev, {
+        persons: filteredPersons,
+        selectedPersonId,
+        openMenuPersonId,
+        clanSurname,
+      })
+    );
   }, [
+    topologySignature,
     filteredPersons,
     selectedPersonId,
     openMenuPersonId,
     clanSurname,
-    collapsedNodeIds,
-    handleToggleCollapse,
-    stableOnSelectPerson,
-    stableOnAddChild,
-    stableOnAddSibling,
-    stableOnAddSpouse,
-    stableOnAddParent,
-    stableOnDeletePerson,
+    setNodes,
+    setEdges,
   ]);
-
-  const [nodes, setNodes, onNodesChange] =
-    useNodesState<GenealogyFlowNode>(initialNodes);
-  const [edges, setEdges, onEdgesChange] =
-    useEdgesState<GenealogyFlowEdge>(initialEdges);
-
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   useEffect(() => {
     let rafId = 0;

@@ -12,8 +12,7 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '../../../components/ui/button';
 import { findItemDeep } from '../../../components/common/Tree/utilities';
-import { useProjectId } from '../../../hooks/useProjectId';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
+import { useActiveProject } from '../../../hooks/useActiveProject';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
   DOC_TYPE_LABELS,
@@ -27,23 +26,24 @@ import {
 } from '../articleData';
 import { getArticleTemplate } from '../domain/articleTemplates';
 import type { ArticleStatus } from '../types';
-import { parsePlaceText } from '../../place-input';
-import { surnameOf } from '../../dashboard/projectView';
 import { WordArticleEditor } from '../components/WordArticleEditor';
 import { ArticleConflictDialog } from '../components/ArticleConflictDialog';
 import { ArticleMetaModal } from '../components/ArticleMetaModal';
 
 const ArticlesPage: React.FC = () => {
   const navigate = useNavigate();
-  const activeProjectId = useProjectId();
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const {
+    projectId: activeProjectId,
+    project: activeProject,
+    articleSeedContext: seedContext,
+  } = useActiveProject();
 
   const [isCreateArticleOpen, setIsCreateArticleOpen] = useState(false);
   const [volumeStatusFilter, setVolumeStatusFilter] = useState<
     ArticleStatus | 'all'
   >('all');
 
+  const articleHydrated = useArticleStore((s) => s._hasHydrated);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const selectedArticleNodeIdByProject = useArticleStore(
     (s) => s.selectedNodeIdByProject
@@ -61,29 +61,10 @@ const ArticlesPage: React.FC = () => {
     (s) => s.chooseArticleConflictResolution,
   );
 
-  const activeProject =
-    projects.find((p) => p.id === activeProjectId) ||
-    projects.find((p) => p.organizationId === activeWorkspaceId) ||
-    projects[0];
-
   useEffect(() => {
-    if (!activeProjectId) return;
-    ensureArticleInitialized(activeProjectId, {
-      familyName: activeProject?.name,
-      surname: surnameOf(activeProject) || undefined,
-      hallName: activeProject?.hallName ?? undefined,
-      ancestor: activeProject?.ancestor ?? undefined,
-      region: parsePlaceText(activeProject?.originText ?? undefined),
-    });
-  }, [
-    activeProjectId,
-    activeProject?.name,
-    activeProject?.surname,
-    activeProject?.hallName,
-    activeProject?.ancestor,
-    activeProject?.originText,
-    ensureArticleInitialized,
-  ]);
+    if (!activeProjectId || !articleHydrated) return;
+    ensureArticleInitialized(activeProjectId, seedContext);
+  }, [activeProjectId, articleHydrated, seedContext, ensureArticleInitialized]);
 
   const articleTree = useMemo(
     () => articleTreesByProject[activeProjectId] || [],
@@ -109,22 +90,6 @@ const ArticlesPage: React.FC = () => {
       articleTree[0] ||
       null,
     [articleTree, selectedArticleNodeId, defaultArticleId]
-  );
-
-  const seedContext = useMemo(
-    () => ({
-      familyName: activeProject?.name,
-      surname: surnameOf(activeProject) || undefined,
-      hallName: activeProject?.hallName ?? undefined,
-      ancestor: activeProject?.ancestor ?? undefined,
-      region: parsePlaceText(activeProject?.originText ?? undefined),
-    }),
-    [
-      activeProject?.name,
-      activeProject?.hallName,
-      activeProject?.ancestor,
-      activeProject?.originText,
-    ]
   );
 
   const filteredVolumeChildren = useMemo(() => {
@@ -161,33 +126,8 @@ const ArticlesPage: React.FC = () => {
       return null;
     }
     const id = String(selectedArticleNode.id);
-    const key = makeArticleStorageKey(activeProjectId, id);
-    return (
-      articlesByKey[key] || {
-        id,
-        title: selectedArticleNode.data?.name || '未命名谱文',
-        subtitle: '',
-        author: activeProject?.hallName
-          ? `${activeProject.hallName}编委会`
-          : '家族编委会',
-        docType: 'custom',
-        status: 'draft',
-        privacy: 'clan',
-        contentHtml: '<p></p>',
-        linkedPersonIds: [],
-        linkedChartIds: [],
-        citations: [],
-        version: 1,
-        wordCount: 0,
-        updatedAt: '刚刚',
-      }
-    );
-  }, [
-    selectedArticleNode,
-    activeProjectId,
-    articlesByKey,
-    activeProject?.hallName,
-  ]);
+    return articlesByKey[makeArticleStorageKey(activeProjectId, id)] ?? null;
+  }, [selectedArticleNode, activeProjectId, articlesByKey]);
 
   if (activeArticleDoc) {
     return (

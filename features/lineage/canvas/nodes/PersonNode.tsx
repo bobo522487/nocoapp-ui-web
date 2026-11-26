@@ -143,7 +143,7 @@ export const PersonNode: React.FC<NodeProps<PersonFlowNode>> = memo(
           }
         }}
         className={`group relative w-[123px] h-[220px] rounded-[8px] border-t-[4px] ${topStripeClass} bg-[#FEFEFE] dark:bg-card flex flex-col items-center select-none outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-[#057091] dark:focus-visible:ring-[#58B1CD] focus-visible:shadow-[0_0_0_5px_rgba(5,112,145,0.18),0_4px_12px_rgba(15,23,42,0.16)] dark:focus-visible:shadow-[0_0_0_5px_rgba(88,177,205,0.22),0_6px_16px_rgba(0,0,0,0.48)] ${
-          selected
+          selected || data.isSelected
             ? 'ring-2 ring-[#057091] dark:ring-[#58B1CD] shadow-[0_0_0_5px_rgba(5,112,145,0.16),0_4px_12px_rgba(15,23,42,0.16)] dark:shadow-[0_0_0_5px_rgba(88,177,205,0.20),0_6px_16px_rgba(0,0,0,0.48)]'
             : 'shadow-[0_1px_3px_rgba(15,23,42,0.18)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.48)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.16)] dark:hover:shadow-[0_6px_16px_rgba(0,0,0,0.55)]'
         }`}

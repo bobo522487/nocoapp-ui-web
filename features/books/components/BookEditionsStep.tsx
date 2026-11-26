@@ -11,6 +11,7 @@ import {
 import { Button } from '../../../components/ui/button';
 import { useProjectId } from '../../../hooks/useProjectId';
 import { useBookStore } from '../../../store/useBookStore';
+import { useBookEditionStore } from '../../../store/useBookEditionStore';
 import ConfirmDialog from '../../dashboard/components/ConfirmDialog';
 import {
   BINDING_LABELS,
@@ -23,6 +24,8 @@ import type { BookEdition, BookRecord } from '../types';
 import { BookCoverThumb } from './BookCoverThumb';
 import { BookReaderModal } from './BookReaderModal';
 import { HelpTipButton } from './HelpTipButton';
+
+const EMPTY_EDITIONS: BookEdition[] = [];
 
 interface BookEditionsStepProps {
   book: BookRecord;
@@ -50,6 +53,8 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
   const activeProjectId = useProjectId();
   const deleteEdition = useBookStore((s) => s.deleteEdition);
   const finalizeEditionPrint = useBookStore((s) => s.finalizeEditionPrint);
+  const storedEditions = useBookEditionStore((s) => s.editionsByBookId[book.id]);
+  const editions = storedEditions ?? (book.editions?.length ? book.editions : EMPTY_EDITIONS);
 
   const [readerEdition, setReaderEdition] = useState<BookEdition | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BookEdition | null>(null);
@@ -85,7 +90,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
               {book.bookName} · 谱例明细
             </h2>
             <span className="text-[13px] font-medium text-muted-foreground tabular-nums shrink-0">
-              {book.editions.length} / 9
+              {editions.length} / 9
             </span>
             {actionToast && (
               <span className="text-[12px] text-primary font-medium truncate">
@@ -104,7 +109,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
               type="button"
               size="sm"
               onClick={onGenerateNewEdition}
-              disabled={book.editions.length >= 9}
+              disabled={editions.length >= 9}
               className="gap-1.5 whitespace-nowrap shrink-0"
             >
               <Sparkles size={14} />
@@ -122,9 +127,9 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
         </div>
 
         {/* Edition Cards */}
-        {book.editions.length > 0 ? (
+        {editions.length > 0 ? (
           <div className="space-y-3.5">
-            {book.editions.map((edition, idx) => (
+            {editions.map((edition, idx) => (
               <div
                 key={edition.id}
                 className="rounded-xl border border-border bg-card p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-[hsl(var(--border-strong))] transition-colors"
@@ -140,7 +145,7 @@ export const BookEditionsStep: React.FC<BookEditionsStepProps> = ({
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[14px] font-semibold text-foreground">
-                        谱例 #{book.editions.length - idx}
+                        谱例 #{editions.length - idx}
                       </span>
                       <span className="text-[12px] text-muted-foreground">
                         · {BINDING_LABELS[edition.bindingStyle]} ·{' '}

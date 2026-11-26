@@ -1,5 +1,6 @@
 import type { UniqueIdentifier } from '@dnd-kit/core';
 import type { TreeItem } from '../components/common/Tree/types';
+import { createEntityId } from './id';
 
 export function findTreeNode(
   items: TreeItem[],
@@ -69,27 +70,43 @@ export function collectSubtreeIdsByType(
   return ids;
 }
 
+function indexTreeById(
+  items: TreeItem[],
+  map: Map<UniqueIdentifier, TreeItem> = new Map()
+): Map<UniqueIdentifier, TreeItem> {
+  for (const item of items) {
+    map.set(item.id, item);
+    if (item.children?.length) {
+      indexTreeById(item.children, map);
+    }
+  }
+  return map;
+}
+
 /**
  * When dnd-kit commits a flattened tree back into nested form, collapsed folders
- * may temporarily present `children: []`. Preserve their prior nested children.
+ * may temporarily present `children: []`. Preserve their prior nested children in O(N).
  */
 export function preserveCollapsedChildren(
   prevItems: TreeItem[],
   nextItems: TreeItem[]
 ): TreeItem[] {
-  return nextItems.map((item) => {
-    const prevNode = findTreeNode(prevItems, item.id);
-    const restoredChildren =
-      item.collapsed &&
-      item.children.length === 0 &&
-      prevNode?.children?.length
-        ? prevNode.children
-        : preserveCollapsedChildren(prevItems, item.children || []);
-    return {
-      ...item,
-      children: restoredChildren,
-    };
-  });
+  const prevById = indexTreeById(prevItems);
+  const merge = (nodes: TreeItem[]): TreeItem[] =>
+    nodes.map((item) => {
+      const prevNode = prevById.get(item.id);
+      const restoredChildren =
+        item.collapsed &&
+        item.children.length === 0 &&
+        prevNode?.children?.length
+          ? prevNode.children
+          : merge(item.children || []);
+      return {
+        ...item,
+        children: restoredChildren,
+      };
+    });
+  return merge(nextItems);
 }
 
 export function insertTreeNode(
@@ -157,7 +174,7 @@ export function duplicateTreeNode(
   targetId: UniqueIdentifier,
   onNodeCloned?: (sourceId: string, clonedId: string, node: TreeItem) => void
 ): TreeItem[] {
-  const suffix = String(Date.now()).slice(-4);
+  const suffix = createEntityId('copy').slice(-6);
   const walk = (nodes: TreeItem[]): TreeItem[] => {
     const result: TreeItem[] = [];
     for (const item of nodes) {

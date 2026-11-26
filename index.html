@@ -12,11 +12,20 @@
         'error',
         function (e) {
           var m = e && e.message;
-          if (
+          var fn = (e && e.filename) || '';
+          var stack = (e && e.error && e.error.stack) || '';
+          var isExtensionError =
+            fn.indexOf('chrome-extension://') === 0 ||
+            fn.indexOf('moz-extension://') === 0 ||
+            fn.indexOf('safari-extension://') === 0 ||
+            (typeof m === 'string' &&
+              m.indexOf('Cannot redefine property: ethereum') !== -1 &&
+              (stack.indexOf('extension://') !== -1 || fn === ''));
+          var isBenignResizeObserver =
             typeof m === 'string' &&
             (m.indexOf('ResizeObserver loop completed with undelivered notifications') !== -1 ||
-              m.indexOf('ResizeObserver loop limit exceeded') !== -1)
-          ) {
+              m.indexOf('ResizeObserver loop limit exceeded') !== -1);
+          if (isExtensionError || isBenignResizeObserver) {
             e.stopImmediatePropagation();
             e.preventDefault();
           }

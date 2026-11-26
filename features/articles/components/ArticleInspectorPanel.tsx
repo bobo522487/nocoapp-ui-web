@@ -7,6 +7,7 @@ import { useBookStore } from '../../../store/useBookStore';
 import { findBooksReferencingArticle } from '../../books/domain/bookArticleAudit';
 import { STATUS_LABELS } from '../articleLabels';
 import type { ArticleHeading } from '../domain/articleMetrics';
+import { createEntityId } from '../../../lib/id';
 import type { ArticleCitation, ArticleDocument, ArticleStatus } from '../types';
 import { ArticleRevisionModal } from './ArticleRevisionModal';
 
@@ -97,7 +98,7 @@ export const ArticleInspectorPanel: React.FC<ArticleInspectorPanelProps> = ({
     updateCitations([
       ...citations,
       {
-        id: `citation-${Date.now()}`,
+        id: createEntityId('citation'),
         label: '',
         sourceType: 'old_genealogy',
         detail: '',

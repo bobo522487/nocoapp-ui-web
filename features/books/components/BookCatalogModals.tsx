@@ -18,13 +18,12 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { findFirstTreeNodeByType } from '../../../lib/treeOps';
-import { useProjectId } from '../../../hooks/useProjectId';
+import { useActiveProject } from '../../../hooks/useActiveProject';
 import { useArticleStore } from '../../../store/useArticleStore';
 import {
   DEFAULT_LINEAGE_TREE,
   useLineageStore,
 } from '../../../store/useLineageStore';
-import { useWorkspaceStore } from '../../../store/useWorkspaceStore';
 import { makeArticleStorageKey } from '../../articles/articleData';
 import { resolveChartPersons } from '../bookCompiler';
 import type {
@@ -37,8 +36,6 @@ import type {
 } from '../types';
 import { FishtailOrnament } from './BookCoverThumb';
 import { HelpTipButton } from './HelpTipButton';
-import { parsePlaceText } from '../../place-input';
-import { surnameOf } from '../../dashboard/projectView';
 import {
   LineageQuickPanel,
   type SelectedLineageMember,
@@ -208,9 +205,8 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const activeProjectId = useProjectId();
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const { projectId: activeProjectId, articleSeedContext } = useActiveProject();
+  const articleHydrated = useArticleStore((s) => s._hasHydrated);
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const articlesByKey = useArticleStore((s) => s.articlesByKey);
   const ensureInitialized = useArticleStore((s) => s.ensureProjectInitialized);
@@ -222,24 +218,15 @@ export const AddTextModal: React.FC<AddTextModalProps> = ({
     if (!open || !activeProjectId) return;
     setSearch('');
     setQueue([]);
-    if (!articleTreesByProject[activeProjectId]) {
-      ensureInitialized(activeProjectId, {
-        familyName: activeProject?.name,
-        surname: surnameOf(activeProject) || undefined,
-        hallName: activeProject?.hallName ?? undefined,
-        ancestor: activeProject?.ancestor ?? undefined,
-        region: parsePlaceText(activeProject?.originText ?? undefined),
-      });
+    if (articleHydrated && !articleTreesByProject[activeProjectId]) {
+      ensureInitialized(activeProjectId, articleSeedContext);
     }
   }, [
     open,
     activeProjectId,
+    articleHydrated,
     articleTreesByProject,
-    activeProject?.name,
-    activeProject?.surname,
-    activeProject?.hallName,
-    activeProject?.ancestor,
-    activeProject?.originText,
+    articleSeedContext,
     ensureInitialized,
   ]);
 
@@ -471,7 +458,7 @@ export const EditCatalogDocModal: React.FC<EditCatalogDocModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const activeProjectId = useProjectId();
+  const { projectId: activeProjectId } = useActiveProject();
   const articleTreesByProject = useArticleStore((s) => s.treesByProject);
   const articlesByKey = useArticleStore((s) => s.articlesByKey);
 
@@ -858,9 +845,8 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const activeProjectId = useProjectId();
-  const projects = useWorkspaceStore((s) => s.projects);
-  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const { projectId: activeProjectId, surname: projectSurname } =
+    useActiveProject();
   const treesByProject = useLineageStore((s) => s.treesByProject);
   const personsByChart = useLineageStore((s) => s.personsByChart);
 
@@ -892,7 +878,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
         String(firstChart.id),
         tree,
         personsByChart,
-        surnameOf(activeProject) || undefined
+        projectSurname || undefined
       );
       const root =
         resolved.persons.find((p) => p.generation === 1 && !p.fatherId) ||
@@ -917,7 +903,7 @@ export const AddLineageModal: React.FC<AddLineageModalProps> = ({
   }, [
     open,
     activeProjectId,
-    activeProject?.surname,
+    projectSurname,
     book.bookName,
     treesByProject,
     personsByChart,

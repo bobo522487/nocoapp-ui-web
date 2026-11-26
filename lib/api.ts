@@ -32,6 +32,7 @@ export type MockHandler = (path: string, options: RequestOptions) => unknown;
 let mockMode = false;
 let directMock = false;
 let mockHandler: MockHandler | null = null;
+let authEpoch = 0;
 const listeners = new Set<() => void>();
 
 export function isMockMode(): boolean {
@@ -55,6 +56,14 @@ export function resetApiTransportForTests(): void {
   mockMode = false;
   directMock = false;
   mockHandler = null;
+  authEpoch = 0;
+}
+
+function isAuthEstablishPath(path: string): boolean {
+  return (
+    path.startsWith('/api/v1/auth/sign-in') ||
+    path.startsWith('/api/v1/auth/sign-up')
+  );
 }
 
 function setMockMode(next: boolean): void {
@@ -88,15 +97,22 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  const requestEpoch = authEpoch;
+
   if (directMock && mockHandler) {
     setMockMode(true);
     try {
-      return mockHandler(path, options) as T;
+      const result = mockHandler(path, options) as T;
+      if (isAuthEstablishPath(path)) {
+        authEpoch += 1;
+      }
+      return result;
     } catch (error) {
       if (
         error instanceof ApiError &&
         error.status === 401 &&
-        !path.startsWith('/api/v1/auth/sign-in')
+        !path.startsWith('/api/v1/auth/sign-in') &&
+        requestEpoch === authEpoch
       ) {
         notifyUnauthorized();
       }
@@ -137,13 +153,20 @@ export async function apiRequest<T>(
       if (!response.ok || payload.ok === false) {
         throw toApiError(payload, response.status);
       }
+      if (isAuthEstablishPath(path)) {
+        authEpoch += 1;
+      }
       return payload.data;
     }
 
     throw new ApiError('API 不可达', 'UNREACHABLE', 0);
   } catch (error) {
     if (error instanceof ApiError && error.code !== 'UNREACHABLE') {
-      if (error.status === 401 && !path.startsWith('/api/v1/auth/sign-in')) {
+      if (
+        error.status === 401 &&
+        !path.startsWith('/api/v1/auth/sign-in') &&
+        requestEpoch === authEpoch
+      ) {
         notifyUnauthorized();
       }
       throw error;

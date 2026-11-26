@@ -136,19 +136,33 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             })
           );
           set((state) => {
+            const validOrgIds = new Set(workspaces.map((w) => w.id));
+            const validProjects = state.projects.filter((p) =>
+              validOrgIds.has(p.organizationId)
+            );
             const activeExists = workspaces.some(
               (w) => w.id === state.activeWorkspaceId
             );
             const fallbackExists =
               payload.defaultOrganizationId !== null &&
               workspaces.some((w) => w.id === payload.defaultOrganizationId);
+            const nextWorkspaceId = activeExists
+              ? state.activeWorkspaceId
+              : fallbackExists
+                ? (payload.defaultOrganizationId as string)
+                : (workspaces[0]?.id ?? '');
+            const activeProjectStillValid = validProjects.some(
+              (p) =>
+                p.id === state.activeProjectId &&
+                p.organizationId === nextWorkspaceId
+            );
             return {
               workspaces,
-              activeWorkspaceId: activeExists
-                ? state.activeWorkspaceId
-                : fallbackExists
-                  ? (payload.defaultOrganizationId as string)
-                  : (workspaces[0]?.id ?? state.activeWorkspaceId),
+              projects: validProjects,
+              activeWorkspaceId: nextWorkspaceId,
+              activeProjectId: activeProjectStillValid
+                ? state.activeProjectId
+                : '',
             };
           });
         } catch (error) {

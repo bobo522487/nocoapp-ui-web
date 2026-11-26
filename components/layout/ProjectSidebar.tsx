@@ -13,10 +13,8 @@ import { LineageTreePanel } from '../../features/project/components/LineageTreeP
 import { ArticleTreePanel } from '../../features/project/components/ArticleTreePanel';
 import { BookListPanel } from '../../features/books/components/BookListPanel';
 import { useCommandPalette } from './CommandPaletteModal';
-import { useProjectId } from '../../hooks/useProjectId';
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { useActiveProject } from '../../hooks/useActiveProject';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
-import { surnameOf } from '../../features/dashboard/projectView';
 
 interface ProjectSidebarProps {
   width: number;
@@ -25,22 +23,12 @@ interface ProjectSidebarProps {
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
-  const activeProjectId = useProjectId();
+  const { projectId: activeProjectId, project: activeProject, surname } =
+    useActiveProject();
   const { openPalette } = useCommandPalette();
 
   const isCollapsed = usePreferencesStore((s) => s.isProjectSidebarCollapsed);
   const setCollapsed = usePreferencesStore((s) => s.setProjectSidebarCollapsed);
-
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const projects = useWorkspaceStore((s) => s.projects);
-
-  const workspaceProjects = projects.filter(
-    (p) => p.organizationId === activeWorkspaceId
-  );
-  const activeProject =
-    projects.find((p) => p.id === activeProjectId) ||
-    workspaceProjects[0] ||
-    projects[0];
 
   if (isCollapsed) {
     return null;
@@ -202,7 +190,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({ width }) => {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground text-[12px]">家族姓氏</span>
                 <span className="truncate font-medium">
-                  {surnameOf(activeProject) || '未设置'}
+                  {surname || '未设置'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">

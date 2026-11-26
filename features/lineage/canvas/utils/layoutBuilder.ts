@@ -1,6 +1,6 @@
 import { PersonRecord } from '../../types';
 import { formatGivenName } from '../../utils/nameUtils';
-import { buildLineageGraph } from '../../domain/lineageGraph';
+import { getLineageGraph } from '../../domain/lineageGraph';
 import { getSpouseSortScore } from '../../utils/personHelpers';
 import {
   ClanHeaderFlowNode,
@@ -57,7 +57,7 @@ export function buildGenealogyGraph(
     clanSurname = '',
   } = options;
 
-  const graphIndex = buildLineageGraph(persons);
+  const graphIndex = getLineageGraph(persons);
   const rawChildrenMap = graphIndex.childrenByFatherId;
   const allSpousesByPartner = graphIndex.spousesByPartnerId;
 

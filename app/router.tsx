@@ -12,6 +12,12 @@ import WorkspaceShellLayout from '../components/layout/WorkspaceShellLayout';
 import ProjectShellLayout from '../components/layout/ProjectShellLayout';
 import { CommandPaletteProvider } from '../components/layout/CommandPaletteModal';
 import { useAuthStore } from '../features/auth/useAuthStore';
+import {
+  parseInviteSearch,
+  sanitizeRedirectPath,
+} from '../features/auth/redirect';
+
+export { sanitizeRedirectPath };
 
 const TanStackRouterDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -20,21 +26,6 @@ const TanStackRouterDevtools = import.meta.env.DEV
       }))
     )
   : () => null;
-
-export function sanitizeRedirectPath(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return undefined;
-  return trimmed;
-}
-
-function parseInviteSearch(search: Record<string, unknown>): { invite?: string } {
-  const raw = search.invite;
-  if (typeof raw === 'string' && raw.trim()) {
-    return { invite: raw.trim() };
-  }
-  return {};
-}
 
 const RootComponent: React.FC = () => (
   <>
